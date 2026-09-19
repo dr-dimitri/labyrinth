@@ -4,6 +4,7 @@ import simd
 /// Deterministic combat rules. Rendering and native input remain outside this type.
 /// Call exclusively on the game thread; wall-clock deltas are integrated at 120 Hz.
 public final class CombatSimulation {
+    public let map: MapDefinition
     public let terrain: TerrainProfile
     public let missionKind: MissionKind
     public private(set) var player: PlayerState
@@ -43,21 +44,21 @@ public final class CombatSimulation {
     }
     public var mantleAvailable: Bool { state == .active && climbing == nil && player.grounded && mantleTarget() != nil }
     public var climbProgress: Float? { climbing.map { $0.progress / 0.75 } }
-    public var extractionPosition: SIMD3<Float> { groundedPoint(GameMap.extraction) }
+    public var extractionPosition: SIMD3<Float> { groundedPoint(map.extraction) }
     private var insideExtraction: Bool {
-        horizontalDistance(player.position, extractionPosition) < GameMap.extractionRadius && player.grounded &&
+        horizontalDistance(player.position, extractionPosition) < map.extractionRadius && player.grounded &&
             abs(player.position.y - extractionPosition.y) < 0.2
     }
     private var radioContested: Bool {
-        enemies.contains { $0.health > 0 && horizontalDistance($0.position, GameMap.radioSite) <= 5 }
+        enemies.contains { $0.health > 0 && horizontalDistance($0.position, map.radioSite) <= 5 }
     }
     private var groundedAtRadio: Bool {
-        player.grounded && climbing == nil && abs(player.position.y - groundedPoint(GameMap.radioSite).y) <= 2.5
+        player.grounded && climbing == nil && abs(player.position.y - groundedPoint(map.radioSite).y) <= 2.5
     }
     public var missionInteractionAvailable: Bool {
         guard state == .active, missionPhase == .collectData || missionPhase == .activateRadio,
               player.grounded, climbing == nil else { return false }
-        let target = groundedPoint(missionPhase == .collectData ? GameMap.dataSite : GameMap.radioSite)
+        let target = groundedPoint(missionPhase == .collectData ? map.dataSite : map.radioSite)
         return simd_distance(player.position, target) <= 1.6
     }
     public var missionStatus: MissionStatus {
@@ -68,19 +69,19 @@ public final class CombatSimulation {
         case .waves:
             target = nil; radius = 0; progress = Float(kills); required = 21
         case .collectData, .activateRadio:
-            target = groundedPoint(phase == .collectData ? GameMap.dataSite : GameMap.radioSite)
+            target = groundedPoint(phase == .collectData ? map.dataSite : map.radioSite)
             radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .collectData ? 0.8 : 1
             if !player.grounded || climbing != nil { interruption = .notGrounded }
             else if !missionInteractionAvailable { interruption = .outOfRange }
             else if !interactionHeld { interruption = .interactionReleased }
         case .extract:
-            target = extractionPosition; radius = GameMap.extractionRadius; progress = extractionProgress; required = 3
+            target = extractionPosition; radius = map.extractionRadius; progress = extractionProgress; required = 3
             if !player.grounded || climbing != nil { interruption = .notGrounded }
             else if !insideExtraction { interruption = .outOfRange }
         case .holdRadio:
-            target = groundedPoint(GameMap.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
+            target = groundedPoint(map.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
             if !groundedAtRadio { interruption = .notGrounded }
-            else if horizontalDistance(player.position, GameMap.radioSite) > radius { interruption = .outOfRange }
+            else if horizontalDistance(player.position, map.radioSite) > radius { interruption = .outOfRange }
             else if radioContested { interruption = .contested }
         case .completed:
             target = nil; radius = 0; progress = 1; required = 1
@@ -112,37 +113,58 @@ public final class CombatSimulation {
     private var brains: [Int: EnemyBrain] = [:]
     private var navigationDirty = true
     // Reuse BFS work buffers. Only the output path is allocated per route request.
-    private let navWidth = 39, navDepth = 43
-    private var navigation = [Bool](repeating: false, count: 39 * 43)
-    private var navigationHeights = [Float](repeating: 0, count: 39 * 43)
-    private var navigationLinks = [UInt8](repeating: 0, count: 39 * 43)
-    private var navigationComponents = [Int](repeating: 0, count: 39 * 43)
-    private var visited = [UInt32](repeating: 0, count: 39 * 43)
-    private var previous = [Int](repeating: -1, count: 39 * 43)
+    private let navWidth: Int, navDepth: Int
+    private let navSpacing: Float = 2
+    private var navigation: [Bool]
+    private var navigationHeights: [Float]
+    private var navigationLinks: [UInt8]
+    private var navigationComponents: [Int]
+    private var visited: [UInt32]
+    private var previous: [Int]
     private var searchGeneration: UInt32 = 0
     private var searchQueue = [Int]()
 
-    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile = .battlefield,
-                            mission: MissionKind = .waves) {
-        self.init(difficulty: difficulty, seed: seed, world: GameMap.obstacles,
-                  startingPlayer: PlayerState(), startingEnemies: [], startingWave: 0, terrain: terrain, mission: mission)
+    public convenience init(map: MapDefinition = .blacksite, difficulty: Difficulty = .normal, seed: UInt64 = 1745,
+                            terrainOverride: TerrainProfile? = nil, mission: MissionKind = .waves) {
+        let selected = terrainOverride.map { map.withTerrain($0) } ?? map
+        self.init(difficulty: difficulty, seed: seed, world: selected.obstacles,
+                  startingEnemies: [], startingWave: 0, terrain: selected.terrain, mission: mission, map: selected)
     }
 
-    /// A complete scenario also permits isolated rule tests and visual previews.
-    /// Obstacle base y values are offsets above the terrain. Grounded actors
-    /// initialized at y=0 settle onto it; explicit nonzero actor heights remain absolute.
+    /// Compatibility for existing callers which explicitly selected a profile.
+    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile,
+                            mission: MissionKind = .waves) {
+        self.init(map: .blacksite, difficulty: difficulty, seed: seed, terrainOverride: terrain, mission: mission)
+    }
+
+    /// Explicit actor heights remain world-space. Omitted actors use the map's
+    /// authored start. Legacy isolated worlds retain their flat default profile.
     public init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, world: [Obstacle],
-                startingPlayer: PlayerState = PlayerState(), startingEnemies: [EnemyState] = [], startingWave: Int = 0,
-                terrain: TerrainProfile = .flat, mission: MissionKind = .waves) {
+                startingPlayer: PlayerState? = nil, startingEnemies: [EnemyState] = [], startingWave: Int = 0,
+                terrain: TerrainProfile? = nil, mission: MissionKind = .waves, map: MapDefinition? = nil) {
+        let selected = map ?? .blacksite
+        let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
+        self.map = selected.withTerrain(terrain)
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
         missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
+        navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
+        navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
+        let cells = navWidth * navDepth
+        navigation = [Bool](repeating: false, count: cells)
+        navigationHeights = [Float](repeating: 0, count: cells)
+        navigationLinks = [UInt8](repeating: 0, count: cells)
+        navigationComponents = [Int](repeating: 0, count: cells)
+        visited = [UInt32](repeating: 0, count: cells)
+        previous = [Int](repeating: -1, count: cells)
         obstacles = world.map { box in
             var grounded = Obstacle(id: box.id, kind: box.kind,
                                     position: box.position + SIMD3(0, terrain.height(x: box.position.x, z: box.position.z), 0), size: box.size)
             grounded.health = box.health; grounded.destroyed = box.destroyed
             return grounded
         }
-        player = startingPlayer; enemies = startingEnemies; wave = mission == .waves ? startingWave : 0
+        player = startingPlayer ?? selected.playerStart
+        if startingPlayer == nil { player.position = self.map.grounded(player.position) }
+        enemies = startingEnemies; wave = mission == .waves ? startingWave : 0
         if player.grounded && abs(player.position.y) < 0.001 { player.position.y = terrain.height(x: player.position.x, z: player.position.z) }
         for index in enemies.indices where enemies[index].grounded && abs(enemies[index].position.y) < 0.001 {
             enemies[index].position.y = terrain.height(x: enemies[index].position.x, z: enemies[index].position.z)
@@ -236,8 +258,8 @@ public final class CombatSimulation {
     }
 
     func blocked(_ position: SIMD3<Float>, height: Float = 1.72, radius: Float = 0.32) -> Bool {
-        if position.x < GameMap.minimum.x + radius || position.x > GameMap.maximum.x - radius ||
-            position.z < GameMap.minimum.z + radius || position.z > GameMap.maximum.z - radius { return true }
+        if position.x < map.minimum.x + radius || position.x > map.maximum.x - radius ||
+            position.z < map.minimum.z + radius || position.z > map.maximum.z - radius { return true }
         for box in obstacles where !box.destroyed {
             let low = box.minimum, high = box.maximum
             if position.y < high.y - 0.025 && position.y + height > low.y + 0.025 &&
@@ -683,7 +705,7 @@ public final class CombatSimulation {
             extractionProgress = Float(missionProgressTicks)/120
             if missionProgressTicks == 360 { finishObjectiveMission() }
         case .holdRadio:
-            guard groundedAtRadio, horizontalDistance(player.position, GameMap.radioSite) <= 5, !radioContested else { return }
+            guard groundedAtRadio, horizontalDistance(player.position, map.radioSite) <= 5, !radioContested else { return }
             missionProgressTicks = min(5400, missionProgressTicks + 1)
             if missionProgressTicks == 1800 || missionProgressTicks == 3600 { queueMissionReinforcements(2) }
             if missionProgressTicks == 5400 { finishObjectiveMission() }
@@ -734,7 +756,7 @@ public final class CombatSimulation {
             if distance < nearest && !blocked(point, height: 2, radius: 0.45) { nearest = distance; combatCell = index }
         }
         guard let combatCell else { return }
-        let component = navigationComponents[combatCell], candidates = GameMap.reinforcementEntries
+        let component = navigationComponents[combatCell], candidates = map.spawnCandidates
         // One bounded pass per retry; no random relaxation of the safety rules.
         for attempt in 0..<candidates.count {
             guard pendingReinforcements > 0 else { break }
@@ -749,11 +771,11 @@ public final class CombatSimulation {
             var enemy = EnemyState(id: allocateID(), position: position, health: missionKind == .waves ? Float(90 + wave * 10) : 100)
             let staging: SIMD3<Float>
             if missionKind == .waves {
-                staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+                staging = groundedPoint(map.waveStaging[offset % map.waveStaging.count])
             } else {
                 // Authored objectives are public tactical destinations. Arrivals
                 // do not acquire knowledge of an unseen player's live position.
-                let anchor = missionKind == .secureRadio ? GameMap.radioSite : missionPhase == .collectData ? GameMap.dataSite : GameMap.extraction
+                let anchor = missionKind == .secureRadio ? map.radioSite : missionPhase == .collectData ? map.dataSite : map.extraction
                 let angle = Float(offset) * 2.39996
                 let candidate = groundedPoint(anchor + SIMD3(sin(angle)*1.8,0,cos(angle)*1.8))
                 staging = !blocked(candidate, height: 1.96, radius: 0.4) ? candidate : groundedPoint(anchor)
@@ -840,13 +862,13 @@ private struct EnemyBrain {
 
 extension CombatSimulation {
     private func gridKey(_ position: SIMD3<Float>) -> Int {
-        let x = clamp(Int(((position.x + 38) / 2).rounded()), 0, navWidth - 1)
-        let z = clamp(Int(((position.z + 42) / 2).rounded()), 0, navDepth - 1)
+        let x = clamp(Int(((position.x - map.minimum.x) / navSpacing).rounded()), 0, navWidth - 1)
+        let z = clamp(Int(((position.z - map.minimum.z) / navSpacing).rounded()), 0, navDepth - 1)
         return z * navWidth + x
     }
 
     private func navigationPoint(_ index: Int) -> SIMD3<Float> {
-        SIMD3(-38 + Float(index % navWidth) * 2, navigationHeights[index], -42 + Float(index / navWidth) * 2)
+        SIMD3(map.minimum.x + Float(index % navWidth) * navSpacing, navigationHeights[index], map.minimum.z + Float(index / navWidth) * navSpacing)
     }
 
     private func navigationSegmentIsOpen(from: SIMD3<Float>, to: SIMD3<Float>) -> Bool {
@@ -870,7 +892,7 @@ extension CombatSimulation {
     private func rebuildNavigationIfNeeded() {
         guard navigationDirty else { return }
         for index in navigation.indices {
-            let point = groundedPoint(SIMD3(-38 + Float(index % navWidth) * 2, 0, -42 + Float(index / navWidth) * 2))
+            let point = groundedPoint(SIMD3(map.minimum.x + Float(index % navWidth) * navSpacing, 0, map.minimum.z + Float(index / navWidth) * navSpacing))
             navigationHeights[index] = point.y
             navigation[index] = blocked(point + SIMD3(0, 1.09, 0), height: 0.87, radius: 0.48) ||
                 terrain.normal(x: point.x, z: point.z).y < 0.72
@@ -946,7 +968,7 @@ extension CombatSimulation {
         }
         var result: [SIMD3<Float>] = [], current = found
         while current != start {
-            result.append(SIMD3(-38 + Float(current % navWidth) * 2, navigationHeights[current], -42 + Float(current / navWidth) * 2))
+            result.append(SIMD3(map.minimum.x + Float(current % navWidth) * navSpacing, navigationHeights[current], map.minimum.z + Float(current / navWidth) * navSpacing))
             current = previous[current]
         }
         if let first = result.last, !navigationSegmentIsOpen(from: groundedPoint(from), to: first) {

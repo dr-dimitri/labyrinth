@@ -107,11 +107,14 @@ final class NativeRenderer {
     private let shadowSampler: MTLSamplerState
     private var textures: [MTLTexture]
     private let textureRoot: URL
+    private let library: MTLLibrary
+    private(set) var map: MapDefinition
+    private var appearanceBuffer: MTLBuffer
     private let shadowTexture: MTLTexture
     private var nearShadowTexture: MTLTexture
     private let weaponShadowTexture: MTLTexture
-    private let meshes: [Mesh]
-    private let skinnedSoldiers: SkinnedSoldierRenderer
+    private var meshes: [Mesh]
+    private var skinnedSoldiers: SkinnedSoldierRenderer?
     private let combatEffects: NativeCombatEffects
     private let inflight = DispatchSemaphore(value: 3)
     private var buffers: [MTLBuffer]
@@ -146,15 +149,22 @@ final class NativeRenderer {
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
-        var diagnostics:[String:Any] = ["skinnedSoldiers": skinnedSoldiers.soldierCount,
-         "soldierTriangles": skinnedSoldiers.triangleCount,
-         "soldierDrawCallsIncludingShadows": skinnedSoldiers.drawCallCount,
-         "soldierTextureWidth": skinnedSoldiers.baseColorSize.x,
-         "invalidSoldierPoses": skinnedSoldiers.invalidPoseCount,
-         "droppedSoldiers": skinnedSoldiers.capacityDropCount,
-         "footContactPatches": skinnedSoldiers.footContactCount,
+        var diagnostics:[String:Any] = ["skinnedSoldiers": (skinnedSoldiers?.soldierCount ?? 0),
+         "soldierTriangles": (skinnedSoldiers?.triangleCount ?? 0),
+         "soldierDrawCallsIncludingShadows": (skinnedSoldiers?.drawCallCount ?? 0),
+         "soldierTextureWidth": (skinnedSoldiers?.baseColorSize.x ?? 0),
+         "invalidSoldierPoses": (skinnedSoldiers?.invalidPoseCount ?? 0),
+         "droppedSoldiers": (skinnedSoldiers?.capacityDropCount ?? 0),
+         "footContactPatches": (skinnedSoldiers?.footContactCount ?? 0),
          "farShadowInstances": farShadowInstanceCount, "nearShadowInstances": nearShadowInstanceCount]
         diagnostics.merge(combatEffects.diagnostics) { _,new in new }
+        diagnostics["mapID"]=map.id
+        diagnostics["mapVersion"]=map.version
+        diagnostics["sceneryInstances"]=scenery.count
+        diagnostics["forestTrees"]=forest.count
+        diagnostics["mapTextureReferences"]=map.resources.texturePaths.count
+        diagnostics["mapSupportSurfaces"]=shellGroundColliders.count
+        diagnostics["mapTerrainVertices"]=meshes[7].count
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
@@ -172,11 +182,7 @@ final class NativeRenderer {
     }
     // These shallow surfaces only affect visual shell physics. Append them
     // after gameplay cover so ShellSimulation's support indices remain stable.
-    private let shellGroundColliders: [Obstacle] = [
-        Obstacle(id: -10001, kind: .bunker, position: .zero, size: SIMD3(12,0.015,91)),
-        Obstacle(id: -10002, kind: .bunker, position: SIMD3(-6.2,0,0), size: SIMD3(0.3,0.08,85)),
-        Obstacle(id: -10003, kind: .bunker, position: SIMD3(6.2,0,0), size: SIMD3(0.3,0.08,85))
-    ]
+    private var shellGroundColliders: [Obstacle] = []
     private var shellCollisionCache: [Obstacle] = []
     private var farShadowInstanceCount = 0
     private var nearShadowInstanceCount = 0
@@ -192,11 +198,16 @@ final class NativeRenderer {
     private weak var metalView: MTKView?
     private var cameraEye = SIMD3<Float>(0, 1.62, 32)
     private var cameraForward = SIMD3<Float>(0, 0, -1)
-    private let sun = simd_normalize(SIMD3<Float>(-0.68, 0.24, -0.69))
-    private let fog = SIMD3<Float>(0.40, 0.49, 0.54)
+    private var sun: SIMD3<Float> { simd_normalize(map.environment.sunDirection) }
+    private var fog: SIMD3<Float> { map.environment.fogColor }
     private var lightMatrix = matrix_identity_float4x4
 
-    init(view: MTKView, assetRoot: URL?, highQuality: Bool = true) throws {
+    init(view: MTKView, assetRoot: URL?, highQuality: Bool = true, map: MapDefinition = .blacksite) throws {
+        guard map.resources.soldierAsset != nil else {
+            throw RenderError.unavailable("Karte \(map.id): Für einen spielbaren Einsatz fehlt die Soldatenmodell-Ressource.")
+        }
+        try map.validateGameplay()
+        self.map=map
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { throw RenderError.unavailable("Metal wird auf diesem Mac nicht unterstützt.") }
         self.device = device; self.queue = queue; deviceName = device.name
         self.highQuality=highQuality;currentScale=highQuality ? 1:0.82
@@ -214,6 +225,8 @@ final class NativeRenderer {
         guard let shaderURL, FileManager.default.fileExists(atPath: shaderURL.path) else { throw RenderError.unavailable("Metal-Shader fehlen im Programmpaket.") }
         let options = MTLCompileOptions(); options.fastMathEnabled = true
         let library = try device.makeLibrary(source: String(contentsOf: shaderURL, encoding: .utf8), options: options)
+        self.library=library
+        appearanceBuffer=try Self.makeAppearanceBuffer(device:device,map:map)
         var main: [Int: MTLRenderPipelineState] = [:], skies: [Int: MTLRenderPipelineState] = [:]
         for samples in [1, 4] where device.supportsTextureSampleCount(samples) {
             let p = MTLRenderPipelineDescriptor(); p.label = "Blacksite physically based opaque \(samples)x"
@@ -243,39 +256,108 @@ final class NativeRenderer {
         weaponShadowDesc.usage=[.renderTarget,.shaderRead];weaponShadowDesc.storageMode = .private
         guard let weaponShadow=device.makeTexture(descriptor:weaponShadowDesc) else { throw RenderError.unavailable("Waffen-Schattenpuffer konnte nicht angelegt werden.") }
         weaponShadow.label="512 viewmodel-only self shadows";weaponShadowTexture=weaponShadow
-        meshes = try Self.makeMeshes(device: device)
+        meshes = try Self.makeMeshes(device: device, map: map)
         let root=try Self.resolveTextureRoot(assetRoot:assetRoot);textureRoot=root
-        textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality) }
-        skinnedSoldiers = try SkinnedSoldierRenderer(device: device, library: library,
-            assetURL: root.appendingPathComponent("characters/soldier/soldier.glb"),highQuality:highQuality)
+        textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality,resources:map.resources) }
+        if let soldier=map.resources.soldierAsset {
+            skinnedSoldiers = try SkinnedSoldierRenderer(device:device,library:library,
+                assetURL:root.appendingPathComponent(map.resources.assetDirectory).appendingPathComponent(soldier),highQuality:highQuality)
+        }
         combatEffects = try NativeCombatEffects(device:device,library:library)
         buffers = try (0..<3).map { index in guard let b = device.makeBuffer(length: 48_000 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Instanzpuffer konnte nicht angelegt werden.") }; b.label = "Instances frame \(index)"; return b }
         uniformBuffers = (0..<3).map { _ in device.makeBuffer(length: MemoryLayout<GPUUniforms>.stride, options: .storageModeShared)! }
         metalView = view; view.device = device; view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float; view.sampleCount = highQuality && main[4] != nil ? 4:1; view.framebufferOnly = true
         view.clearColor = MTLClearColor(red: 0.25, green: 0.35, blue: 0.42, alpha: 1)
-        lightMatrix = Self.orthographic(left: -65, right: 65, bottom: -65, top: 65, near: 1, far: 220) * Self.lookAt(eye: sun * 100, target: .zero)
+        lightMatrix = Self.makeLightMatrix(map:map)
+        shellGroundColliders=map.groundedSupportSurfaces
         buildScenery()
+    }
+
+    /// Prepare fallible GPU resources first. The synchronous MainActor commit
+    /// leaves no mixed old/new world if an asset fails to decode or upload.
+    func setMap(_ next: MapDefinition) throws {
+        guard next.resources.soldierAsset != nil else {
+            throw RenderError.unavailable("Karte \(next.id): Für einen spielbaren Einsatz fehlt die Soldatenmodell-Ressource.")
+        }
+        try next.validateGameplay()
+        let replacement = try autoreleasepool { () -> ([MTLTexture], SkinnedSoldierRenderer?, Mesh, MTLBuffer) in
+            let resourcesChanged = next.resources != map.resources
+            let materials = resourcesChanged
+                ? try Self.loadTextures(device: device, root: textureRoot, highQuality: highQuality, resources: next.resources)
+                : textures
+            let character: SkinnedSoldierRenderer?
+            if next.resources.soldierAsset == map.resources.soldierAsset,
+               next.resources.assetDirectory == map.resources.assetDirectory { character = skinnedSoldiers }
+            else if let file = next.resources.soldierAsset {
+                character = try SkinnedSoldierRenderer(device: device, library: library,
+                    assetURL: textureRoot.appendingPathComponent(next.resources.assetDirectory).appendingPathComponent(file),
+                    highQuality: highQuality)
+            } else { character = nil }
+            let terrain = try Self.makeMesh(device: device, name: "Active map \(next.id) heightfield",
+                                           vertices: NativeMapGeometry.vertices(map: next))
+            let appearance = try Self.makeAppearanceBuffer(device: device, map: next)
+            return (materials, character, terrain, appearance)
+        }
+        map = next; textures = replacement.0; skinnedSoldiers = replacement.1
+        meshes[7] = replacement.2; appearanceBuffer = replacement.3
+        shellGroundColliders = next.groundedSupportSurfaces
+        lightMatrix = Self.makeLightMatrix(map: next)
+        // Submitted command buffers retain only the resources they still use.
+        // No registry, hidden second map, or previous scenery cache is retained.
+        scenery.removeAll(keepingCapacity: false); forest.removeAll(keepingCapacity: false)
+        reset(); visualTime = 0
+        buildScenery()
+    }
+
+    private static func makeLightMatrix(map: MapDefinition) -> simd_float4x4 {
+        let e = map.environment, extent = e.shadowExtent
+        let light = simd_normalize(e.sunDirection)
+        return orthographic(left: -extent, right: extent, bottom: -extent, top: extent, near: 1, far: e.shadowDepth)
+            * lookAt(eye: e.shadowTarget + light * e.shadowDistance, target: e.shadowTarget)
+    }
+
+    private static func makeAppearanceBuffer(device: MTLDevice, map: MapDefinition) throws -> MTLBuffer {
+        let appearance = map.scenery.terrainAppearance
+        guard appearance.regions.count <= 8 else { throw RenderError.unavailable("Karte \(map.id): Höchstens acht Gelände-Materialmasken sind erlaubt.") }
+        // Metal: two float4 header fields, then eight records of four float4.
+        var fields = [SIMD4<Float>](repeating: .zero, count: 34)
+        fields[0] = appearance.leafGradient
+        fields[1] = SIMD4(Float(appearance.regions.count), 0, 0, 0)
+        for (index, region) in appearance.regions.enumerated() {
+            let offset = 2 + index * 4
+            fields[offset] = SIMD4(region.center.x, region.center.y, region.radii.x, region.radii.y)
+            fields[offset + 1] = SIMD4(region.inner.x, region.inner.y, region.outer.x, region.outer.y)
+            fields[offset + 2] = SIMD4(region.shape == .ellipse ? 0 : 1, region.leafReduction, region.minimumLeaf, region.roughnessReduction)
+            fields[offset + 3] = SIMD4(region.tint, region.tintStrength)
+        }
+        guard let buffer = device.makeBuffer(bytes: fields, length: fields.count * MemoryLayout<SIMD4<Float>>.stride, options: .storageModeShared) else {
+            throw RenderError.unavailable("Geländematerialien der Karte \(map.id) konnten nicht angelegt werden.")
+        }
+        buffer.label = "Active map terrain appearance (544 bytes)"
+        return buffer
     }
 
     func setQuality(_ high: Bool) throws {
         guard high != highQuality else { return }
         // Prepare all profile resources before changing any live binding. A
         // failed file/decode/upload leaves the old profile fully operational.
-        let replacement=try autoreleasepool { () -> ([MTLTexture],SkinnedSoldierRenderer.MaterialSet,MTLTexture) in
-            let world=try Self.loadTextures(device:device,root:textureRoot,highQuality:high)
-            let soldiers=try skinnedSoldiers.prepareMaterials(highQuality:high)
+        let replacement=try autoreleasepool { () -> ([MTLTexture],SkinnedSoldierRenderer.MaterialSet?,MTLTexture) in
+            let world=try Self.loadTextures(device:device,root:textureRoot,highQuality:high,resources:map.resources)
+            let soldiers=try skinnedSoldiers?.prepareMaterials(highQuality:high)
             let near=try Self.makeNearShadow(device:device,highQuality:high)
             return (world,soldiers,near)
         }
         // This synchronous MainActor transaction cannot interleave with draw.
         // Submitted command buffers retain old resources until their GPU work
         // completes; there is no permanent second profile or shadow-map cache.
-        textures=replacement.0;skinnedSoldiers.installMaterials(replacement.1);nearShadowTexture=replacement.2
+        textures=replacement.0
+        if let materials=replacement.1 { skinnedSoldiers?.installMaterials(materials) }
+        nearShadowTexture=replacement.2
         highQuality = high; currentScale = high ? 1 : 0.82
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         // Only hit owners need surface extraction. These are the exact cached
@@ -349,7 +431,7 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0)) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -373,7 +455,8 @@ final class NativeRenderer {
         encode(command: command, descriptor: pass, samples: samples, slot: slot, scene: scene)
         command.commit(); command.waitUntilCompleted(); inflight.signal()
         if let error = command.error { throw error }
-        guard skinnedSoldiers.invalidPoseCount == 0, skinnedSoldiers.capacityDropCount == 0 else {
+        guard (skinnedSoldiers?.invalidPoseCount ?? 0) == 0, (skinnedSoldiers?.capacityDropCount ?? 0) == 0,
+              simulation.enemies.isEmpty || skinnedSoldiers != nil else {
             throw RenderError.unavailable("Soldatenprüfung: ungültige oder nicht ausgegebene Skelettposen.")
         }
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
@@ -419,7 +502,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1
+                visible = scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0); draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + 1
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }
@@ -456,7 +539,7 @@ final class NativeRenderer {
         account("landscape",(Array(0...8)+Array(14...19)).map { textures[$0] })
         account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] })
         account("sky",[textures[23]])
-        account("soldiers",skinnedSoldiers.materialTextures)
+        account("soldiers",(skinnedSoldiers?.materialTextures ?? []))
         account("weapons",Array(25...30).map { textures[$0] })
         account("shadows",[shadowTexture,nearShadowTexture,weaponShadowTexture])
         result["renderTargets"]=Double(renderTargetBytes)/1_048_576
@@ -465,7 +548,7 @@ final class NativeRenderer {
     }
     var textureDimensions:[String:[Int]] {
         var seen=Set<ObjectIdentifier>(),result:[String:[Int]]=[:]
-        for resource in textures+skinnedSoldiers.materialTextures where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
+        for resource in textures+(skinnedSoldiers?.materialTextures ?? []) where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
             result[resource.label ?? "unlabelled"]=[resource.width,resource.height]
         }
         return result
@@ -499,7 +582,7 @@ final class NativeRenderer {
         let p = simulation.player
         var eye = simulation.eyePosition
         var yaw = p.yaw, pitch = p.pitch
-        if mode == .menu { eye = SIMD3(12, 6.5, 33); let dir = simd_normalize(SIMD3<Float>(-3, 2, -8) - eye); yaw = atan2(-dir.x, -dir.z); pitch = asin(dir.y) }
+        if mode == .menu { eye = map.scenery.menuEye; let dir = simd_normalize(map.scenery.menuTarget - eye); yaw = atan2(-dir.x, -dir.z); pitch = asin(dir.y) }
         let bob: Float = simulation.isMoving && p.grounded && mode == .playing ? sin(visualTime * (simulation.isSprinting ? 14 : 10)) * (p.prone ? 0.009 : 0.027) : 0
         eye.y += bob
         yaw += sin(visualTime * 53) * shake * 0.012; pitch += cos(visualTime * 67) * shake * 0.013 + recoil * 0.012
@@ -511,7 +594,7 @@ final class NativeRenderer {
         let targetFOV: Float = aiming ? aimedFOV : readyFOV
         smoothFOV += (targetFOV - smoothFOV) * min(1, max(deltaTime, 0.001) * 14)
         let view = Self.lookAt(eye: eye, target: eye + forward)
-        let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: 450)
+        let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: map.environment.viewDistance)
         let vp = projection * view
         let shadowResolution = highQuality ? 2048 : 1024
         // Use the unshaken camera for a stable grid: recoil must not move shadows.
@@ -534,7 +617,7 @@ final class NativeRenderer {
         activeLevelItemCount=staticLevelDetailCount+coverCache.values.reduce(0) { $0+$1.items.filter(\.levelAddition).count }
         assert(activeLevelItemCount<=96,"Authored level details exceeded the fixed instance budget.")
         appendCoverDebris(to:&all,simulation:simulation)
-        for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) }
+        if skinnedSoldiers != nil { for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) } }
         for grenade in simulation.grenades {
             appendItem(to: &all, mesh: 1, position: grenade.position, scale: SIMD3(0.085, 0.105, 0.085), color: SIMD3(0.18, 0.23, 0.12), material: SIMD4(0.48, 0.6, 0, 0))
             appendItem(to: &all, mesh: 0, position: grenade.position + SIMD3(0, 0.1, 0), scale: SIMD3(0.06, 0.07, 0.04), color: SIMD3(0.34, 0.34, 0.29), material: SIMD4(0.28, 0.85, 0, 0))
@@ -564,12 +647,12 @@ final class NativeRenderer {
         // cast foliage silhouettes without resubmitting the dense visible LOD.
         for tree in forest {
             let offset = tree.center - eye, distance = simd_length(offset)
-            let visibleTree = distance < tree.radius + 7 || (distance < 360 + tree.radius && simd_dot(offset,forward) + tree.radius > distance*cosCone)
+            let visibleTree = distance < tree.radius + 7 || (distance < map.environment.viewDistance * 0.8 + tree.radius && simd_dot(offset,forward) + tree.radius > distance*cosCone)
             if visibleTree {
                 let lod = distance < (highQuality ? 85 : 60) ? 0 : distance < (highQuality ? 155 : 125) ? 1 : 2
                 for item in tree.levels[lod] {
                     let delta = item.center-eye, range = simd_length(delta)
-                    if range < item.radius+7 || (range < 360+item.radius && simd_dot(delta,forward)+item.radius > range*cosCone) {
+                    if range < item.radius+7 || (range < map.environment.viewDistance * 0.8+item.radius && simd_dot(delta,forward)+item.radius > range*cosCone) {
                         worldByMesh[item.mesh].append(item.instance)
                     }
                 }
@@ -596,7 +679,7 @@ final class NativeRenderer {
                 if nearVolume.intersects(center: item.center, radius: shadowRadius) { nearByMesh[item.mesh].append(item.instance) }
             }
             let offset = item.center - eye, distance = simd_length(offset)
-            if distance < item.radius + 7 || (distance < 360 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) { worldByMesh[item.mesh].append(item.instance) }
+            if distance < item.radius + 7 || (distance < map.environment.viewDistance * 0.8 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) { worldByMesh[item.mesh].append(item.instance) }
         }
         var weaponByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var weaponCastersByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
@@ -641,7 +724,7 @@ final class NativeRenderer {
         }
         // The frame semaphore has granted ownership of this slot before any
         // joint upload. Main and shadow passes share the exact same pose.
-        skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
+        skinnedSoldiers?.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
         let effectsEye=SIMD3(scene.uniforms.eyeTime.x,scene.uniforms.eyeTime.y,scene.uniforms.eyeTime.z)
         combatEffects.prepare(slot:slot,eye:effectsEye,forward:cameraForward,terrain:scene.terrain,obstacles:scene.obstacles+shellGroundColliders)
         let requiredBytes = scene.instances.count * MemoryLayout<GPUInstance>.stride
@@ -657,7 +740,7 @@ final class NativeRenderer {
             encoder.label = "Sun shadow map"; encoder.setRenderPipelineState(shadowPipeline); encoder.setDepthStencilState(depthState); encoder.setCullMode(.none); encoder.setDepthBias(0.001, slopeScale: 1.5, clamp: 0.01)
             encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.shadows, encoder: encoder, buffer: instanceBuffer)
-            skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot)
+            skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot)
             encoder.endEncoding()
         }
         let nearTexture = nearShadowTexture
@@ -672,7 +755,7 @@ final class NativeRenderer {
             encoder.setVertexBytes(&nearUniform, length: MemoryLayout<GPUUniforms>.stride, index: 2)
             encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.nearShadows, encoder: encoder, buffer: instanceBuffer)
-            skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot, near: true)
+            skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot, near: true)
             encoder.endEncoding()
         }
         if !scene.weapon.isEmpty {
@@ -690,6 +773,7 @@ final class NativeRenderer {
             }
         }
         guard let encoder = command.makeRenderCommandEncoder(descriptor: descriptor), let pipeline = pipelines[samples], let skyPipeline = skyPipelines[samples] else { return }
+        encoder.setFragmentBuffer(appearanceBuffer,offset:0,index:4)
         encoder.label = "Atmosphere and instanced world"; encoder.setCullMode(.none)
         encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 2)
         encoder.setFragmentTexture(textures[23], index: 23); encoder.setFragmentSamplerState(sampler, index: 0)
@@ -713,8 +797,8 @@ final class NativeRenderer {
             encoder.setVertexBuffer(uniformBuffer,offset:0,index:2)
             encoder.setFragmentBuffer(uniformBuffer,offset:0,index:2)
         }
-        skinnedSoldiers.encodeMain(encoder: encoder, samples: samples, slot: slot)
-        skinnedSoldiers.encodeContacts(encoder: encoder, samples: samples, slot: slot)
+        skinnedSoldiers?.encodeMain(encoder: encoder, samples: samples, slot: slot)
+        skinnedSoldiers?.encodeContacts(encoder: encoder, samples: samples, slot: slot)
         combatEffects.encode(encoder:encoder,samples:samples,slot:slot,farShadow:shadowTexture,nearShadow:nearTexture,shadowSampler:shadowSampler)
         encoder.endEncoding()
     }
@@ -723,14 +807,13 @@ final class NativeRenderer {
     }
 
     private func buildScenery() {
-        var items: [RenderItem] = []; var rng = SeededRandom(seed: 183)
+        var items: [RenderItem] = []
+        let definition=map.scenery
         let metal = SIMD3<Float>(0.17, 0.20, 0.19), concrete = SIMD3<Float>(0.61, 0.63, 0.59)
-        appendItem(to: &items, position: SIMD3(0, 0.005, 0), scale: SIMD3(12, 0.02, 91), color: SIMD3(0.8, 0.84, 0.86), material: SIMD4(1, 0, 0, 6), shadow: false)
-        for z in stride(from: Float(-39), through: 39, by: 7) { appendItem(to: &items, position: SIMD3(0, 0.0155, z), scale: SIMD3(0.14, 0.001, 2.8), color: SIMD3(0.69, 0.64, 0.43), material: SIMD4(0.9, 0, 0, 0), shadow: false) }
-        for x: Float in [-6.2, 6.2] { appendItem(to: &items, position: SIMD3(x, 0.04, 0), scale: SIMD3(0.3, 0.08, 85), color: concrete, material: SIMD4(0.9, 0, 0, 2)) }
+        for box in definition.boxes where box.ownerID==nil { appendMapBox(box,to:&items) }
         // Mesh fence: fine metal wires cast real shadows and remain legible when
         // the player approaches; all wires share a single instanced draw call.
-        func grounded(_ p: SIMD3<Float>) -> SIMD3<Float> { SIMD3(p.x, Self.terrainHeight(p.x,p.z), p.z) }
+        func grounded(_ p: SIMD3<Float>) -> SIMD3<Float> { map.grounded(p) }
         func fence(_ flatStart: SIMD3<Float>, _ flatEnd: SIMD3<Float>) {
             let start = grounded(flatStart), end = grounded(flatEnd)
             let direction = simd_normalize(end - start); let length = simd_distance(start, end)
@@ -745,16 +828,20 @@ final class NativeRenderer {
                 appendBeam(to: &items, from: b, to: right, width: 0.009, color: SIMD3(0.32, 0.36, 0.31), shadow: false)
             }
         }
-        for x: Float in [-38, 38] { for z in stride(from: Float(-42), to: 42, by: 6) { fence(SIMD3(x, 0, z), SIMD3(x, 0, z + 6)) } }
-        for z: Float in [-42, 42] { for x in stride(from: Float(-38), to: 34, by: 6) where abs(x + 3) > 7 { fence(SIMD3(x, 0, z), SIMD3(x + 6, 0, z)) } }
-        for x: Float in [-10, 10] {
-            let floor = Self.terrainHeight(x,-39)
-            appendItem(to: &items, position: SIMD3(x, floor+3.8, -39), scale: SIMD3(0.8, 7.6, 0.8), color: concrete, material: SIMD4(0.9, 0, 0, 2))
-            appendItem(to: &items, position: SIMD3(x, floor+0.5, -39), scale: SIMD3(1.5, 1, 1.5), color: concrete, material: SIMD4(0.9, 0, 0, 2))
+        for segment in definition.fences { fence(segment.start,segment.end) }
+        if let gate=definition.extractionGate {
+            for x:Float in [-10,10] {
+                let p=grounded(gate+SIMD3(x,0,0))
+                appendItem(to:&items,position:p+SIMD3(0,3.8,0),scale:SIMD3(0.8,7.6,0.8),color:concrete,material:SIMD4(0.9,0,0,2))
+                appendItem(to:&items,position:p+SIMD3(0,0.5,0),scale:SIMD3(1.5,1,1.5),color:concrete,material:SIMD4(0.9,0,0,2))
+            }
+            let p=grounded(gate)
+            appendItem(to:&items,position:p+SIMD3(0,6.9,0),scale:SIMD3(20,1.1,0.7),color:SIMD3(0.24,0.29,0.22),material:SIMD4(0.7,0.5,0,0))
+            for x in stride(from:Float(-7.5),through:7.5,by:1.5) where abs(x)>3 {
+                appendItem(to:&items,position:p+SIMD3(x,6.9,0.36),scale:SIMD3(0.8,0.08,0.02),color:SIMD3(0.9,0.71,0.33),material:SIMD4(0.4,0,0.3,0),shadow:false)
+            }
         }
-        appendItem(to: &items, position: SIMD3(0, 6.9, -39), scale: SIMD3(20, 1.1, 0.7), color: SIMD3(0.24, 0.29, 0.22), material: SIMD4(0.7, 0.5, 0, 0))
-        for x in stride(from: Float(-7.5), through: 7.5, by: 1.5) where abs(x)>3 { appendItem(to: &items, position: SIMD3(x, 6.9, -38.64), scale: SIMD3(0.8, 0.08, 0.02), color: SIMD3(0.9, 0.71, 0.33), material: SIMD4(0.4, 0, 0.3, 0), shadow: false) }
-        for flat: SIMD3<Float> in [SIMD3(-32, 0, -36), SIMD3(32, 0, 33)] {
+        for flat in definition.watchtowers {
             let p = grounded(flat)
             for dx: Float in [-1.7, 1.7] { for dz: Float in [-1.7, 1.7] { appendItem(to: &items, position: p + SIMD3(dx, 3, dz), scale: SIMD3(0.22, 6, 0.22), color: metal) } }
             appendItem(to: &items, position: p + SIMD3(0, 5.5, 0), scale: SIMD3(4.2, 0.25, 4.2), color: metal)
@@ -765,53 +852,33 @@ final class NativeRenderer {
             for y in stride(from: Float(0.4), through: 5.4, by: 0.38) { appendItem(to: &items, position: p + SIMD3(0, y, 2.2), scale: SIMD3(1.1, 0.08, 0.12), color: metal) }
             for dx: Float in [-1.7, 1.7] { appendBeam(to: &items, from: p + SIMD3(dx, 0.3, -1.7), to: p + SIMD3(dx, 5.4, 1.7), width: 0.10, color: metal) }
         }
-        for flat: SIMD3<Float> in [SIMD3(-8, 0, 25), SIMD3(9, 0, -17), SIMD3(-11, 0, -31), SIMD3(28, 0, 11)] {
+        for flat in definition.lightPoles {
             let p = grounded(flat)
             appendItem(to: &items, mesh: 2, position: p + SIMD3(0, 4.8, 0), scale: SIMD3(0.075, 9.6, 0.075), color: metal)
             appendItem(to: &items, position: p + SIMD3(0.55, 9.2, 0), scale: SIMD3(1.2, 0.1, 0.12), color: metal)
             appendItem(to: &items, position: p + SIMD3(1, 9.1, 0), scale: SIMD3(0.8, 0.09, 0.45), color: SIMD3(1, 0.82, 0.52), material: SIMD4(0.5, 0, 2.4, 0))
         }
         appendItem(to: &items, mesh: 7, position: .zero, scale: SIMD3(repeating: 1), color: SIMD3(0.92, 0.94, 0.88), material: SIMD4(1, 0, 0, 1), shadow: true)
-        forest.removeAll(keepingCapacity: true)
-        for index in 0..<230 {
-            let a = Float(index) * 2.3999632 + rng.next() * 0.4
-            let radius: Float = index < 105 ? 55 + rng.next() * 50 : 105 + rng.next() * 100
-            let x = cos(a) * radius, z = sin(a) * radius
-            if abs(x) < 41 && abs(z) < 47 { continue }
-            let p = SIMD3<Float>(x, Self.terrainHeight(x, z), z)
-            forest.append(buildTree(position: p, height: 12 + rng.next() * 15, seed: UInt64(index + 421)))
+        forest=definition.trees.map { buildTree(position:map.grounded($0.position),height:$0.height,seed:$0.seed) }
+        for sign in definition.signs where sign.ownerID==nil {
+            let start=items.count
+            appendLevelSign(to:&items,transform:Self.translation(sign.position)*Self.rotationY(sign.yaw),width:sign.width,materialID:sign.materialID)
+            for index in start..<items.count { items[index].levelAddition=true }
         }
-        for i in 0..<25 {
-            let a = Float(i) / 25 * .pi * 2, r: Float = 174 + rng.next() * 50
-            let s = SIMD3<Float>(16 + rng.next() * 20, 11 + rng.next() * 19, 18 + rng.next() * 24)
-            appendItem(to: &items, mesh: 8, position: SIMD3(cos(a) * r, Self.terrainHeight(cos(a) * r, sin(a) * r) - s.y * 0.42, sin(a) * r), scale: s, color: SIMD3(0.86, 0.91, 0.88), material: SIMD4(1, 0, 0, 3), yaw: a, shadow: false)
-        }
-        for _ in 0..<42 {
-            let a = rng.next() * .pi * 2, r: Float = 45 + rng.next() * 45
-            let x = cos(a) * r, z = sin(a) * r
-            if abs(x) < 40 && abs(z) < 45 { continue }
-            let s: Float = 0.7 + rng.next() * 2.8
-            appendItem(to: &items, mesh: 8, position: SIMD3(x, Self.terrainHeight(x, z) + s * 0.24, z), scale: SIMD3(s * 1.4, s, s), color: SIMD3(0.83, 0.88, 0.79), material: SIMD4(1, 0, 0, 3), yaw: a)
-        }
-        for _ in 0..<250 {
-            let x = (rng.next() - 0.5) * 130, z = (rng.next() - 0.5) * 130, s = 0.08 + rng.next() * 0.38
-            if abs(x) < 6 { continue }
-            appendItem(to: &items, mesh: 8, position: SIMD3(x, Self.terrainHeight(x, z) + s * 0.2, z), scale: SIMD3(s, s * 0.5, s * 0.8), color: SIMD3(0.6, 0.62, 0.55), material: SIMD4(1, 0, 0, 3), shadow: false)
-        }
-        for _ in 0..<1700 {
-            var x = (rng.next() - 0.5) * 120; if abs(x) < 7 { x += x < 0 ? -8 : 8 }; let z = (rng.next() - 0.5) * 120
-            let s = 0.25 + rng.next() * 0.6, tone = 0.62 + rng.next() * 0.55
-            appendItem(to: &items, mesh: 4, position: SIMD3(x, Self.terrainHeight(x, z), z), scale: SIMD3(0.6 + rng.next(), s * 0.6, 1), color: SIMD3(0.26, 0.33, 0.15) * tone, material: SIMD4(1, 0, 0, 8), yaw: rng.next() * .pi * 2, shadow: false)
-        }
-        let levelStart=items.count
-        appendLevelGroundDetails(to:&items)
-        staticLevelDetailCount=items.count-levelStart
-        for index in levelStart..<items.count { items[index].levelAddition=true }
-        scenery = items
+        staticLevelDetailCount=items.filter(\.levelAddition).count
+        scenery=items
     }
 
-    private static func terrainHeight(_ x: Float, _ z: Float) -> Float {
-        TerrainProfile.battlefield.height(x: x, z: z)
+    private func appendMapBox(_ box:MapVisualBox,to items:inout [RenderItem],owner:Obstacle?=nil) {
+        let mesh:Int
+        switch box.mesh { case .box:mesh=0;case .rock:mesh=8;case .grass:mesh=4 }
+        let position=owner.map { $0.position+box.position } ?? (box.grounded ? map.grounded(box.position):box.position)
+        var material=box.material
+        // Store the physical half-width in the asphalt material's unused metal
+        // channel. Its edge dirt now follows this road, including rotated roads.
+        if Int(material.w+0.5)==6 { material.y=box.size.x*0.5 }
+        appendItem(to:&items,mesh:mesh,position:position,scale:box.size,color:box.color,material:material,yaw:box.yaw,shadow:box.castsShadow)
+        items[items.count-1].levelAddition=box.levelDetail
     }
 
     private func buildTree(position: SIMD3<Float>, height: Float, seed: UInt64) -> ForestTree {
@@ -882,74 +949,18 @@ final class NativeRenderer {
         }
     }
 
-    private func appendLevelGroundDetails(to items:inout [RenderItem]) {
-        // The existing evacuation gantry supplies the support and silhouette.
-        appendLevelSign(to:&items,transform:Self.translation(SIMD3(0,6.9,-38.624)),width:4.8,materialID:23)
-        let amber=SIMD3<Float>(0.70,0.51,0.19),blue=SIMD3<Float>(0.28,0.49,0.55),ivory=SIMD3<Float>(0.74,0.78,0.62)
-        func stripe(_ a:SIMD2<Float>,_ b:SIMD2<Float>,width:Float,color:SIMD3<Float>) {
-            let delta=b-a,length=simd_length(delta),center=(a+b)*0.5
-            appendItem(to:&items,position:SIMD3(center.x,0.0162,center.y),scale:SIMD3(width,0.001,length),color:color,material:SIMD4(0.96,0,0,0),yaw:atan2(delta.x,delta.y),shadow:false)
-        }
-        for (position,direction,word,color):(SIMD2<Float>,SIMD2<Float>,Float,SIMD3<Float>) in [
-            (SIMD2(-2.7,25.3),SIMD2(-1,0),21,amber),
-            (SIMD2(2.7,12.1),SIMD2(1,0),22,blue),
-            (SIMD2(0,-28),SIMD2(0,-1),23,ivory)
-        ] {
-            appendItem(to:&items,position:SIMD3(position.x,0.0162,position.y),scale:SIMD3(2.5,0.001,0.7),color:SIMD3(repeating:1),material:SIMD4(0.97,0,0,word),shadow:false)
-            let base=position+SIMD2<Float>(0,-1.6),tip=base+direction*0.65,side=SIMD2(-direction.y,direction.x)
-            stripe(base-direction*0.55,tip,width:0.14,color:color)
-            stripe(tip,tip-direction*0.44+side*0.34,width:0.14,color:color)
-            stripe(tip,tip-direction*0.44-side*0.34,width:0.14,color:color)
-        }
-        // Worn loading/service bay paint stays entirely on the flat asphalt.
-        for (side,start,color):(Float,Float,SIMD3<Float>) in [(-1,19.8,amber),(1,6.9,blue)] {
-            for index in 0..<3 {
-                let z=start+Float(index)*2
-                stripe(SIMD2(side*3.9,z),SIMD2(side*5.75,z),width:0.075,color:color)
-            }
-            stripe(SIMD2(side*5.75,start),SIMD2(side*5.75,start+4),width:0.075,color:color)
-        }
-        for x:Float in [-2.8,2.8] { for z:Float in [-32.8,-37.2] {
-            stripe(SIMD2(x,z),SIMD2(x-(x<0 ? -0.8:0.8),z),width:0.13,color:ivory)
-            stripe(SIMD2(x,z),SIMD2(x,z+(z < -35 ? 0.8:-0.8)),width:0.13,color:ivory)
-        } }
-    }
-
-    private func authoredCoverID(_ obstacle:Obstacle)->Int? {
-        guard GameMap.obstacles.indices.contains(obstacle.id) else { return nil }
-        let source=GameMap.obstacles[obstacle.id]
-        return source.kind == obstacle.kind && source.size == obstacle.size && source.position.x == obstacle.position.x && source.position.z == obstacle.position.z ? obstacle.id:nil
-    }
-
     private func appendOwnerLevelDetails(to items:inout [RenderItem],obstacle:Obstacle) {
-        guard let id=authoredCoverID(obstacle) else { return }
-        let start=items.count,p=obstacle.position,s=obstacle.size
-        func sign(_ offset:SIMD3<Float>,width:Float,word:Float,yaw:Float=0) {
-            appendLevelSign(to:&items,transform:Self.translation(p+offset)*Self.rotationY(yaw),width:width,materialID:word)
+        // A fixture may reuse an ID with unrelated geometry. Only the actual
+        // authored owner receives its relative signs and attached paint.
+        guard let source=map.obstacles.first(where:{ $0.id==obstacle.id }),
+              source.kind==obstacle.kind,source.size==obstacle.size,
+              source.position.x==obstacle.position.x,source.position.z==obstacle.position.z else { return }
+        for box in map.scenery.boxes where box.ownerID==obstacle.id { appendMapBox(box,to:&items,owner:obstacle) }
+        for sign in map.scenery.signs where sign.ownerID==obstacle.id {
+            let start=items.count
+            appendLevelSign(to:&items,transform:Self.translation(obstacle.position+sign.position)*Self.rotationY(sign.yaw),width:sign.width,materialID:sign.materialID)
+            for index in start..<items.count { items[index].levelAddition=true }
         }
-        switch id {
-        case 2:
-            sign(SIMD3(0,1.72,s.z*0.5+0.10),width:2.5,word:21)
-            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.8,word:21,yaw:.pi/2)
-        case 4:
-            sign(SIMD3(-2.2,1.72,s.z*0.5+0.085),width:3.0,word:21)
-        case 3:
-            sign(SIMD3(2.4,1.72,s.z*0.5+0.083),width:3.1,word:22)
-            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.7,word:22,yaw:.pi/2)
-        case 11:
-            // The near maintenance crate identifies the hollow before the
-            // more distant service container comes into view.
-            sign(SIMD3(0,s.y*0.58,s.z*0.5+0.085),width:2.25,word:22)
-            for x:Float in [-s.x*0.38,s.x*0.38] {
-                appendItem(to:&items,position:p+SIMD3(x,s.y*0.5,s.z*0.5+0.052),scale:SIMD3(0.14,s.y*0.9,0.004),color:SIMD3(0.18,0.35,0.42),material:SIMD4(0.94,0,0,0),shadow:false)
-            }
-        case 0:
-            appendItem(to:&items,position:p+SIMD3(s.x*0.25,2.35,s.z*0.5+0.012),scale:SIMD3(2.3,0.56,0.003),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,21),shadow:false)
-        case 1:
-            appendItem(to:&items,position:p+SIMD3(-s.x*0.5-0.002,6.35,3),scale:SIMD3(0.003,0.56,2.0),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,24),shadow:false)
-        default:break
-        }
-        for index in start..<items.count { items[index].levelAddition=true }
     }
 
     private func buildLevelProp(_ obstacle:Obstacle,kind:LevelProp)->[RenderItem] {
@@ -984,7 +995,7 @@ final class NativeRenderer {
             items=[]
             appendItem(to:&items,position:obstacle.position+SIMD3(0,obstacle.size.y*0.5,0),scale:obstacle.size,
                 color:SIMD3(0.61,0.61,0.55),material:SIMD4(0.98,0,0,19))
-        } else if let prop=GameMap.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
+        } else if let prop=map.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
         else { items=buildCover(obstacle) }
         coverCache[obstacle.id]=CoverVisual(stage:obstacle.damageStage,isRubble:isRubble,position:obstacle.position,size:obstacle.size,items:items)
         return items
@@ -1033,7 +1044,6 @@ final class NativeRenderer {
                 let x=debris.position.x+fragment.offset.x,z=debris.position.z+fragment.offset.y
                 var support=SIMD3<Float>(x,simulation.terrain.height(x:x,z:z),z)
                 var normal=simulation.terrain.normal(x:x,z:z)
-                if abs(x)<=6,abs(z)<=45.5,support.y<0.015 { support.y=0.015;normal=SIMD3(0,1,0) }
                 let extent=max(fragment.size.x,fragment.size.z)*fade*0.75
                 for box in supportBoxes where !box.destroyed {
                     let top=box.position.y+box.size.y
@@ -1489,7 +1499,7 @@ final class NativeRenderer {
     private static func rotationX(_ angle: Float) -> simd_float4x4 { let c = cos(angle), s = sin(angle); return simd_float4x4(columns: (SIMD4(1, 0, 0, 0), SIMD4(0, c, s, 0), SIMD4(0, -s, c, 0), SIMD4(0, 0, 0, 1))) }
     private static func rotationZ(_ angle: Float) -> simd_float4x4 { let c=cos(angle),s=sin(angle); return simd_float4x4(columns:(SIMD4(c,s,0,0),SIMD4(-s,c,0,0),SIMD4(0,0,1,0),SIMD4(0,0,0,1))) }
     private static func lookAt(eye: SIMD3<Float>, target: SIMD3<Float>) -> simd_float4x4 {
-        let z = simd_normalize(eye - target), x = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), z)), y = simd_cross(z, x)
+        let z = simd_normalize(eye - target), x = DirectionalShadowVolume.rightVector(for: z), y = simd_cross(z, x)
         return simd_float4x4(columns: (SIMD4(x.x, y.x, z.x, 0), SIMD4(x.y, y.y, z.y, 0), SIMD4(x.z, y.z, z.z, 0), SIMD4(-simd_dot(x, eye), -simd_dot(y, eye), -simd_dot(z, eye), 1)))
     }
     private static func perspective(fov: Float, aspect: Float, near: Float, far: Float) -> simd_float4x4 {
@@ -1500,7 +1510,7 @@ final class NativeRenderer {
         simd_float4x4(columns: (SIMD4(2 / (right - left), 0, 0, 0), SIMD4(0, 2 / (top - bottom), 0, 0), SIMD4(0, 0, 1 / (near - far), 0), SIMD4(-(right + left) / (right - left), -(top + bottom) / (top - bottom), near / (near - far), 1)))
     }
 
-    private static func makeMeshes(device: MTLDevice) throws -> [Mesh] {
+    private static func makeMeshes(device: MTLDevice, map: MapDefinition) throws -> [Mesh] {
         var cube: [GPUVertex] = []
         let faces: [(SIMD3<Float>, SIMD3<Float>, SIMD3<Float>)] = [
             (SIMD3(0, 0, 1), SIMD3(1, 0, 0), SIMD3(0, 1, 0)), (SIMD3(0, 0, -1), SIMD3(-1, 0, 0), SIMD3(0, 1, 0)),
@@ -1550,24 +1560,7 @@ final class NativeRenderer {
         }
         var twig: [GPUVertex] = []
         for i in outline.indices { twig.append(contentsOf: [twigVertex(SIMD2(540,950)),twigVertex(outline[i]),twigVertex(outline[(i+1)%outline.count])]) }
-        // A one-metre grid across the playable area shares the collision
-        // heightfield's diagonal. Wider cells outside the arena join the same
-        // coordinate rows, so the transition has no cracks or separate skirts.
-        let axis = Array(stride(from: Float(-220), to: -48, by: 4))
-            + Array(stride(from: Float(-48), through: 48, by: 1))
-            + Array(stride(from: Float(52), through: 220, by: 4))
-        var terrain: [GPUVertex] = []
-        terrain.reserveCapacity((axis.count-1)*(axis.count-1)*6)
-        func terrainVertex(_ x: Float, _ z: Float) -> GPUVertex {
-            GPUVertex(position: SIMD3(x, terrainHeight(x,z), z),
-                      normal: TerrainProfile.battlefield.normal(x: x, z: z),
-                      uv: SIMD2(x,z)*0.01)
-        }
-        for z in 0..<(axis.count-1) { for x in 0..<(axis.count-1) {
-            let a=terrainVertex(axis[x],axis[z]), b=terrainVertex(axis[x+1],axis[z])
-            let c=terrainVertex(axis[x+1],axis[z+1]), d=terrainVertex(axis[x],axis[z+1])
-            terrain.append(contentsOf:[a,d,b,b,d,c])
-        } }
+        let terrain=NativeMapGeometry.vertices(map:map)
         var rock: [GPUVertex] = []
         func rockPoint(_ u: Float, _ v: Float) -> SIMD3<Float> {
             let p = sphereVertex(u,v).position
@@ -1585,19 +1578,23 @@ final class NativeRenderer {
                 for (p,uv) in [(p0,uv0),(p1,uv1),(p2,uv2)] { let nn=simd_dot(n,p)<0 ? -n : n; rock.append(GPUVertex(position:p,normal:simd_normalize(nn*0.5+simd_normalize(p)*0.5),uv:uv)) }
             }
         } }
-        let named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Shared battlefield heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
-        return try named.map { name, vertices in
-            guard let buffer = device.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<GPUVertex>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Metal-Geometrie konnte nicht angelegt werden.") }
-            var low=SIMD3<Float>(repeating:.infinity),high=SIMD3<Float>(repeating:-.infinity)
-            for vertex in vertices { low=simd_min(low,vertex.position); high=simd_max(high,vertex.position) }
-            buffer.label = name; return Mesh(vertices: buffer, count: vertices.count, boundsCenter:(low+high)*0.5, halfExtents:(high-low)*0.5)
+        let named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Active map heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
+        return try named.map { try makeMesh(device:device,name:$0.0,vertices:$0.1) }
+    }
+    private static func makeMesh(device:MTLDevice,name:String,vertices:[GPUVertex])throws->Mesh {
+        guard !vertices.isEmpty,let buffer=device.makeBuffer(bytes:vertices,length:vertices.count*MemoryLayout<GPUVertex>.stride,options:.storageModeShared) else {
+            throw RenderError.unavailable("Metal-Geometrie \(name) konnte nicht angelegt werden.")
         }
+        var low=SIMD3<Float>(repeating:.infinity),high=SIMD3<Float>(repeating:-.infinity)
+        for vertex in vertices { low=simd_min(low,vertex.position);high=simd_max(high,vertex.position) }
+        buffer.label=name
+        return Mesh(vertices:buffer,count:vertices.count,boundsCenter:(low+high)*0.5,halfExtents:(high-low)*0.5)
     }
 
     private static func resolveTextureRoot(assetRoot:URL?)throws->URL {
         let cwd=URL(fileURLWithPath:FileManager.default.currentDirectoryPath)
         let candidates=[assetRoot,Bundle.main.resourceURL?.appendingPathComponent("Assets"),cwd.appendingPathComponent("native/Assets"),cwd.appendingPathComponent("Assets")].compactMap { $0 }
-        guard let root=candidates.first(where: { FileManager.default.fileExists(atPath:$0.appendingPathComponent("textures/pine/alpha.jpg").path) }) else {
+        guard let root=candidates.first(where: { FileManager.default.fileExists(atPath:$0.path) }) else {
             throw RenderError.unavailable("Fotografische Landschaftstexturen fehlen. Bitte native/scripts/build-app.sh ausführen.")
         }
         return root
@@ -1609,34 +1606,36 @@ final class NativeRenderer {
         guard let result=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Nahschattenpuffer konnte nicht angelegt werden.") }
         result.label="Active stabilized near shadows \(resolution)";return result
     }
-    private static func loadTextures(device:MTLDevice,root:URL,highQuality:Bool)throws->[MTLTexture] {
+    private static func loadTextures(device:MTLDevice,root:URL,highQuality:Bool,resources:MapResourceReferences)throws->[MTLTexture] {
         let loader=NativeTextureLoader(device:device,highQuality:highQuality)
-        func load(_ path:String,color:Bool)throws->MTLTexture {
-            try autoreleasepool {
+        func fallback(_ bytes:[UInt8],label:String)throws->MTLTexture {
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
+            descriptor.usage=[.shaderRead];descriptor.storageMode = .shared
+            guard let texture=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Neutrale Materialtextur konnte nicht angelegt werden.") }
+            bytes.withUnsafeBytes { texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4) }
+            texture.label=label;return texture
+        }
+        let white=try fallback([255,255,255,255],label:"Neutral material"),normal=try fallback([128,128,255,255],label:"Neutral normal")
+        let sky=try fallback([92,112,130,255],label:"Neutral sky")
+        let normals:Set<Int>=[1,4,7,12,15,18,20,26,29]
+        let colors:Set<Int>=[0,3,6,9,11,14,17,23,25,28]
+        var result=(0..<31).map { $0==23 ? sky:normals.contains($0) ? normal:white }
+        var loaded:[String:MTLTexture]=[:]
+        for (slot,path) in resources.texturePaths.sorted(by:{ $0.key<$1.key }) {
+            guard (0..<31).contains(slot),slot != 10,slot != 24 else { throw RenderError.unavailable("Ungültiger Karten-Texturslot \(slot).") }
+            let color=colors.contains(slot),rectangle=resources.textureCrops[slot]
+            let crop=rectangle.map { NativeTextureCrop(normalizedX:Double($0.x),normalizedY:Double($0.y),width:Double($0.z),height:Double($0.w)) }
+            let key="\(color)-\(String(describing:rectangle))-\(path)"
+            if let existing=loaded[key] { result[slot]=existing;continue }
+            let texture:MTLTexture=try autoreleasepool {
                 do {
-                    let crop:NativeTextureCrop?=path.hasPrefix("textures/pine/") ? .pineAtlasIsland:nil
-                    let texture=try loader.load(url:root.appendingPathComponent(path),srgb:color,origin:.topLeft,crop:crop)
+                    let texture=try loader.load(url:root.appendingPathComponent(resources.assetDirectory).appendingPathComponent(path),srgb:color,origin:.topLeft,crop:crop)
                     texture.label=path;return texture
                 } catch { throw RenderError.unavailable("Textur \(path) konnte nicht geladen werden: \(error.localizedDescription)") }
             }
+            loaded[key]=texture;result[slot]=texture
         }
-        var result: [MTLTexture] = []
-        for folder in ["forest-earth", "floor", "forest-rock"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg", color: file == "color")) }
-        }
-        result.append(try load("textures/pine/color.jpg", color: true)) // 9
-        result.append(result[0]) // 10 is replaced by the native depth shadow map.
-        for folder in ["forest-bark", "forest-ground", "asphalt"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg", color: file == "color")) }
-        }
-        for file in ["normal", "alpha", "roughness"] { result.append(try load("textures/pine/\(file).jpg", color: false)) }
-        // High retains original sky pixels; Balanced decodes at half dimensions
-        // before creating any Metal texture, just like every other photo map.
-        result.append(try load("environment/sunrise.jpg",color:true)) // 23
-        result.append(result[0]) // 24 is replaced by the near depth shadow map.
-        for folder in ["weapon-metal", "weapon-fabric"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg",color:file == "color")) }
-        }
+        result[10]=result[0];result[24]=result[0]
         return result
     }
 }

@@ -11,6 +11,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     let hud: GameHUDView
     var renderer: NativeRenderer?
     var simulation = CombatSimulation()
+    private(set) var selectedMap = MapDefinition.blacksite
     var isAimPresented: Bool { simulation.isAiming && !(renderer?.weaponAimObstructed ?? false) }
     var mode: NativeRenderMode = .menu
     var settings = NativeSettings()
@@ -51,7 +52,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     private func initializeGraphics() {
         do {
-            renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: settings.highQuality)
+            renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: settings.highQuality, map: selectedMap)
             ready = true; lastFrame = CACurrentMediaTime(); hud.refresh()
         } catch {
             loadingMessage = "Die Grafik konnte nicht gestartet werden."
@@ -98,8 +99,10 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     func startMatch() {
         guard ready, window.attachedSheet == nil else { return }
-        simulation = CombatSimulation(difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission)
-        yaw = 0; pitch = 0; renderer?.reset(); combatFeedback.reset()
+        guard prepareMap(selectedMap) else { return }
+        simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission)
+        yaw = simulation.player.yaw; pitch = simulation.player.pitch
+        renderer?.reset(); combatFeedback.reset()
         bannerUntil = 0
         if settings.selectedMission == .waves {
             banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
@@ -113,10 +116,35 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         settings.selectedMission = mission; settings.save(); hud.refresh()
     }
 
+    /// Prepare resources before replacing the live scene. A failed load keeps
+    /// the previous map and its simulation available in the menu.
+    func selectMap(_ map: MapDefinition) {
+        guard ready, mode == .menu, window.attachedSheet == nil, prepareMap(map) else { return }
+        selectedMap = map
+        simulation = CombatSimulation(map: map)
+        renderer?.reset(); combatFeedback.reset()
+        bannerUntil = 0; toastUntil = 0
+        clearInput(); hud.refresh()
+    }
+
+    private func prepareMap(_ map: MapDefinition) -> Bool {
+        do {
+            try renderer?.setMap(map)
+            return true
+        } catch {
+            let alert = NSAlert(); alert.alertStyle = .warning
+            alert.messageText = "Einsatzgebiet konnte nicht geladen werden"
+            alert.informativeText = error.localizedDescription
+            alert.addButton(withTitle: "OK")
+            alert.beginSheetModal(for: window)
+            return false
+        }
+    }
+
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
-        renderer?.reset(); simulation = CombatSimulation(); combatFeedback.reset()
+        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset()
         bannerUntil = 0; toastUntil = 0; setMode(.menu)
     }
 

@@ -95,10 +95,11 @@ struct BlacksiteMain {
                 let view = MTKView(frame: NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)), device: MTLCreateSystemDefaultDevice())
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
-                let missionCheck = try NativeMissionCheck.prepare(arguments: args, renderer: renderer)
-                let sceneCheck = missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer) : nil
-                var simulation = missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
-                if sceneCheck == nil && missionCheck == nil {
+                let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer)
+                let missionCheck = mapCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer) : nil
+                let sceneCheck = mapCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer) : nil
+                var simulation = mapCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
+                if mapCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -108,6 +109,7 @@ struct BlacksiteMain {
                 if let destructionCheck { simulation = destructionCheck.simulation }
                 let textureCheck = try NativeTextureCheck.prepare(arguments: args, renderer: renderer, simulation: simulation,
                                                                   width: width, height: height, initialHighQuality: highQuality)
+                let mapCycles = try NativeMapCheck.cycles(arguments: args, renderer: renderer, simulation: simulation, width: width, height: height)
                 if benchmark {
                     var result = try renderer.benchmark(simulation: simulation, width: width, height: height, frames: 120)
                     result.merge(renderer.characterDiagnostics) { _, value in value }
@@ -116,6 +118,8 @@ struct BlacksiteMain {
                     result.merge(effectsCheck) { _, value in value }
                     result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
+                    result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(mapCycles) { _, value in value }
                     let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                     print(String(decoding: json, as: UTF8.self)); return
                 }
@@ -128,6 +132,8 @@ struct BlacksiteMain {
                 result.merge(effectsCheck) { _, value in value }
                 result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
+                result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
+                result.merge(mapCycles) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(missionCheck?.metadata ?? [:]) { _, value in value }

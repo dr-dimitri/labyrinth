@@ -160,7 +160,13 @@ final class NativeCombatEffects {
         let normal=simd_normalize(hit.normal),material=hit.material
         guard normal.x.isFinite,normal.y.isFinite,normal.z.isFinite else { return }
         var point=hit.position
-        if material == .asphalt && hit.obstacleID==nil && normal.y>0.8 { point.y=max(point.y,0.015) }
+        if hit.obstacleID==nil && normal.y>0.8 {
+            for support in simulation.map.groundedSupportSurfaces where !support.destroyed {
+                if abs(point.x-support.position.x)<=support.size.x*0.5 && abs(point.z-support.position.z)<=support.size.z*0.5 {
+                    point.y=max(point.y,support.position.y+support.size.y)
+                }
+            }
+        }
         let tint:SIMD3<Float>
         switch material {
         case .soil:tint=SIMD3(0.28,0.22,0.14)
@@ -233,6 +239,7 @@ final class NativeCombatEffects {
     func step(deltaTime:Float,simulation:CombatSimulation) {
         let dt=min(0.1,max(0,deltaTime));guard dt>0 else { return }
         syncSupports(simulation)
+        let supports=simulation.obstacles+simulation.map.groundedSupportSurfaces
         for i in particles.indices {
             let previous=particles[i].position
             particles[i].age+=dt;particles[i].velocity.y-=particles[i].gravity*dt
@@ -244,8 +251,7 @@ final class NativeCombatEffects {
             } else if particles[i].gravity>0 {
                 let p=particles[i].position
                 var floor=simulation.terrain.height(x:p.x,z:p.z)
-                if abs(p.x)<=6 && abs(p.z)<=45.5 { floor=max(floor,0.015) }
-                for box in simulation.obstacles where !box.destroyed {
+                for box in supports where !box.destroyed {
                     let top=box.position.y+box.size.y
                     if abs(p.x-box.position.x)<=box.size.x*0.5 && abs(p.z-box.position.z)<=box.size.z*0.5 && top<=previous.y+0.025 { floor=max(floor,top) }
                 }

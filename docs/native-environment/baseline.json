@@ -1,0 +1,474 @@
+{
+  "sourceCommit": "fa3e15bc2323b2580d2ba8342650b316a2faee6e",
+  "date": "2026-09-19",
+  "notes": [
+    "Core compiled separately from unchanged git archive.",
+    "Metal benchmark uses existing release bundle before modifications, no parallel Blacksite menu process.",
+    "CPU/GPU timings are distinct measurements, not a human gameplay FPS guarantee."
+  ],
+  "core": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "enemyCount": 12,
+    "fixedFrequencyHz": 120,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 8.640694444444447,
+    "medianCPUSeconds": 0.06221300000000002,
+    "medianWallSeconds": 0.06228354167251382,
+    "obstacleCount": 23,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.065719,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.0657975416543195
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06226200000000001,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.062289749999763444
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06198000000000001,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06201583333313465
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.062127000000000016,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.062209875002736226
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06221300000000002,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06228354167251382
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 964.4286563901433
+  },
+  "high": {
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "backend": "Metal",
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 256,
+    "combatParticles": 0,
+    "coverCacheEntries": 23,
+    "cpuAverageMs": 3.0368861110522025,
+    "cpuP95Ms": 3.7606666737701744,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "drawCalls": 61,
+    "droppedSoldiers": 0,
+    "farShadowInstances": 6518,
+    "footContactPatches": 4,
+    "forestTrees": 228,
+    "frames": 120,
+    "gpuAllocatedMB": 1204.390625,
+    "gpuAverageMs": 9.479444096723455,
+    "gpuP95Ms": 13.216833322076127,
+    "height": 1600,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 80,
+    "impactDecals": 0,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 83,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 1699,
+    "nearShadowResolution": 2048,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 4,
+    "serialFrameAverageMs": 13.439942014641323,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 5,
+    "skyTextureWidth": 8192,
+    "soldierDrawCallsIncludingShadows": 13,
+    "soldierTextureWidth": 2048,
+    "soldierTriangles": 97250,
+    "solidDebrisCount": 0,
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        8192,
+        4096
+      ],
+      "Soldier body-color": [
+        2048,
+        2048
+      ],
+      "Soldier body-normal": [
+        2048,
+        2048
+      ],
+      "Soldier head-color": [
+        2048,
+        2048
+      ],
+      "Soldier head-normal": [
+        2048,
+        2048
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/asphalt/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/floor/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/floor/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/floor/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-bark/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-earth/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-earth/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-earth/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-ground/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-ground/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-ground/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-rock/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-rock/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-rock/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/alpha.jpg": [
+        1024,
+        2048
+      ],
+      "textures/pine/color.jpg": [
+        1024,
+        2048
+      ],
+      "textures/pine/normal.jpg": [
+        512,
+        1024
+      ],
+      "textures/pine/roughness.jpg": [
+        512,
+        1024
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        1024,
+        1024
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 135.859375,
+      "landscape": 544.609375,
+      "renderTargets": 142.875,
+      "shadows": 33.265625,
+      "sky": 172.015625,
+      "soldiers": 86.0626220703125,
+      "total": 1171.2813720703125,
+      "weapons": 56.59375
+    },
+    "textureQuality": "high",
+    "visibleInstances": 19785,
+    "warmupFrames": 10,
+    "width": 2560
+  },
+  "balanced": {
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "backend": "Metal",
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 128,
+    "combatParticles": 0,
+    "coverCacheEntries": 23,
+    "cpuAverageMs": 2.64316284750142,
+    "cpuP95Ms": 3.152291668811813,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "drawCalls": 61,
+    "droppedSoldiers": 0,
+    "farShadowInstances": 6518,
+    "footContactPatches": 4,
+    "forestTrees": 228,
+    "frames": 120,
+    "gpuAllocatedMB": 332.015625,
+    "gpuAverageMs": 7.591752430622971,
+    "gpuP95Ms": 12.592500002938323,
+    "height": 1600,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 40,
+    "impactDecals": 0,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 83,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 1699,
+    "nearShadowResolution": 1024,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 1,
+    "serialFrameAverageMs": 11.059428125493772,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 5,
+    "skyTextureWidth": 4096,
+    "soldierDrawCallsIncludingShadows": 13,
+    "soldierTextureWidth": 1024,
+    "soldierTriangles": 97250,
+    "solidDebrisCount": 0,
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        4096,
+        2048
+      ],
+      "Soldier body-color": [
+        1024,
+        1024
+      ],
+      "Soldier body-normal": [
+        1024,
+        1024
+      ],
+      "Soldier head-color": [
+        1024,
+        1024
+      ],
+      "Soldier head-normal": [
+        1024,
+        1024
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/asphalt/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/floor/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/floor/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/floor/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-bark/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-earth/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-earth/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-earth/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-ground/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-ground/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-ground/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-rock/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-rock/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-rock/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/pine/alpha.jpg": [
+        512,
+        1024
+      ],
+      "textures/pine/color.jpg": [
+        512,
+        1024
+      ],
+      "textures/pine/normal.jpg": [
+        256,
+        512
+      ],
+      "textures/pine/roughness.jpg": [
+        256,
+        512
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        512,
+        512
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 33.71875,
+      "landscape": 135.15625,
+      "renderTargets": 31.75,
+      "shadows": 21.171875,
+      "sky": 42.671875,
+      "soldiers": 21.3751220703125,
+      "total": 299.9063720703125,
+      "weapons": 14.0625
+    },
+    "textureQuality": "balanced",
+    "visibleInstances": 15490,
+    "warmupFrames": 10,
+    "width": 2560
+  }
+}

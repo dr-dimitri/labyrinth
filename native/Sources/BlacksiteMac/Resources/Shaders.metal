@@ -3,6 +3,8 @@ using namespace metal;
 struct Vertex { float3 position; float3 normal; float2 uv; };
 struct Instance { float4x4 model; float4 normal0; float4 normal1; float4 normal2; float4 tint; float4 material; };
 struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; float4x4 nearLightViewProjection; float4 shadowParameters; };
+struct GroundAppearanceRegion { float4 centerRadii; float4 innerOuter; float4 controls; float4 tintStrength; };
+struct MapAppearance { float4 leafGradient; float4 counts; GroundAppearanceRegion regions[8]; };
 struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float2 detailUV; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
 float3 windPosition(float3 p, float2 uv, float material, float time) {
   if(material>3.5 && material<4.5) {
@@ -138,7 +140,7 @@ float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant 
   }
   return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
 }
-fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],
+fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
   texture2d<float> rockColor [[texture(6)]],texture2d<float> rockNormal [[texture(7)]],texture2d<float> rockRough [[texture(8)]],
@@ -158,22 +160,27 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   uv*=0.5;
   if(id==1 || id==7) {
     uv=in.world.xz*0.76923; float2 leafUV=in.world.xz*0.5+float2(12.73,4.29);
-    float macro=noise(in.world.xz*0.041); float forest=smoothstep(0.2,0.75,macro+smoothstep(7.0,32.0,abs(in.world.x))*0.36);
+    float macro=noise(in.world.xz*0.041);
+    float4 gradient=appearance.leafGradient;
+    float forest=smoothstep(0.2,0.75,macro+smoothstep(gradient.y,gradient.z,abs(in.world.x-gradient.x))*gradient.w);
     if(id==7) forest=max(forest,0.6);
-    float loading=1.0-smoothstep(0.65,1.15,length((in.world.xz-float2(-21,20))/float2(12,18)));
-    float service=1.0-smoothstep(0.58,1.12,length((in.world.xz-float2(31,5))/float2(9,18)));
-    float westTrack=(1.0-smoothstep(0.65,1.9,abs(in.world.x+32)))*(1.0-smoothstep(25.0,30.0,abs(in.world.z-5)));
-    float eastTrack=(1.0-smoothstep(0.65,1.9,abs(in.world.x-32.5)))*(1.0-smoothstep(21.0,27.0,abs(in.world.z+8)));
-    forest=max(forest*(1.0-loading*0.72),service*0.78);
-    forest*=1.0-max(westTrack,eastTrack)*0.85;
+    float3 groundTint=float3(1);float groundRoughness=1;
+    for(uint regionIndex=0;regionIndex<min(uint(appearance.counts.x),8u);++regionIndex) {
+      GroundAppearanceRegion region=appearance.regions[regionIndex];
+      float2 delta=abs(in.world.xz-region.centerRadii.xy);float weight;
+      if(region.controls.x<0.5) weight=1-smoothstep(region.innerOuter.x,region.innerOuter.z,length(delta/region.centerRadii.zw));
+      else { float2 axes=1-smoothstep(region.innerOuter.xy,region.innerOuter.zw,delta);weight=axes.x*axes.y; }
+      forest=max(forest*(1-weight*region.controls.y),weight*region.controls.z);
+      groundTint*=mix(float3(1),region.tintStrength.rgb,weight*region.tintStrength.w);
+      groundRoughness*=1-weight*region.controls.w;
+    }
     float3 soil=earthColor.sample(surface,uv).rgb,leaves=groundColor.sample(surface,leafUV).rgb;
     // Different scales/materials and low-frequency colour masks suppress obvious
     // repeats without multiplying texture storage or adding terrain draw calls.
     albedo*=mix(soil,leaves,forest)*(0.83+macro*0.22+noise(in.world.xz*0.14)*0.10);
-    albedo*=mix(float3(1),float3(1.08,1.02,0.88),loading*0.60);
-    albedo*=mix(float3(1),float3(0.73,0.80,0.73),service*0.70);
+    albedo*=groundTint;
     rough*=mix(earthRough.sample(surface,uv).r,groundRough.sample(surface,leafUV).r,forest);
-    rough*=1.0-service*0.10;
+    rough*=groundRoughness;
     map=mix(earthNormal.sample(surface,uv).xyz,groundNormal.sample(surface,leafUV).xyz,forest)*2-1;
     float exposed=smoothstep(0.12,0.38,1.0-n.y)*(0.45+noise(in.world.xz*0.35)*0.4);
     albedo=mix(albedo,rockColor.sample(surface,uv*0.6).rgb*in.tint.rgb,exposed);
@@ -204,7 +211,8 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   } else if(id==6) {
     uv=in.world.xz*0.48077; albedo*=asphaltColor.sample(surface,uv).rgb;
     float edgeNoise=noise(in.world.xz*0.7);
-    float shoulder=smoothstep(4.15,6.0,abs(in.world.x)+(edgeNoise-0.5)*0.9); float grime=shoulder*(0.45+edgeNoise*0.25);
+    float halfWidth=max(in.material.y,0.1);metal=0;
+    float shoulder=smoothstep(max(0.0,halfWidth-1.85),halfWidth,abs(in.detailUV.x)+(edgeNoise-0.5)*0.9); float grime=shoulder*(0.45+edgeNoise*0.25);
     albedo=mix(albedo,earthColor.sample(surface,in.world.xz*0.76923).rgb*0.52,grime);
     albedo*=0.91+noise(in.world.xz*0.12)*0.14; rough=max(0.78,rough*asphaltRough.sample(surface,uv).r);
     map=asphaltNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);

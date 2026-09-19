@@ -197,7 +197,7 @@ public enum LevelProp: Int, CaseIterable, Sendable {
     case westRoofEquipment = 21, northRoofEquipment = 22
 }
 
-public enum GameMap {
+enum BlacksiteMapData {
     public static let minimum = SIMD3<Float>(-38, 0, -42)
     public static let maximum = SIMD3<Float>(38, 0, 42)
     public static let extraction = SIMD3<Float>(0, 0, -35)

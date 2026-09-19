@@ -25,8 +25,9 @@ enum NativeMissionCheck {
         }
         let data = name.hasPrefix("mission-data")
         let kind: MissionKind = data ? .recoverData : .secureRadio
-        let point = data ? GameMap.dataSite : GameMap.radioSite
-        let terrain = TerrainProfile.battlefield
+        let map = MapDefinition.blacksite
+        let point = data ? map.dataSite : map.radioSite
+        let terrain = map.terrain
         let distance: Float = name == "mission-radio" ? 6.6 : 1.3
         var player = PlayerState(position: point+SIMD3(0,0,distance))
         let target = point+SIMD3(0,terrain.height(x:point.x,z:point.z)+0.20,0)
@@ -38,8 +39,9 @@ enum NativeMissionCheck {
             guardState.yaw = .pi/2
             enemies.append(guardState)
         }
-        let simulation = CombatSimulation(difficulty: .easy, seed: 1745, world: GameMap.obstacles,
-                                          startingPlayer: player, startingEnemies: enemies, terrain: terrain, mission: kind)
+        let simulation = CombatSimulation(difficulty: .easy, seed: 1745, world: map.obstacles,
+                                          startingPlayer: player, startingEnemies: enemies, terrain: terrain, mission: kind, map: map)
+        try renderer.setMap(simulation.map)
         var input = GameInput(); input.yaw = player.yaw; input.pitch = player.pitch
         var phases: [String] = [], arrivals = 0
         func advance(_ seconds: Double) {

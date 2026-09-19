@@ -49,4 +49,21 @@ struct ShadowMathTests {
             #expect(volume.intersects(center: foot + SIMD3(0,0.9,0), radius: 1.1))
         }
     }
+
+    @Test func overheadSunKeepsFiniteShadowMatricesAndVisibleReceivers() {
+        for direction in [SIMD3<Float>(0, 1, 0), SIMD3(0.00001, 1, -0.00001), SIMD3(0, -1, 0)] {
+            let light = simd_normalize(direction)
+            let right = DirectionalShadowVolume.rightVector(for: light)
+            #expect(abs(simd_length(right) - 1) < 0.0001 && abs(simd_dot(right, light)) < 0.0001)
+            for resolution in [1024, 2048] {
+                let receiver = SIMD3<Float>(110, 18.8, 216)
+                let volume = DirectionalShadowVolume.near(eye: receiver + SIMD3(0, 1.62, 0),
+                    forward: SIMD3(0, 0, -1), sun: light, resolution: resolution)
+                for column in [volume.matrix.columns.0, volume.matrix.columns.1, volume.matrix.columns.2, volume.matrix.columns.3] {
+                    #expect(column.x.isFinite && column.y.isFinite && column.z.isFinite && column.w.isFinite)
+                }
+                #expect(volume.intersects(center: receiver, radius: 0.1))
+            }
+        }
+    }
 }

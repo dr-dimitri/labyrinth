@@ -24,7 +24,7 @@ struct DirectionalShadowVolume {
     /// basis locks the shadow texel grid to world geometry during camera motion.
     static func near(eye: SIMD3<Float>, forward: SIMD3<Float>, sun: SIMD3<Float>, resolution: Int) -> DirectionalShadowVolume {
         let light = simd_normalize(sun)
-        let right = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), light))
+        let right = rightVector(for: light)
         let up = simd_cross(light, right)
         let flat = SIMD3<Float>(forward.x, 0, forward.z)
         let lookAhead = simd_length_squared(flat) > 0.0001 ? simd_normalize(flat) * 6 : .zero
@@ -46,4 +46,11 @@ struct DirectionalShadowVolume {
 
     static let nearWidth: Float = 40
     static let nearDepth: Float = 180
+
+    /// A vertical midday sun needs a different reference axis. Both shadow
+    /// cascades use this basis so a valid map never produces a zero cross product.
+    static func rightVector(for direction: SIMD3<Float>) -> SIMD3<Float> {
+        let reference = abs(direction.y) > 0.999 ? SIMD3<Float>(0, 0, 1) : SIMD3<Float>(0, 1, 0)
+        return simd_normalize(simd_cross(reference, direction))
+    }
 }

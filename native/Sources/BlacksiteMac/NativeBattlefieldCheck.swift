@@ -19,10 +19,11 @@ enum NativeBattlefieldCheck {
             return arguments[i+1]
         }
         guard let name=value("--scene") else { return nil }
-        let terrain=TerrainProfile.battlefield
+        let map=MapDefinition.blacksite
+        let terrain=map.terrain
         var player=PlayerState(position:SIMD3(0,0,11))
         var enemies:[EnemyState]=[]
-        var world = GameMap.obstacles
+        var world = map.obstacles
         var seconds:Double=0
         switch name {
         case "level-west", "level-east", "level-north", "level-roof", "level-gate", "level-road":
@@ -174,7 +175,8 @@ enum NativeBattlefieldCheck {
             player.position.x += max(-0.5, min(0.5, cameraOffset))
         }
         let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:world,
-                                         startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain)
+                                         startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain,map:map)
+        try renderer.setMap(simulation.map)
         var observed=Set<String>(), shots=0
         var input=GameInput(); input.yaw=player.yaw; input.pitch=player.pitch
         if seconds.isFinite {

@@ -34,9 +34,7 @@ extension CombatSimulation {
             return SurfaceImpact(position: position, normal: hit.normal, material: material, obstacleID: box.id)
         }
         guard hit.hitGround else { return nil }
-        // Matches the 12 × 91 metre asphalt strip in the authored battlefield.
-        // Its thin visual overlay does not change the terrain collision surface.
-        let material: SurfaceMaterial = abs(position.x) <= 6 && abs(position.z) <= 45.5 ? .asphalt : .soil
+        let material = map.groundMaterial(at: position)
         return SurfaceImpact(position: position, normal: hit.normal, material: material)
     }
 }

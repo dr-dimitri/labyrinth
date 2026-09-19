@@ -1,0 +1,59 @@
+{
+  "blacksite": {
+    "result": "pass",
+    "mapID": "blacksite",
+    "mapVersion": 1,
+    "mapTerrainVertices": 198744,
+    "mapTextureReferences": 29,
+    "mapSupportSurfaces": 3,
+    "enemyCount": 5,
+    "skinnedSoldiers": 5,
+    "invalidSoldierPoses": 0,
+    "droppedSoldiers": 0
+  },
+  "testRange": {
+    "result": "pass",
+    "mapID": "test-range",
+    "mapVersion": 1,
+    "mapTerrainVertices": 8448,
+    "mapTextureReferences": 18,
+    "mapSupportSurfaces": 1,
+    "enemyCount": 2,
+    "skinnedSoldiers": 2,
+    "invalidSoldierPoses": 0,
+    "droppedSoldiers": 0
+  },
+  "mapCycles": [
+    {
+      "transition": 1,
+      "mapID": "blacksite",
+      "gpuAllocatedMB": 308.515625
+    },
+    {
+      "transition": 2,
+      "mapID": "test-range",
+      "gpuAllocatedMB": 196.375
+    },
+    {
+      "transition": 3,
+      "mapID": "blacksite",
+      "gpuAllocatedMB": 308.515625
+    },
+    {
+      "transition": 4,
+      "mapID": "test-range",
+      "gpuAllocatedMB": 196.375
+    }
+  ],
+  "comparison": {
+    "width": 1280,
+    "height": 800,
+    "meanAbsoluteRGB": [
+      0.000720703125,
+      0.0005927734375,
+      0.00039453125
+    ],
+    "pixelsOver8Levels": 24
+  },
+  "validation": "Metal API Validation enabled; both offscreen scenes passed. Native window interaction pending locked Mac."
+}
