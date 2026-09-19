@@ -14,6 +14,10 @@ public final class CombatSimulation {
     public private(set) var coverDebris: [CoverDebrisState] = []
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var supplies: [SupplyState] = []
+    public private(set) var noiseEmitters: [NoiseEmitterState] = []
+    public private(set) var decoys: [NoiseDecoyState] = []
+    public private(set) var hearingStimuli: [HearingStimulus] = []
+    public private(set) var noiseDecoyCount: Int = 2
     public private(set) var weapons: [WeaponKind: WeaponState] = [
         .rifle: WeaponState(kind: .rifle), .sniper: WeaponState(kind: .sniper)
     ]
@@ -114,6 +118,9 @@ public final class CombatSimulation {
     private var seed: UInt64
     private var accumulator: Double = 0
     private var nextID = 100
+    private var nextHearingID = 1
+    private var playerStepDistance: Float = 0
+    private var decoyCooldown: Float = 0
     private var grenadeCooldown: Float = 0
     private var lastShot: Double = -20
     private var concealmentMotion = ConcealmentMotion()
@@ -165,7 +172,7 @@ public final class CombatSimulation {
         let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
         self.map = selected.withTerrain(terrain)
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
-        self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades
+        self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
         missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
         navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
         navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
@@ -189,12 +196,19 @@ public final class CombatSimulation {
         for index in enemies.indices where enemies[index].grounded && abs(enemies[index].position.y) < 0.001 {
             enemies[index].position.y = terrain.height(x: enemies[index].position.x, z: enemies[index].position.z)
         }
+        noiseEmitters = selected.environment.noiseEmitters.compactMap { definition in
+            if let owner = definition.ownerObstacleID, !obstacles.contains(where: { $0.id == owner && !$0.destroyed }) { return nil }
+            return NoiseEmitterState(id: definition.id, position: definition.position + SIMD3(0, terrain.height(x: definition.position.x, z: definition.position.z), 0),
+                enabled: definition.enabled, strength: definition.strength, range: definition.range, ownerObstacleID: definition.ownerObstacleID)
+        }
         concealmentMotion.resetPose(player)
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
+        hearingStimuli.reserveCapacity(64); decoys.reserveCapacity(NoiseDecoyState.maximumCount)
         pendingCoverDebris.reserveCapacity(world.count)
         for box in obstacles { nextID = max(nextID, box.id + 1) }
+        for emitter in noiseEmitters { nextID = max(nextID, emitter.id + 1) }
         for enemy in enemies {
             brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02,
                                          patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
@@ -353,7 +367,7 @@ public final class CombatSimulation {
         weapon.ammo -= 1; weapon.cooldown = activeWeapon.fireInterval; weapons[activeWeapon] = weapon
         lastShot = elapsed
         concealmentMotion.interrupt()
-        hearNoise(at: player.position, radius: 38)
+        let hearing = recordHearing(kind: .gunshot, position: eyePosition, strength: 1, range: 44, source: .player)
         let spread: Float = isAiming ? (activeWeapon == .sniper ? 0.0002 : 0.0017) : (activeWeapon == .sniper ? 0.021 : 0.009)
         let direction = viewDirection(yaw: player.yaw + (random() - 0.5) * spread,
                                       pitch: player.pitch + (random() - 0.5) * spread)
@@ -379,7 +393,7 @@ public final class CombatSimulation {
         if let index = hit.obstacleIndex { damageCover(index: index, amount: activeWeapon.damage) }
         emit(GameEvent(kind: .shot, position: muzzle, endPosition: hitPoint,
                        amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon,
-                       surfaceImpact: surfaceImpact))
+                       surfaceImpact: surfaceImpact, hearing: hearing))
         return true
     }
 
@@ -390,6 +404,7 @@ public final class CombatSimulation {
         if var brain = brains[id] {
             investigate(source ?? player.position, enemy: &enemies[index], brain: &brain)
             brain.hurt = 0.3; brain.suppression = 1.8
+            brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6
             brains[id] = brain
         }
         if enemies[index].health <= 0 {
@@ -502,7 +517,7 @@ public final class CombatSimulation {
         var pending = [position], next = 0
         while next < pending.count {
             let center = pending[next] + SIMD3<Float>(0, 0.18, 0); next += 1
-            hearNoise(at: center, radius: 30)
+            let hearing = recordHearing(kind: .explosion, position: center, strength: 1, range: 34, source: .world)
             for index in enemies.indices where enemies[index].health > 0 {
                 let target = EnemyPose(enemies[index]).bodyCenter
                 let distance = simd_distance(center, target)
@@ -521,7 +536,7 @@ public final class CombatSimulation {
             for (index, amount) in hits {
                 if let barrel = applyCoverDamage(index: index, amount: amount) { pending.append(barrel) }
             }
-            emit(GameEvent(kind: .explosion, position: center, amount: 8))
+            emit(GameEvent(kind: .explosion, position: center, amount: 8, hearing: hearing))
         }
         finishCoverDestruction()
     }
@@ -545,7 +560,10 @@ public final class CombatSimulation {
         guard state == .active else { return }
         elapsed += 1.0 / 120.0
         updateCoverDebris()
+        hearingStimuli.removeAll { elapsed - $0.time > 8 }
+        let beforePlayer = player
         updatePlayer(dt, input: input)
+        updatePlayerFootsteps(from: beforePlayer, dt: dt)
         for kind in WeaponKind.allCases {
             guard var weapon = weapons[kind] else { continue }
             weapon.cooldown = max(0, weapon.cooldown - dt)
@@ -566,6 +584,7 @@ public final class CombatSimulation {
                 recentShot: elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration)
         }
         updateGrenades(dt)
+        updateDecoys(dt)
         guard state == .active else { return }
         updateEnemies(dt)
         guard state == .active else { return }
@@ -627,8 +646,14 @@ public final class CombatSimulation {
                 }
             }
             if player.position.y <= floor {
-                if !player.grounded && player.verticalVelocity < -4 { emit(GameEvent(kind: .land, position: player.position)) }
-                player.position.y = floor; player.verticalVelocity = 0; player.grounded = true
+                player.position.y = floor
+                if !player.grounded && player.verticalVelocity < -4 {
+                    let surface = environmentSample(at: player.position).soundSurface
+                    let hearing = recordHearing(kind: .landing, position: player.position + SIMD3(0,0.1,0), surface: surface,
+                        strength: min(1, abs(player.verticalVelocity) / 8), range: surface.stepRange * 1.2, source: .player)
+                    emit(GameEvent(kind: .land, position: player.position, hearing: hearing))
+                }
+                player.verticalVelocity = 0; player.grounded = true
             } else { player.grounded = false }
         }
         if elapsed - player.lastHit > 5.5 { player.health = min(100, player.health + dt * 8) }
@@ -638,26 +663,8 @@ public final class CombatSimulation {
         var index = 0
         while index < grenades.count {
             var grenade = grenades[index]
-            grenade.fuse -= dt; grenade.velocity.y -= 13 * dt
-            var remaining = dt
-            for _ in 0..<3 {
-                let speed = simd_length(grenade.velocity)
-                if speed < 0.0001 || remaining < 0.0001 { break }
-                let direction = grenade.velocity / speed
-                let hit = wallHit(origin: grenade.position, direction: direction, maximumDistance: speed * remaining, padding: 0.09)
-                grenade.position += direction * max(0, hit.distance - 0.002)
-                if hit.obstacleIndex == nil && !hit.hitGround { break }
-                remaining -= hit.distance / speed
-                grenade.velocity = (grenade.velocity - 1.5 * simd_dot(grenade.velocity, hit.normal) * hit.normal) * 0.72
-                grenade.position += hit.normal * 0.004
-            }
-            if grenade.position.x < -37.91 || grenade.position.x > 37.91 {
-                grenade.position.x = clamp(grenade.position.x, -37.91, 37.91); grenade.velocity.x *= -0.45
-            }
-            if grenade.position.z < -41.91 || grenade.position.z > 41.91 {
-                grenade.position.z = clamp(grenade.position.z, -41.91, 41.91); grenade.velocity.z *= -0.45
-            }
-            grenade.position.y = max(terrain.height(x: grenade.position.x, z: grenade.position.z) + 0.09, grenade.position.y)
+            grenade.fuse -= dt
+            advanceThrowable(position: &grenade.position, velocity: &grenade.velocity, dt: dt)
             if grenade.fuse <= 0 {
                 grenades.remove(at: index); explode(at: grenade.position)
             } else { grenades[index] = grenade; index += 1 }
@@ -871,6 +878,9 @@ private struct EnemyBrain {
     var searchingInPlace = false
     var stuckTime: Float = 0
     var patrolAnchor: SIMD3<Float>
+    var hearingPriority = 0
+    var priorityUntil: Double = -20
+    var stepDistance: Float = 0
     var patrolYaw: Float
     var patrolGoal: SIMD3<Float>?
     var patrolIndex = 0
@@ -1095,14 +1105,6 @@ extension CombatSimulation {
         brain.stuckTime = 0; brain.patrolGoal = nil
     }
 
-    private func hearNoise(at source: SIMD3<Float>, radius: Float) {
-        for index in enemies.indices where enemies[index].health > 0 && horizontalDistance(enemies[index].position, source) < radius {
-            guard var brain = brains[enemies[index].id] else { continue }
-            investigate(source, enemy: &enemies[index], brain: &brain)
-            brains[enemies[index].id] = brain
-        }
-    }
-
     private func updateAwareness(_ enemy: inout EnemyState, brain: inout EnemyBrain, dt: Float) {
         if brain.sightTimer <= 0 {
             let offset = eyePosition - EnemyPose(enemy).eyePosition
@@ -1129,6 +1131,7 @@ extension CombatSimulation {
                         emit(GameEvent(kind: .enemyAlert, position: enemy.position, id: enemy.id))
                     }
                     enemy.awareness = .engaged; enemy.seesPlayer = true
+                    brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6
                     brain.lastKnown = player.position; brain.searchAge = 0; brain.searchingInPlace = false
                     brain.stuckTime = 0
                 }
@@ -1258,7 +1261,9 @@ extension CombatSimulation {
                         var target = eyePosition
                         if !hit { target.x += (random() > 0.5 ? 1 : -1) * (1 + random()); target.y += 0.5 }
                         let damage: Float = difficulty == .easy ? 6 : difficulty == .hard ? 13 : 9
-                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: target, amount: hit ? damage : 0, id: enemy.id))
+                        let hearing = recordHearing(kind: .gunshot, position: pose.muzzlePosition, strength: 1, range: 44, source: .enemy, sourceID: enemy.id)
+                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: target,
+                                       amount: hit ? damage : 0, id: enemy.id, hearing: hearing))
                         if hit { damagePlayer(amount: damage, from: pose.muzzlePosition) }
                         enemy.recoil = 1; brain.holdTimer = 0.32
                     }
@@ -1269,7 +1274,7 @@ extension CombatSimulation {
                 enemy.windup = 0.65
             }
             let pursuit = seekingCover ? brain.coverGoal! : (brain.lastKnown ?? enemy.position)
-            let before = enemy.position
+            let before = enemy.position, wasGrounded = enemy.grounded
             if enemy.windup <= 0 && brain.holdTimer <= 0 && !hurtPause && !nearCover && state == .active {
                 if !brain.alert {
                     patrol(&enemy, brain: &brain, dt: dt)
@@ -1291,12 +1296,132 @@ extension CombatSimulation {
             if enemy.isMoving { enemy.walkCycle += dt * (enemy.isRunning ? 12 : 7); brain.stuckTime = 0 }
             else if !nearCover && !hurtPause && !enemy.seesPlayer && !brain.searchingInPlace { brain.stuckTime += dt }
             applyGravity(&enemy, dt: dt)
+            if wasGrounded && enemy.grounded {
+                emitFootsteps(distance: simd_distance(before, enemy.position), accumulated: &brain.stepDistance,
+                    position: enemy.position, speed: simd_distance(before, enemy.position) / dt,
+                    lowPosture: enemy.crouchAmount > 0.6, source: .enemy, sourceID: enemy.id)
+            } else { brain.stepDistance = 0 }
             let aimTarget: Float = enemy.windup > 0 || brain.holdTimer > 0 ? 1 : enemy.seesPlayer && !enemy.isRunning ? 0.65 : 0
             enemy.aimBlend += (aimTarget - enemy.aimBlend) * min(1, dt * 12)
             if enemy.seesPlayer && !enemy.isRunning { aim(&enemy, at: eyePosition) }
             else { enemy.aimPitch += ((enemy.isRunning ? -0.38 : -0.22) - enemy.aimPitch) * min(1, dt * 8) }
             enemies[index] = enemy; brains[enemy.id] = brain
             if state != .active { return }
+        }
+    }
+}
+
+extension CombatSimulation {
+    @discardableResult public func setNoiseEmitterEnabled(id: Int, enabled: Bool) -> Bool {
+        guard state == .active, let index = noiseEmitters.firstIndex(where: { $0.id == id }),
+              noiseEmitters[index].enabled != enabled else { return false }
+        if let owner = noiseEmitters[index].ownerObstacleID,
+           !obstacles.contains(where: { $0.id == owner && !$0.destroyed }) { return false }
+        noiseEmitters[index].enabled = enabled
+        emit(GameEvent(kind: .noiseEmitterChanged, position: noiseEmitters[index].position,
+                       id: id, noiseEmitter: noiseEmitters[index]))
+        return true
+    }
+
+    @discardableResult public func throwNoiseDecoy() -> Bool {
+        guard state == .active, climbing == nil, noiseDecoyCount > 0,
+              decoys.count < NoiseDecoyState.maximumCount, decoyCooldown <= 0 else { return false }
+        let direction = viewDirection(yaw: player.yaw, pitch: player.pitch)
+        let decoy = NoiseDecoyState(id: allocateID(), position: eyePosition, velocity: direction * 12 + SIMD3(0,2.5,0))
+        decoys.append(decoy); noiseDecoyCount -= 1; decoyCooldown = 0.7
+        emit(GameEvent(kind: .decoyThrown, position: decoy.position, id: decoy.id))
+        return true
+    }
+
+    private func updatePlayerFootsteps(from before: PlayerState, dt: Float) {
+        guard before.grounded, player.grounded, climbing == nil else { playerStepDistance = 0; return }
+        let distance = simd_distance(before.position, player.position)
+        emitFootsteps(distance: distance, accumulated: &playerStepDistance, position: player.position,
+                      speed: distance / dt, lowPosture: player.prone, source: .player)
+    }
+
+    private func emitFootsteps(distance: Float, accumulated: inout Float, position: SIMD3<Float>, speed: Float,
+                               lowPosture: Bool, source: NoiseSource, sourceID: Int? = nil) {
+        guard distance.isFinite, distance > 0.000_05, distance < 0.3 else { return }
+        let stride: Float = lowPosture ? 0.95 : 1.65
+        accumulated += distance
+        guard accumulated >= stride else { return }
+        accumulated -= stride
+        let surface = environmentSample(at: position).soundSurface
+        let strength = clamp(0.25 + speed / 10, 0.25, 1) * (lowPosture ? 0.32 : 1)
+        let hearing = recordHearing(kind: .footstep, position: position + SIMD3(0,0.1,0), surface: surface,
+            strength: strength, range: surface.stepRange, source: source, sourceID: sourceID)
+        emit(GameEvent(kind: .footstep, position: hearing.position, amount: strength,
+                       id: hearing.id, hearing: hearing))
+    }
+
+    /// A finite diagnostic history; events and AI receive the same immutable value.
+    /// Friendly footsteps/shots are audible to the player but are not hostile clues.
+    private func recordHearing(kind: HearingKind, position: SIMD3<Float>, surface: SurfaceSound? = nil,
+                               strength: Float, range: Float, source: NoiseSource, sourceID: Int? = nil) -> HearingStimulus {
+        let stimulus = HearingStimulus(id: nextHearingID, kind: kind, position: position, surface: surface,
+            time: elapsed, strength: strength, range: range, source: source, sourceID: sourceID)
+        nextHearingID += 1
+        if hearingStimuli.count >= 64 { hearingStimuli.removeFirst() }
+        hearingStimuli.append(stimulus)
+        guard source != .enemy else { return stimulus }
+        let priority = kind == .gunshot || kind == .explosion ? 3 : kind == .decoy ? 2 : 1
+        for index in enemies.indices where enemies[index].health > 0 {
+            let ear = EnemyPose(enemies[index]).eyePosition
+            guard simd_distance(ear, position) < range,
+                  acousticSample(for: stimulus, listener: ear).audible,
+                  var brain = brains[enemies[index].id] else { continue }
+            enemies[index].lastHeard = HearingObservation(position: position, kind: kind, time: elapsed)
+            guard !enemies[index].seesPlayer,
+                  priority >= brain.hearingPriority || elapsed >= brain.priorityUntil else { continue }
+            investigate(position, enemy: &enemies[index], brain: &brain)
+            brain.hearingPriority = priority
+            brain.priorityUntil = elapsed + (priority == 3 ? 6 : priority == 2 ? 2.5 : 0.7)
+            brains[enemies[index].id] = brain
+        }
+        return stimulus
+    }
+
+    private func advanceThrowable(position: inout SIMD3<Float>, velocity: inout SIMD3<Float>, dt: Float) {
+        velocity.y -= 13 * dt
+        var remaining = dt
+        for _ in 0..<3 {
+            let speed = simd_length(velocity)
+            if speed < 0.0001 || remaining < 0.0001 { break }
+            let direction = velocity / speed
+            let hit = wallHit(origin: position, direction: direction, maximumDistance: speed * remaining, padding: 0.09)
+            position += direction * max(0, hit.distance - 0.002)
+            if hit.obstacleIndex == nil && !hit.hitGround { break }
+            remaining -= hit.distance / speed
+            velocity = (velocity - 1.5 * simd_dot(velocity, hit.normal) * hit.normal) * 0.72
+            position += hit.normal * 0.004
+        }
+        let low = map.minimum + SIMD3<Float>(repeating: 0.09)
+        let high = map.maximum - SIMD3<Float>(repeating: 0.09)
+        if position.x < low.x || position.x > high.x {
+            position.x = clamp(position.x, low.x, high.x); velocity.x *= -0.45
+        }
+        if position.z < low.z || position.z > high.z {
+            position.z = clamp(position.z, low.z, high.z); velocity.z *= -0.45
+        }
+        position.y = max(terrain.height(x: position.x, z: position.z) + 0.09, position.y)
+    }
+
+    private func updateDecoys(_ dt: Float) {
+        decoyCooldown = max(0, decoyCooldown - dt)
+        var index = 0
+        while index < decoys.count {
+            var decoy = decoys[index]
+            decoy.age += dt
+            if decoy.age >= decoy.lifetime { decoys.remove(at: index); continue }
+            advanceThrowable(position: &decoy.position, velocity: &decoy.velocity, dt: dt)
+            if decoy.emittedPulses < 6 && decoy.age >= 0.7 + Float(decoy.emittedPulses) * 2 {
+                decoy.emittedPulses += 1
+                let hearing = recordHearing(kind: .decoy, position: decoy.position, strength: 0.85,
+                    range: 24, source: .world, sourceID: decoy.id)
+                emit(GameEvent(kind: .decoyPulse, position: decoy.position, id: decoy.id, hearing: hearing))
+            }
+            decoys[index] = decoy; index += 1
         }
     }
 }

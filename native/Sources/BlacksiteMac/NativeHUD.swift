@@ -133,8 +133,10 @@ final class GameHUDView: NSView {
             else { objective = presentation.accessibilityText }
             let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
             let controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus) +
+                ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
+                (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
                 (c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : "")
-            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
+            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten, \(s.noiseDecoyCount) Geräuschköder. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
         }
     }
 
@@ -301,6 +303,11 @@ final class GameHUDView: NSView {
             text(c.bannerDetail, x: w / 2 - 280, y: h * 0.215 + 66, size: 11, color: muted, width: 560, alignment: .center)
         }
         let hx: CGFloat = 32, hy = h - 151, barWidth: CGFloat = 206
+        if c.settings.soundCaptions {
+            for (index, caption) in c.noisePresentation.lines.prefix(3).enumerated() {
+                text(caption, x: hx, y: hy - 78 + CGFloat(index) * 18, size: 9, color: muted, width: 310, mono: true)
+            }
+        }
         text("✚  VIPER 01", x: hx, y: hy, size: 12, weight: .medium, tracking: 1)
         let stance = s.climbProgress != nil ? "KLETTERT" : p.prone ? "LIEGEND" : !p.grounded ? "IN DER LUFT" : s.isSprinting ? "SPRINT" : "STEHEND"
         text(stance, x: hx + 95, y: hy + 3, size: 8, color: muted, width: 110, alignment: .right, mono: true)
@@ -319,6 +326,7 @@ final class GameHUDView: NSView {
         text("/ \(weapon.reserve)", x: ax + 160, y: hy + 60, size: 18, color: muted, width: 80, alignment: .right, mono: true)
         line(x1: ax, y1: hy + 91, x2: ax + aw, y2: hy + 91, color: muted.withAlphaComponent(0.4))
         text("\(hints.reloadLabel) NACHLADEN    ◈ \(s.grenadeCount)", x: ax, y: hy + 105, size: 9, width: aw, alignment: .right, mono: true)
+        text("\(NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings)) KÖDER · \(s.noiseDecoyCount)", x: w / 2 - 130, y: hy + 105, size: 9, color: muted, width: 260, alignment: .center, mono: true)
         if weapon.reloadRemaining > 0 {
             text("NACHLADEN", x: ax, y: hy - 40, size: 9, color: accent, width: aw, alignment: .right, mono: true)
             fill(NSRect(x: ax, y: hy - 23, width: aw * CGFloat(1 - weapon.reloadRemaining / s.activeWeapon.reloadDuration), height: 2), accent)

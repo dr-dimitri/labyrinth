@@ -21,6 +21,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var bannerUntil: Double = 0, toastUntil: Double = 0, hitUntil: Double = 0, killUntil: Double = 0, damageUntil: Double = 0
     var lastHitHeadshot = false
     var combatFeedback = CombatFeedback()
+    let noisePresentation = NativeNoisePresentation()
     var showPerformance = false
     var performanceText = ""
     private var inputState = NativeInputState()
@@ -82,6 +83,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             simulation.step(deltaTime: delta, input: input)
             if simulation.elapsed > previousTime { inputState.didAdvanceSimulation() }
             let events = simulation.drainEvents()
+            noisePresentation.consume(events: events, simulation: simulation)
             renderer.handle(events: events, simulation: simulation); audio.handle(events, simulation: simulation); process(events)
             audio.update(delta: Float(delta), simulation: simulation)
         }
@@ -103,7 +105,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission,
                                       loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
         yaw = simulation.player.yaw; pitch = simulation.player.pitch
-        renderer?.reset(); combatFeedback.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
         bannerUntil = 0
         if settings.selectedMission == .waves {
             banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
@@ -123,7 +125,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard ready, mode == .menu, window.attachedSheet == nil, prepareMap(map) else { return }
         selectedMap = map
         simulation = CombatSimulation(map: map)
-        renderer?.reset(); combatFeedback.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0
         clearInput(); hud.refresh()
     }
@@ -145,7 +147,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
-        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset()
+        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0; setMode(.menu)
     }
 
@@ -250,6 +252,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .prone: simulation.toggleProne()
             case .interact: if !simulation.missionInteractionAvailable { simulation.mantle() }
             case .grenade: simulation.throwGrenade()
+            case .decoy: simulation.throwNoiseDecoy()
             case .reload: simulation.reload()
             case .rifle: simulation.selectWeapon(.rifle)
             case .sniper: simulation.selectWeapon(.sniper)

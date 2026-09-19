@@ -1,0 +1,169 @@
+{
+  "issue": 19,
+  "tests": {
+    "core": 137,
+    "coreFinal": "passed after landing/road corrections and correcting a patrol fixture",
+    "macReported": 106,
+    "mac": "passed",
+    "systemAudio": "two AVAudioEngine offline PCM integration tests enabled and passed",
+    "optionalMetalTextureUpload": "not enabled"
+  },
+  "review": {
+    "core": "independent review; landing position and road surface precedence fixed",
+    "audioRenderingUI": "independent review passed; AX inventory and binding exposed"
+  },
+  "scenes": {
+    "machine-on": {
+      "activeDecoys": 0,
+      "decoyPulses": 0,
+      "decoyRemaining": 2,
+      "decoyThrows": 0,
+      "machineEnabled": true,
+      "machineGainAtPlayer": 0.5535640716552734,
+      "machineID": 7001,
+      "machineOwnerID": 21,
+      "machinePosition": [
+        -20.399999618530273,
+        6.927817344665527,
+        -11
+      ],
+      "machineStateEvents": 0,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    },
+    "machine-off": {
+      "activeDecoys": 0,
+      "decoyPulses": 0,
+      "decoyRemaining": 2,
+      "decoyThrows": 0,
+      "machineEnabled": false,
+      "machineGainAtPlayer": 0,
+      "machineID": 7001,
+      "machineOwnerID": 21,
+      "machinePosition": [
+        -20.399999618530273,
+        6.927817344665527,
+        -11
+      ],
+      "machineStateEvents": 1,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    },
+    "decoy": {
+      "activeDecoys": 1,
+      "decoyAge": 2.2000010013580322,
+      "decoyPosition": [
+        -22.008045196533203,
+        6.473817348480225,
+        -12.353769302368164
+      ],
+      "decoyPulseAudibleAtPlayer": true,
+      "decoyPulseMaskingAtPlayer": 0.5535640716552734,
+      "decoyPulsePosition": [
+        -22.54674530029297,
+        6.481652736663818,
+        -11.475149154663086
+      ],
+      "decoyPulses": 1,
+      "decoyPulseTime": 0.7083333333333333,
+      "decoyRemaining": 1,
+      "decoyThrows": 1,
+      "machineEnabled": true,
+      "machineGainAtPlayer": 0.5535640716552734,
+      "machineID": 7001,
+      "machineOwnerID": 21,
+      "machinePosition": [
+        -20.399999618530273,
+        6.927817344665527,
+        -11
+      ],
+      "machineStateEvents": 0,
+      "noiseDecoyVisuals": 1,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 8,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    }
+  },
+  "coreBenchmark": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "enemyCount": 12,
+    "fixedFrequencyHz": 120,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 8.902222222222216,
+    "medianCPUSeconds": 0.06409599999999996,
+    "medianWallSeconds": 0.06424629167304374,
+    "obstacleCount": 23,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06748699999999999,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06772366666700691
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.064383,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06449658333440311
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06383999999999998,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06394633333547972
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06409599999999996,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06424629167304374
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06408199999999997,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06422879165620543
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 936.0958562156771,
+    "vegetationZoneCount": 5
+  },
+  "limits": {
+    "hearingHistory": 64,
+    "activeDecoys": 2,
+    "pulsesPerDecoy": 6,
+    "decoyLifetimeSeconds": 12,
+    "machines": 4,
+    "oneShotAudioVoices": 16,
+    "machineAudioVoices": 4,
+    "maxNewVisualInstances": 24
+  },
+  "audioQualification": "Actual native mixer PCM was rendered offline; no claim of subjective listening through host speakers."
+}

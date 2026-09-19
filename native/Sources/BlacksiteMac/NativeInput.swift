@@ -41,6 +41,7 @@ struct NativeSettings {
     var highQuality = true
     var musicVolume: Float = 0.45
     var effectsVolume: Float = 0.45
+    var soundCaptions = true
     var sensitivity: Float = 0.0023
     var adsSensitivity: Float = 0.0023 * 0.65
     var scopeSensitivity: Float = 0.0023 * 0.19
@@ -56,6 +57,7 @@ struct NativeSettings {
         difficulty = Difficulty(rawValue: defaults.string(forKey: "native.difficulty") ?? "normal") ?? .normal
         selectedMission = MissionKind(rawValue: defaults.string(forKey: "native.mission") ?? "waves") ?? .waves
         selectedCamouflage = CamouflagePattern(rawValue: defaults.string(forKey: "native.camouflage") ?? "none") ?? .none
+        soundCaptions = defaults.object(forKey: "native.soundCaptions") == nil || defaults.bool(forKey: "native.soundCaptions")
         highQuality = defaults.bool(forKey: "native.highQuality")
         let legacyVolume = defaults.float(forKey: "native.volume")
         musicVolume = max(0, min(1, defaults.object(forKey: "native.musicVolume") == nil ? legacyVolume : defaults.float(forKey: "native.musicVolume")))
@@ -76,6 +78,7 @@ struct NativeSettings {
         defaults.set(highQuality, forKey: "native.highQuality")
         defaults.set(musicVolume, forKey: "native.musicVolume")
         defaults.set(effectsVolume, forKey: "native.effectsVolume")
+        defaults.set(soundCaptions, forKey: "native.soundCaptions")
         defaults.set(sensitivity, forKey: "native.sensitivity")
         defaults.set(adsSensitivity, forKey: "native.adsSensitivity")
         defaults.set(scopeSensitivity, forKey: "native.scopeSensitivity")

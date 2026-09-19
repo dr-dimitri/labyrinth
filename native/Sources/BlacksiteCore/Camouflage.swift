@@ -18,6 +18,7 @@ public enum CamouflagePattern: String, CaseIterable, Codable, Sendable {
 public struct LoadoutDefinition: Sendable, Equatable {
     public let camouflage: CamouflagePattern
     public var fragmentationGrenades: Int { camouflage == .none ? 4 : 3 }
+    public var noiseDecoys: Int { 2 }
     public init(camouflage: CamouflagePattern = .none) { self.camouflage = camouflage }
 }
 

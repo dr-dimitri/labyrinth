@@ -5,7 +5,7 @@ import Testing
 struct NativeBindingsTests {
     @Test func defaultsPreserveAlternateMovementFireAimAndNormalizedModifiers() {
         let bindings = NativeBindings.defaults
-        #expect(NativeInputAction.allCases.count == 19)
+        #expect(NativeInputAction.allCases.count == 20)
         #expect(bindings.inputs(for: .moveForward) == [.key(13),.key(126)])
         #expect(bindings.inputs(for: .moveBackward) == [.key(1),.key(125)])
         #expect(bindings.inputs(for: .fire) == [.mouse(0),.key(12)])
@@ -92,5 +92,22 @@ struct NativeBindingsTests {
         document["version"] = 2
         let unknownVersion = try JSONSerialization.data(withJSONObject: document)
         #expect(throws: DecodingError.self) { _ = try JSONDecoder().decode(NativeBindings.self, from: unknownVersion) }
+    }
+
+    @Test func addingDecoyPreservesAnOlderCustomBindingOnItsDefaultKey() throws {
+        var original = NativeBindings.defaults
+        original.assign(nil, to: .decoy, slot: .primary)
+        original.assign(.key(3), to: .reload, slot: .primary)
+        var document = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        var bindings = try #require(document["bindings"] as? [String: Any])
+        bindings.removeValue(forKey: "decoy"); document["bindings"] = bindings
+        let restored = try JSONDecoder().decode(NativeBindings.self, from: JSONSerialization.data(withJSONObject: document))
+        #expect(restored.inputs(for: .reload) == [.key(3)])
+        #expect(restored.inputs(for: .decoy).isEmpty)
+        #expect(restored.inputs(for: .fire) == original.inputs(for: .fire))
+        var state = NativeInputState()
+        #expect(state.press(.key(3)) == [.decoy])
+        #expect(state.press(.key(3), isRepeat: true).isEmpty)
+        #expect(!state.snapshot().fire)
     }
 }

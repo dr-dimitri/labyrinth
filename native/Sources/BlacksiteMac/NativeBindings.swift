@@ -3,11 +3,11 @@ import Foundation
 enum NativeInputAction: String, CaseIterable, Codable, Hashable, Sendable {
     case moveForward, moveBackward, moveLeft, moveRight
     case lookLeft, lookRight, lookUp, lookDown
-    case sprint, fire, aim, jump, prone, interact, grenade, reload, rifle, sniper, nextWeapon
+    case sprint, fire, aim, jump, prone, interact, grenade, decoy, reload, rifle, sniper, nextWeapon
 
     var allowsWheel: Bool {
         switch self {
-        case .fire, .jump, .prone, .grenade, .reload, .rifle, .sniper, .nextWeapon: return true
+        case .fire, .jump, .prone, .grenade, .decoy, .reload, .rifle, .sniper, .nextWeapon: return true
         default: return false
         }
     }
@@ -65,7 +65,7 @@ struct NativeBindings: Codable, Equatable, Sendable {
             .jump: Pair(primary: .key(49)),
             .prone: Pair(primary: .key(8), secondary: .modifier(.control)),
             .interact: Pair(primary: .key(14)),
-            .grenade: Pair(primary: .key(5)), .reload: Pair(primary: .key(15)),
+            .grenade: Pair(primary: .key(5)), .decoy: Pair(primary: .key(3)), .reload: Pair(primary: .key(15)),
             .rifle: Pair(primary: .key(18)), .sniper: Pair(primary: .key(19)),
             .nextWeapon: Pair(primary: .wheel(.up), secondary: .wheel(.down))
         ]
@@ -154,11 +154,20 @@ struct NativeBindings: Codable, Equatable, Sendable {
             if let pair = decoded[action.rawValue] { candidate.storage[action] = pair }
         }
         var used = Set<NativeInputButton>()
-        for action in NativeInputAction.allCases {
+        // Preserve existing custom controls when a newly introduced action's
+        // default key is already in use. Only the new action stays unbound.
+        for action in NativeInputAction.allCases where decoded[action.rawValue] != nil {
             for button in candidate.inputs(for: action) {
                 guard candidate.validationError(for: button, action: action) == nil, used.insert(button).inserted else {
                     throw DecodingError.dataCorruptedError(forKey: .bindings, in: container,
                                                           debugDescription: "Unsupported, reserved, or duplicate binding")
+                }
+            }
+        }
+        for action in NativeInputAction.allCases where decoded[action.rawValue] == nil {
+            for slot in NativeBindingSlot.allCases {
+                if let button = candidate.button(for: action, slot: slot), !used.insert(button).inserted {
+                    candidate.set(nil, for: action, slot: slot)
                 }
             }
         }

@@ -63,9 +63,11 @@ public struct MapSurfaceRegion: Sendable {
     public let minimum: SIMD2<Float>, maximum: SIMD2<Float>
     public let material: SurfaceMaterial
     public let camouflage: CamouflageGround
+    public let soundSurface: SurfaceSound?
     public init(minimum: SIMD2<Float>, maximum: SIMD2<Float>, material: SurfaceMaterial,
-                camouflage: CamouflageGround = .none) {
+                camouflage: CamouflageGround = .none, soundSurface: SurfaceSound? = nil) {
         self.minimum = minimum; self.maximum = maximum; self.material = material; self.camouflage = camouflage
+        self.soundSurface = soundSurface
     }
     public func contains(x: Float, z: Float) -> Bool {
         x >= minimum.x && x <= maximum.x && z >= minimum.y && z <= maximum.y
@@ -78,6 +80,7 @@ public struct MapEnvironmentDefinition: Sendable {
     public var shadowExtent: Float = 65, shadowDistance: Float = 100, shadowDepth: Float = 220, viewDistance: Float = 450
     public var groundRegions: [MapSurfaceRegion] = []
     public var vegetationZones: [EnvironmentZone] = []
+    public var noiseEmitters: [NoiseEmitterDefinition] = []
     /// Legacy name retained as a view of the same authoritative data.
     public var visibilityVolumes: [MapVisibilityVolume] {
         get { vegetationZones }
@@ -168,7 +171,7 @@ public struct MapDefinition: Sendable {
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
-        var environment = environment; environment.vegetationZones = []
+        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []
         return copying(terrain: terrain, environment: environment)
     }
     private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition) -> MapDefinition {
@@ -268,6 +271,17 @@ public struct MapDefinition: Sendable {
             guard region.minimum.x.isFinite, region.minimum.y.isFinite, region.maximum.x.isFinite, region.maximum.y.isFinite,
                   region.minimum.x < region.maximum.x, region.minimum.y < region.maximum.y else {
                 throw MapValidationError("Karte \(id): Eine Bodenregion besitzt ungültige Grenzen.")
+            }
+        }
+        guard environment.noiseEmitters.count <= NoiseEmitterState.maximumCount else {
+            throw MapValidationError("Karte \(id): Höchstens vier Maschinen-Geräuschquellen sind zulässig.")
+        }
+        for emitter in environment.noiseEmitters {
+            guard ids.insert(emitter.id).inserted, inside(emitter.position),
+                  emitter.strength.isFinite, (0...1).contains(emitter.strength),
+                  emitter.range.isFinite, emitter.range > 0, emitter.range <= 40,
+                  emitter.ownerObstacleID.map({ owner in obstacles.contains { $0.id == owner } }) ?? true else {
+                throw MapValidationError("Karte \(id): Geräuschquelle \(emitter.id) besitzt ungültige Daten oder eine fehlende Objekt-ID.")
             }
         }
         var volumeIDs = Set<String>()
@@ -378,6 +392,7 @@ public struct MapDefinition: Sendable {
         scenery: MapSceneryDefinition.blacksite, environment: {
             var environment = MapEnvironmentDefinition()
             environment.vegetationZones = BlacksiteVegetation.zones
+            environment.noiseEmitters = BlacksiteMachinery.emitters
             return environment
         }(), resources: .blacksite)
 

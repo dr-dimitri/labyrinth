@@ -9,6 +9,9 @@ final class NativeAudio {
     private let engine: AVAudioEngine
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
     private var voices: [AVAudioPlayerNode] = []
+    private var machineVoices: [AVAudioPlayerNode] = []
+    private var machineIDs: [Int?] = Array(repeating:nil,count:NoiseEmitterState.maximumCount)
+    private var machineGains: [Float] = Array(repeating:0,count:NoiseEmitterState.maximumCount)
     private let atmosphere = AVAudioPlayerNode()
     private let combat = AVAudioPlayerNode()
     private let musicBus = AVAudioMixerNode()
@@ -21,10 +24,12 @@ final class NativeAudio {
     private var nextVoice = 0
     private var started = false
     private var paused = true
-    private var stepClock: Float = 0
     private var levels = NativeAudioLevels()
     private var threat: Float = 0
     private var alertCooldown: Float = 0
+    var machineLoopCount: Int { machineIDs.compactMap { $0 }.count }
+    var oneShotVoiceCapacity: Int { voices.count }
+    var machineVoiceCapacity: Int { machineVoices.count }
 
     init(engine: AVAudioEngine = AVAudioEngine()) {
         self.engine = engine
@@ -50,6 +55,11 @@ final class NativeAudio {
             engine.attach(voice); engine.connect(voice, to: effectsBus, format: format)
             voices.append(voice)
         }
+        for _ in 0..<NoiseEmitterState.maximumCount {
+            let voice=AVAudioPlayerNode()
+            engine.attach(voice);engine.connect(voice,to:effectsBus,format:format)
+            machineVoices.append(voice)
+        }
         for node in [atmosphere, combat] {
             engine.attach(node); engine.connect(node, to: musicBus, format: format)
         }
@@ -57,7 +67,11 @@ final class NativeAudio {
         buffers["sniper"] = sound(duration: 0.6, low: 72, gain: 0.48, decay: 10)
         buffers["enemy"] = sound(duration: 0.15, low: 155, gain: 0.12, decay: 35)
         buffers["explosion"] = sound(duration: 1.15, low: 42, gain: 0.55, decay: 5)
-        buffers["step"] = sound(duration: 0.12, low: 100, gain: 0.09, decay: 36)
+        for surface in SurfaceSound.allCases { for variant in 0..<NativeSoundSynthesis.variants {
+            buffers["step-\(surface.rawValue)-\(variant)"]=pcm(samples:NativeSoundSynthesis.step(surface:surface,variant:variant))
+        } }
+        buffers["machine"]=pcm(samples:NativeSoundSynthesis.machine())
+        buffers["decoy"]=pcm(samples:NativeSoundSynthesis.decoy())
         buffers["damage"] = sound(duration: 0.22, low: 60, gain: 0.16, decay: 15)
         buffers["reload"] = sound(duration: 0.12, low: 530, gain: 0.08, decay: 35)
         buffers["shell"] = shellClink()
@@ -73,17 +87,29 @@ final class NativeAudio {
     func setVolumes(music: Float, effects: Float) {
         levels = NativeAudioLevels(music: music, effects: effects)
         musicBus.outputVolume = levels.music; effectsBus.outputVolume = levels.effects
-        if levels.effects == 0 { voices.forEach { $0.stop() } }
+        if levels.effects == 0 { voices.forEach { $0.stop() };stopMachines() }
         if levels.shouldRun(paused: paused) { start() }
         else { engine.pause() }
     }
 
     func setPaused(_ value: Bool) {
-        paused = value; stepClock = 0; alertCooldown = 0
+        paused = value; alertCooldown = 0
         if value {
             voices.forEach { $0.stop() }
+            stopMachines()
             engine.pause()
         } else if levels.shouldRun(paused: paused) { start() }
+    }
+
+    func reset() {
+        voices.forEach { $0.stop() };stopMachines()
+        nextVoice=0;alertCooldown=0;threat=0
+    }
+
+    private func stopMachines() {
+        for index in machineVoices.indices {
+            machineVoices[index].stop();machineIDs[index]=nil;machineGains[index]=0
+        }
     }
 
     private func start() {
@@ -106,18 +132,30 @@ final class NativeAudio {
             switch event.kind {
             case .shot: play(event.weapon == .sniper ? "sniper" : "rifle")
             case .enemyShot:
-                let spatial = NativeSpatialAudio.sample(.enemyShot, source: event.position,
-                    listener: simulation.eyePosition, yaw: simulation.player.yaw)
+                let spatial = spatial(event, fallback:.enemyShot,simulation:simulation)
                 play("enemy", gain: spatial.gain, pan: spatial.pan)
             case .enemyAlert:
                 if alertCooldown <= 0 { play("notice", gain: 0.6); alertCooldown = 1.5 }
             case .explosion:
-                let spatial = NativeSpatialAudio.sample(.explosion, source: event.position,
-                    listener: simulation.eyePosition, yaw: simulation.player.yaw)
+                let spatial = spatial(event,fallback:.explosion,simulation:simulation)
                 play("explosion", gain: spatial.gain, pan: spatial.pan)
             case .damage: play("damage")
             case .reload: play("reload")
-            case .land: play("step")
+            case .footstep, .land:
+                if let hearing=event.hearing {
+                    let sample=simulation.acousticSample(for:hearing,listener:simulation.eyePosition)
+                    let spatial=NativeSpatialAudio.positioned(gain:sample.gain,source:hearing.position,
+                        listener:simulation.eyePosition,yaw:simulation.player.yaw)
+                    let variant=Int(hearing.id.magnitude % UInt(NativeSoundSynthesis.variants))
+                    play("step-\((hearing.surface ?? .hard).rawValue)-\(variant)",gain:spatial.gain,pan:spatial.pan)
+                }
+            case .decoyPulse:
+                if let hearing=event.hearing {
+                    let sample=simulation.acousticSample(for:hearing,listener:simulation.eyePosition)
+                    let spatial=NativeSpatialAudio.positioned(gain:sample.gain,source:hearing.position,
+                        listener:simulation.eyePosition,yaw:simulation.player.yaw)
+                    play("decoy",gain:spatial.gain,pan:spatial.pan)
+                }
             case .waveStarted, .waveCleared, .extractionUnlocked, .supply: play("notice")
             case .missionPhaseChanged:
                 if let phase = event.missionPhase, phase != .completed { play("notice") }
@@ -132,13 +170,43 @@ final class NativeAudio {
         let target: Float = simulation.enemies.contains(where: { $0.health > 0 && $0.seesPlayer }) ? 1 : 0
         threat += (target - threat) * min(1, delta * 2)
         atmosphere.volume = 0.55 - threat * 0.3; combat.volume = threat * 0.45
-        if simulation.isMoving && simulation.player.grounded {
-            stepClock -= delta
-            if stepClock <= 0 {
-                play("step", gain: simulation.player.prone ? 0.35 : 1)
-                stepClock = simulation.isSprinting ? 0.22 : simulation.player.prone ? 0.6 : 0.36
+        updateMachines(delta:delta,simulation:simulation)
+    }
+
+    private func spatial(_ event:GameEvent,fallback:NativeSpatialAudio.Sound,simulation:CombatSimulation)->NativeSpatialSample {
+        if let hearing=event.hearing {
+            let sample=simulation.acousticSample(for:hearing,listener:simulation.eyePosition)
+            return NativeSpatialAudio.positioned(gain:sample.gain,source:hearing.position,
+                listener:simulation.eyePosition,yaw:simulation.player.yaw)
+        }
+        return NativeSpatialAudio.sample(fallback,source:event.position,listener:simulation.eyePosition,yaw:simulation.player.yaw)
+    }
+
+    private func updateMachines(delta:Float,simulation:CombatSimulation) {
+        guard !paused,levels.effects>0,engine.isRunning else { stopMachines();return }
+        let audible=simulation.noiseEmitters.compactMap { emitter -> (NoiseEmitterState,Float)? in
+            let gain=simulation.noiseEmitterGain(emitter,listener:simulation.eyePosition)
+            return gain>0.001 ? (emitter,gain):nil
+        }
+        for index in machineVoices.indices {
+            guard let id=machineIDs[index] else { continue }
+            if !audible.contains(where:{ $0.0.id==id }) {
+                machineVoices[index].stop();machineIDs[index]=nil;machineGains[index]=0
             }
-        } else { stepClock = 0 }
+        }
+        for (emitter,gain) in audible {
+            guard let index=machineIDs.firstIndex(where:{ $0==emitter.id }) ?? machineIDs.firstIndex(where:{ $0==nil }) else { break }
+            let voice=machineVoices[index]
+            if machineIDs[index] == nil {
+                voice.stop();voice.volume=0
+                voice.scheduleBuffer(buffers["machine"]!,at:nil,options:.loops,completionHandler:nil)
+                voice.play();machineIDs[index]=emitter.id
+            }
+            machineGains[index]+=(gain-machineGains[index])*min(1,max(0,delta)*8)
+            let spatial=NativeSpatialAudio.positioned(gain:machineGains[index],source:emitter.position,
+                listener:simulation.eyePosition,yaw:simulation.player.yaw)
+            voice.volume=spatial.gain;voice.pan=spatial.pan
+        }
     }
 
     func handleShellImpacts(_ impacts: [ShellImpact], simulation: CombatSimulation) {
@@ -175,6 +243,15 @@ final class NativeAudio {
         buffer.frameLength = count
         let samples = buffer.floatChannelData![0]
         for i in 0..<Int(count) { samples[i] = max(-0.8, min(0.8, generate(Double(i) / format.sampleRate, i))) }
+        return buffer
+    }
+
+    private func pcm(samples:[Float])->AVAudioPCMBuffer {
+        let buffer=AVAudioPCMBuffer(pcmFormat:format,frameCapacity:AVAudioFrameCount(samples.count))!
+        buffer.frameLength=AVAudioFrameCount(samples.count)
+        samples.withUnsafeBufferPointer { source in
+            buffer.floatChannelData![0].update(from:source.baseAddress!,count:source.count)
+        }
         return buffer
     }
 

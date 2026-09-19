@@ -76,6 +76,57 @@ struct NativeAudioTests {
         #expect(NativeAudioLevels(music: .nan, effects: 0.3) == NativeAudioLevels(music: 0, effects: 0.3))
     }
 
+    @Test func corePropagationGainRetainsItsValueAndCameraRelativePan() {
+        let source=SIMD3<Float>(4,1,0),listener=SIMD3<Float>(0,1,0)
+        let right=NativeSpatialAudio.positioned(gain:0.23,source:source,listener:listener,yaw:0)
+        #expect(right == NativeSpatialSample(gain:0.23,pan:0.9))
+        let left=NativeSpatialAudio.positioned(gain:0.23,source:source,listener:listener,yaw:.pi)
+        #expect(abs(left.pan+0.9)<0.0001 && left.gain==0.23)
+        #expect(NativeSpatialAudio.positioned(gain:0,source:source,listener:listener,yaw:0) == .silent)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BLACKSITE_TEST_SYSTEM_AUDIO"] == "1"))
+    func offlineMachineLoopsStopOnMutePauseSwitchOffAndReset() throws {
+        var environment=MapEnvironmentDefinition()
+        environment.noiseEmitters=[NoiseEmitterDefinition(id:71,position:SIMD3(4,1,0))]
+        let map=try MapDefinition(id:"machine-audio",displayName:"Machine audio",minimum:SIMD3(-20,0,-20),
+            maximum:SIMD3(20,0,20),terrain:.flat,playerStart:PlayerState(position:.zero),
+            reinforcementEntries:[SIMD3(0,0,-15)],waveStaging:[SIMD3(0,0,-10)],
+            extraction:SIMD3(0,0,-15),dataSite:SIMD3(-10,0,0),radioSite:SIMD3(10,0,0),environment:environment)
+        let game=CombatSimulation(map:map)
+        let engine=AVAudioEngine(),format=try #require(AVAudioFormat(standardFormatWithSampleRate:44_100,channels:2))
+        try engine.enableManualRenderingMode(.offline,format:format,maximumFrameCount:1024)
+        let audio=NativeAudio(engine:engine)
+        defer { audio.setPaused(true) }
+        #expect(audio.oneShotVoiceCapacity==16 && audio.machineVoiceCapacity==4)
+        audio.setVolumes(music:0,effects:1);audio.setPaused(false)
+        for _ in 0..<20 { audio.update(delta:0.1,simulation:game) }
+        #expect(audio.machineLoopCount==1)
+        let buffer=try #require(AVAudioPCMBuffer(pcmFormat:format,frameCapacity:1024))
+        var peak:Float=0
+        for _ in 0..<8 {
+            try #require(engine.renderOffline(1024,to:buffer) == .success)
+            let samples=try #require(buffer.floatChannelData)
+            for frame in 0..<Int(buffer.frameLength) { peak=max(peak,abs(samples[0][frame]),abs(samples[1][frame])) }
+        }
+        #expect(peak>0.005 && peak<1)
+        audio.setPaused(true)
+        #expect(audio.machineLoopCount==0 && !engine.isRunning)
+        audio.setPaused(false);audio.update(delta:0.1,simulation:game)
+        #expect(audio.machineLoopCount==1)
+        audio.setVolumes(music:0.2,effects:0)
+        #expect(audio.machineLoopCount==0 && engine.isRunning)
+        #expect(game.setNoiseEmitterEnabled(id:71,enabled:false))
+        audio.update(delta:0.1,simulation:game)
+        audio.setVolumes(music:0.2,effects:1);audio.update(delta:0.1,simulation:game)
+        #expect(audio.machineLoopCount==0)
+        #expect(game.setNoiseEmitterEnabled(id:71,enabled:true))
+        audio.update(delta:0.1,simulation:game)
+        #expect(audio.machineLoopCount==1)
+        audio.reset()
+        #expect(audio.machineLoopCount==0)
+    }
+
     // An isolated command sandbox cannot access even Apple's built-in AU
     // registry. Opt in for the system integration check; it still uses no device.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BLACKSITE_TEST_SYSTEM_AUDIO"] == "1"))

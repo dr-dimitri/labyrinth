@@ -166,3 +166,11 @@ public enum BlacksiteVegetation {
         EnvironmentZone(id:"south-slope-grass",center:SIMD2(-11,30),radii:SIMD2(1.7,2.7),height:0.95,density:0.6,kind:.tallGrass)
     ]
 }
+
+/// Audible machinery is anchored in the existing, collidable west roof unit.
+/// The simulation grounds this authored aperture exactly as it grounds its owner.
+public enum BlacksiteMachinery {
+    public static let emitters = [
+        NoiseEmitterDefinition(id:7001,position:SIMD3(-20.4,6.15,-11),ownerObstacleID:21)
+    ]
+}

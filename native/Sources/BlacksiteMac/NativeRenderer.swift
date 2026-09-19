@@ -153,6 +153,10 @@ final class NativeRenderer {
     private var weaponParts: [WeaponKind: WeaponParts] = [:]
     private var displayedCamouflagePattern: CamouflagePattern = .none
     private var camouflageClothingInstances = 0
+    private var decoyPulseTimes:[Int:Double]=[:]
+    private var noiseEmitterVisualCount=0
+    private var noiseDecoyVisualCount=0
+    private var noisePropInstances=0
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
@@ -180,6 +184,9 @@ final class NativeRenderer {
         diagnostics["gameplayVegetationPlantBudget"]=NativeVegetationGeometry.maximumPlants
         diagnostics["playerCamouflagePattern"]=displayedCamouflagePattern.rawValue
         diagnostics["camouflageClothingInstances"]=camouflageClothingInstances
+        diagnostics["noiseEmitterVisuals"]=noiseEmitterVisualCount
+        diagnostics["noiseDecoyVisuals"]=noiseDecoyVisualCount
+        diagnostics["noisePropInstances"]=noisePropInstances
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
@@ -378,9 +385,12 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
+        for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
+            decoyPulseTimes[event.id]=event.hearing?.time ?? simulation.elapsed
+        }
         // Only hit owners need surface extraction. These are the exact cached
         // mesh0 parts used to draw ribs, warning paint, slats and window trims.
         let hitOwners=Set(events.compactMap { $0.surfaceImpact?.obstacleID })
@@ -640,6 +650,7 @@ final class NativeRenderer {
         activeLevelItemCount=staticLevelDetailCount+coverCache.values.reduce(0) { $0+$1.items.filter(\.levelAddition).count }
         assert(activeLevelItemCount<=96,"Authored level details exceeded the fixed instance budget.")
         appendCoverDebris(to:&all,simulation:simulation)
+        appendAcousticProps(to:&all,simulation:simulation)
         if skinnedSoldiers != nil { for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) } }
         for grenade in simulation.grenades {
             appendItem(to: &all, mesh: 1, position: grenade.position, scale: SIMD3(0.085, 0.105, 0.085), color: SIMD3(0.18, 0.23, 0.12), material: SIMD4(0.48, 0.6, 0, 0))
@@ -1161,6 +1172,41 @@ final class NativeRenderer {
         }
         appendOwnerLevelDetails(to:&out,obstacle:obstacle)
         return out
+    }
+
+    private func appendAcousticProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        let start=items.count
+        noiseEmitterVisualCount=0;noiseDecoyVisualCount=0
+        let activeIDs=Set(simulation.decoys.map(\.id))
+        decoyPulseTimes=decoyPulseTimes.filter { activeIDs.contains($0.key) }
+        // Lamps are physically attached to existing machinery. They neither add
+        // false cover nor turn a remote global state into a screen-space cue.
+        for emitter in simulation.noiseEmitters {
+            guard let ownerID=emitter.ownerObstacleID,
+                  let owner=simulation.obstacles.first(where:{ $0.id==ownerID && !$0.destroyed }) else { continue }
+            noiseEmitterVisualCount+=1
+            for side:Float in [-1,1] {
+                let position=owner.position+SIMD3(0,owner.size.y*0.72,side*(owner.size.z*0.5+0.009))
+                appendItem(to:&items,position:position,scale:SIMD3(0.12,0.075,0.016),color:SIMD3(0.045,0.053,0.048),material:SIMD4(0.8,0.1,0,10))
+                appendItem(to:&items,mesh:1,position:position+SIMD3(0,0,side*0.011),scale:SIMD3(0.026,0.019,0.008),
+                    color:emitter.enabled ? SIMD3(0.31,0.52,0.14):SIMD3(0.045,0.06,0.035),
+                    material:SIMD4(0.4,0,emitter.enabled ? 0.55:0,0),shadow:false)
+            }
+        }
+        // The Core centre rests one 9 cm collision radius above its support.
+        // A rounded 18 cm device uses that same lower envelope on ground/roofs.
+        for decoy in simulation.decoys {
+            noiseDecoyVisualCount+=1
+            let position=decoy.position
+            let pulse=decoyPulseTimes[decoy.id].map { simulation.elapsed-$0<0.18 } ?? false
+            appendItem(to:&items,mesh:1,position:position,scale:SIMD3(0.084,0.09,0.084),color:SIMD3(0.14,0.21,0.23),material:SIMD4(0.68,0.2,0,15))
+            appendItem(to:&items,mesh:2,position:position,scale:SIMD3(0.085,0.035,0.085),color:SIMD3(0.027,0.037,0.04),material:SIMD4(0.87,0,0,10))
+            appendItem(to:&items,mesh:2,position:position+SIMD3(0,0.074,0),scale:SIMD3(0.033,0.015,0.033),color:SIMD3(0.22,0.24,0.20),material:SIMD4(0.6,0.5,0,9))
+            appendItem(to:&items,mesh:1,position:position+SIMD3(0,0.085,0),scale:SIMD3(0.012,0.004,0.012),
+                color:pulse ? SIMD3(0.9,0.43,0.06):SIMD3(0.12,0.065,0.025),material:SIMD4(0.4,0,pulse ? 1.1:0,0),shadow:false)
+        }
+        noisePropInstances=items.count-start
+        assert(noisePropInstances<=NoiseEmitterState.maximumCount*4+NoiseDecoyState.maximumCount*4)
     }
 
     private func soldierWeapon(_ enemy: EnemyState, time: Double) -> [RenderItem] {

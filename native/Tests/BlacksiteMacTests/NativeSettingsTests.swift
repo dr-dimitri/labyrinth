@@ -6,6 +6,28 @@ import BlacksiteCore
 @MainActor
 @Suite(.serialized)
 struct NativeSettingsTests {
+    @Test func soundCaptionsAreOptionalPersistedAndIndependentOfVolume() throws {
+        try withDefaults { defaults in
+            var settings = NativeSettings(defaults: defaults)
+            #expect(settings.soundCaptions)
+            settings.effectsVolume = 0; settings.soundCaptions = false
+            settings.save(defaults: defaults)
+            let loaded = NativeSettings(defaults: defaults)
+            #expect(!loaded.soundCaptions && loaded.effectsVolume == 0)
+            let view = NativeSettingsView(settings: loaded)
+            let content = try #require(view.tabs.tabViewItems.first?.view)
+            let checkbox = try #require(content.subviews.compactMap { $0 as? NSButton }.first { $0.title.contains("Geräusche mit Richtung") })
+            #expect(checkbox.state == .off)
+            checkbox.performClick(nil)
+            #expect(view.editedSettings().soundCaptions && view.editedSettings().effectsVolume == 0)
+            #expect(!NativeSettings(defaults: defaults).soundCaptions)
+            #expect(content.bounds.contains(checkbox.frame))
+            for field in content.subviews.compactMap({ $0 as? NSTextField }) {
+                #expect(!checkbox.frame.intersects(field.frame))
+            }
+        }
+    }
+
     private func withDefaults(_ body: (UserDefaults) throws -> Void) rethrows {
         let name = "Blacksite.SettingsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

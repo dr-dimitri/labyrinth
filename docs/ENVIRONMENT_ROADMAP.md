@@ -16,7 +16,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #16 | Gemeinsame Kartendefinitionen | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
 | #17 | Vegetation und Untergrund | Umgesetzt, Review/Tests und Bildprüfung bestanden |
 | #18 | Geländeabhängiger Tarnanzug | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
-| #19 | Geräusche und Ablenkung | Offen |
+| #19 | Geräusche und Ablenkung | Umgesetzt, Review/Tests, nativer Audiomix und Bilder bestanden |
 | #20 | Strom, Licht und Servicetore | Offen |
 | #23 | Lokale Kontaktmeldungen | Offen |
 | #26 | Umgebung und Extraktionsentscheidung | Offen |
@@ -133,3 +133,38 @@ Missionsstart mit drei Granaten, Verbrauch, Pause/Fortsetzen und Wiederholung
 nach echter Niederlage geprüft. Retry stellt Gesundheit und Startvorrat wieder
 her und behält das Tarnmuster. Anschließend wurde die ursprüngliche normale
 Kleidung mit vier Granaten wiederhergestellt. [Prüfdaten](native-environment/issue18.json).
+
+### #19 – Geräusche und Ablenkung
+
+Spieler und Gegner erzeugen Schritte anhand tatsächlicher Bodendistanz. Erde,
+Vegetation, Kies, Metall, Wasser, harte Flächen und Holz besitzen eigene Klänge
+und Hörweiten; Tempo und Haltung beeinflussen die Stärke. Quellort und Zeitpunkt
+eines Reizes bleiben eingefroren. Hindernisse dämpfen den Schall, Maschinen
+maskieren ihn am Hörer begrenzt. Nahe Schüsse und Explosionen bleiben auffällig.
+Die Westdachmaschine besitzt einen gemeinsamen An/Aus-Zustand für KI, Audio und
+Anzeige. Die Spielerbedienung des Generators folgt in #20.
+
+Zwei physische Geräuschköder senden jeweils höchstens sechs Impulse in zwölf
+Simulationssekunden. Frischer bestätigter Kontakt/Beschuss hat Vorrang. Die
+Standardtaste F ist frei belegbar; ältere eigene Belegungen bleiben erhalten.
+Optionale Richtungstexte und VoiceOver nennen nur tatsächlich hörbare Quellen.
+Der Audioregler verändert keine KI-Regeln. Grenzen: 64 gespeicherte Hörreize,
+zwei aktive Köder, vier Maschinen, 16 Einmalstimmen und vier Maschinenloops.
+Die Materialklänge werden einmalig vorberechnet.
+
+Unabhängiges Core-/Audio-/UI-/Bildreview bestanden. Korrigiert wurden unter die
+Auflage geratene Landegeräuschquellen, falsche Geräuschvererbung unter Straßen
+und die bisher festen Blacksite-Grenzen der Granatenphysik. Neue Karten nutzen
+nun ihre eigenen Grenzen. Ein Patrouillentest wurde korrigiert: Die ursprüngliche
+Wache stoppte nach Sichtkontakt korrekt vor dem nächsten Schritt.
+
+Validierung: 137 Core-Tests bestehen nach allen Korrekturen; alle 106 gemeldeten
+Mac-Tests bestehen, einschließlich zwei ausdrücklich aktivierter AVAudioEngine-
+Offlineprüfungen für tatsächliches PCM, getrennte Busse, Limiter, Maschinen,
+Pause/Mute/Aus/Reset. Die optionale Metal-Texturuploadprüfung war dabei nicht
+aktiviert. Drei Metal-validierte Bilder zeigen Maschine an/aus und den auf dem
+Dach geworfenen Köder; Zustand, Auflage und Schatten wurden unabhängig geprüft.
+Dies ist keine Hörprobe über die Lautsprecher des Macs. Der optimierte Test mit
+zwölf Gegnern misst 8,90 µs pro Simulationsschritt (fünf deterministische Läufe),
+gegenüber 8,64 µs im Ausgangsstand; das ist keine Gesamtbildrate.
+[Prüfdaten](native-environment/issue19.json).

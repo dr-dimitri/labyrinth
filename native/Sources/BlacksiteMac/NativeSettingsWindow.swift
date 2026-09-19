@@ -84,6 +84,7 @@ final class NativeSettingsView: NSView {
     private let original: NativeSettings
     private let difficulty = NSPopUpButton(), quality = NSPopUpButton(), frameRate = NSPopUpButton()
     private let music = NSSlider(), effects = NSSlider()
+    private let soundCaptions = NSButton(checkboxWithTitle: "Geräusche mit Richtung als Text anzeigen", target: nil, action: nil)
     private let sensitivity = NSSlider(), ads = NSSlider(), scope = NSSlider()
     private let aimMode = NSPopUpButton(), sprintMode = NSPopUpButton()
     private let invert = NSButton(checkboxWithTitle: "Y-Achse der Maus invertieren", target: nil, action: nil)
@@ -123,6 +124,7 @@ final class NativeSettingsView: NSView {
         value.highQuality = quality.indexOfSelectedItem == 1
         value.fps = frameRate.indexOfSelectedItem == 1 ? 120 : 60
         value.musicVolume = music.floatValue; value.effectsVolume = effects.floatValue
+        value.soundCaptions = soundCaptions.state == .on
         value.sensitivity = sensitivity.floatValue; value.adsSensitivity = ads.floatValue; value.scopeSensitivity = scope.floatValue
         value.aimMode = aimMode.indexOfSelectedItem == 1 ? .toggle : .hold
         value.sprintMode = sprintMode.indexOfSelectedItem == 1 ? .toggle : .hold
@@ -188,8 +190,12 @@ final class NativeSettingsView: NSView {
         label("Musik", y: 143, in: content)
         slider(music, value: settings.musicVolume, range: 0...1, y: 143, title: "Musiklautstärke", in: content)
         label("Effekte und Warnungen", y: 91, in: content)
+        soundCaptions.state = settings.soundCaptions ? .on : .off
+        soundCaptions.frame = NSRect(x: 20, y: 48, width: 550, height: 24)
+        soundCaptions.setAccessibilityHelp("Zeigt nur tatsächlich hörbare Geräusche, auch bei stummgeschalteter Ausgabe.")
+        content.addSubview(soundCaptions)
         slider(effects, value: settings.effectsVolume, range: 0...1, y: 91, title: "Effektlautstärke", in: content)
-        label("Änderungen werden erst mit Speichern übernommen.", y: 33, width: 560, in: content, secondary: true)
+        label("Änderungen werden erst mit Speichern übernommen.", y: 18, width: 560, in: content, secondary: true)
     }
     private func makeMouseTab(_ settings: NativeSettings) {
         let content = addTab("Maus")

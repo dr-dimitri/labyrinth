@@ -164,6 +164,7 @@ public typealias MapVisibilityVolume = EnvironmentZone
 
 public struct EnvironmentSample: Sendable {
     public let surfaceMaterial: SurfaceMaterial
+    public let soundSurface: SurfaceSound
     public let camouflageGround: CamouflageGround
     public let foliageDensity: Float
     public let groundHeight: Float
@@ -205,7 +206,16 @@ extension CombatSimulation {
                 if weight > 0, abs(point.y - ground) <= 0.2 { camouflage = .vegetation }
             }
         }
-        return EnvironmentSample(surfaceMaterial: material, camouflageGround: camouflage, foliageDensity: min(1, density),
+        var sound = SurfaceSound.fallback(material)
+        if owner == nil {
+            if let road = map.roads.last(where: { $0.contains(x: point.x, z: point.z) }) {
+                sound = road.soundSurface ?? SurfaceSound.fallback(road.material)
+            } else {
+                sound = map.environment.groundRegions.last(where: { $0.contains(x: point.x, z: point.z) })?.soundSurface ??
+                    (camouflage == .vegetation ? .vegetation : sound)
+            }
+        }
+        return EnvironmentSample(surfaceMaterial: material, soundSurface: sound, camouflageGround: camouflage, foliageDensity: min(1, density),
                                  groundHeight: ground, supportHeight: floor, supportingObstacleID: owner?.id)
     }
 

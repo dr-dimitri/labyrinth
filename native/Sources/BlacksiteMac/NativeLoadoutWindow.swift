@@ -57,7 +57,7 @@ final class NativeLoadoutView: NSView {
     @objc private func cancel() { onCancel?() }
     private func updatePreview() {
         detail.stringValue = NativeCamouflagePresentation.description(selectedPattern)
-        inventory.stringValue = "\(previewLoadout.fragmentationGrenades) Splittergranaten\nAR-4: \(WeaponKind.rifle.capacity) + \(WeaponKind.rifle.initialReserve) Schuss  ·  M82: \(WeaponKind.sniper.capacity) + \(WeaponKind.sniper.initialReserve) Schuss"
+        inventory.stringValue = "\(previewLoadout.fragmentationGrenades) Splittergranaten  ·  \(previewLoadout.noiseDecoys) Geräuschköder\nAR-4: \(WeaponKind.rifle.capacity) + \(WeaponKind.rifle.initialReserve) Schuss  ·  M82: \(WeaponKind.sniper.capacity) + \(WeaponKind.sniper.initialReserve) Schuss"
         inventory.setAccessibilityLabel("Startvorrat: " + inventory.stringValue)
     }
 }
