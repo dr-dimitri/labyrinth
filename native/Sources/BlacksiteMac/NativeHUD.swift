@@ -73,7 +73,13 @@ final class GameHUDView: NSView {
         if let c = coordinator {
             let s = c.simulation
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
-            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)).")
+            let damage = c.combatFeedback.activeDamage(at: s.elapsed).map {
+                "Beschuss \(ThreatBearing(source: $0.position, listener: s.eyePosition, yaw: s.player.yaw).label)"
+            }
+            let grenades = CombatFeedback.nearbyGrenades(s).map {
+                "Granate \(ThreatBearing(source: $0.position, listener: s.eyePosition, yaw: s.player.yaw).label), \(String(format: "%.1f", $0.fuse)) Sekunden"
+            }
+            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))")
         }
     }
 
@@ -243,9 +249,7 @@ final class GameHUDView: NSView {
             panelText("KANTE GREIFEN", detail: "", y: h * 0.65)
             fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 41, width: 250 * CGFloat(progress), height: 2), accent)
         }
-        if let grenade = s.grenades.filter({ simd_distance($0.position, p.position) < 8 }).min(by: { $0.fuse < $1.fuse }) {
-            text(String(format: "◈ GRANATE IN DER NÄHE  %.1f s", grenade.fuse), x: w / 2 - 210, y: h * 0.74, size: 11, color: accent, width: 420, alignment: .center, mono: true)
-        }
+        drawThreats(c)
         if !scoped && w > 1000 { text("G  Granate     C  Hinlegen     LEER  Springen     1 / 2  Waffen", x: w / 2 - 290, y: h - 31, size: 9, color: muted, width: 580, alignment: .center, mono: true) }
         if now < c.toastUntil { panelText(c.toastText, detail: "", y: h - 228) }
         if c.showPerformance { text(c.performanceText, x: w / 2 - 200, y: h - 54, size: 9, color: muted, width: 400, alignment: .center, mono: true) }
@@ -255,6 +259,52 @@ final class GameHUDView: NSView {
             NSGradient(starting: red, ending: .clear)?.draw(in: NSRect(x: 0, y: 0, width: 95, height: h), angle: 0)
             NSGradient(starting: .clear, ending: red)?.draw(in: NSRect(x: w - 95, y: 0, width: 95, height: h), angle: 0)
         }
+    }
+
+    private func drawThreats(_ c: GameCoordinator) {
+        let s = c.simulation
+        let cues = c.combatFeedback.activeDamage(at: s.elapsed)
+        for cue in cues {
+            let bearing = ThreatBearing(source: cue.position, listener: s.eyePosition, yaw: s.player.yaw)
+            threatArrow(bearing.direction, radius: 91, color: NSColor(hex: 0xf26357), label: nil)
+        }
+        if let cue = cues.last {
+            let bearing = ThreatBearing(source: cue.position, listener: s.eyePosition, yaw: s.player.yaw)
+            threatText("BESCHUSS · " + bearing.label, y: bounds.midY - 139, color: ink)
+        }
+        for (index, grenade) in CombatFeedback.nearbyGrenades(s).enumerated() {
+            let bearing = ThreatBearing(source: grenade.position, listener: s.eyePosition, yaw: s.player.yaw)
+            // Distinct numbered symbols keep overlapping grenade directions identifiable.
+            threatArrow(bearing.direction, radius: CGFloat(125 + index * 19), color: accent, label: "\(index + 1)")
+            threatText(String(format: "◈ %d · %@ · %.1f s", index + 1, bearing.label, grenade.fuse),
+                       y: bounds.height * 0.75 + CGFloat(index * 21), color: ink)
+        }
+    }
+
+    private func threatArrow(_ direction: SIMD2<Float>, radius: CGFloat, color: NSColor, label: String?) {
+        guard simd_length_squared(direction) > 0.01 else { return }
+        let d = NSPoint(x: CGFloat(direction.x), y: CGFloat(direction.y))
+        let tip = NSPoint(x: bounds.midX + d.x * radius, y: bounds.midY + d.y * radius)
+        let path = NSBezierPath()
+        path.move(to: tip)
+        path.line(to: NSPoint(x: tip.x - d.x * 14 - d.y * 7, y: tip.y - d.y * 14 + d.x * 7))
+        path.line(to: NSPoint(x: tip.x - d.x * 10, y: tip.y - d.y * 10))
+        path.line(to: NSPoint(x: tip.x - d.x * 14 + d.y * 7, y: tip.y - d.y * 14 - d.x * 7))
+        path.close()
+        NSColor.black.setStroke(); path.lineWidth = 5; path.stroke()
+        color.setFill(); path.fill()
+        ink.setStroke(); path.lineWidth = 1; path.stroke()
+        if let label {
+            let x = tip.x - d.x * 26 - 9, y = tip.y - d.y * 26 - 9
+            fill(NSRect(x: x, y: y, width: 18, height: 18), NSColor.black.withAlphaComponent(0.8))
+            text(label, x: x, y: y + 1, size: 11, width: 18, alignment: .center, mono: true)
+        }
+    }
+
+    private func threatText(_ value: String, y: CGFloat, color: NSColor) {
+        let width: CGFloat = 310
+        fill(NSRect(x: bounds.midX - width / 2, y: y - 2, width: width, height: 19), NSColor.black.withAlphaComponent(0.8))
+        text(value, x: bounds.midX - width / 2, y: y, size: 10, color: color, width: width, alignment: .center, mono: true)
     }
 
     private func drawScope() {

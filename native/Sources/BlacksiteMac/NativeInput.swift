@@ -32,7 +32,8 @@ final class NativeGameView: MTKView {
 struct NativeSettings {
     var difficulty: Difficulty = .normal
     var highQuality = true
-    var volume: Float = 0.45
+    var musicVolume: Float = 0.45
+    var effectsVolume: Float = 0.45
     var sensitivity: Float = 0.0023
     var fps = 60
 
@@ -41,14 +42,17 @@ struct NativeSettings {
                                     "native.volume": 0.45, "native.sensitivity": 0.0023, "native.fps": 60])
         difficulty = Difficulty(rawValue: defaults.string(forKey: "native.difficulty") ?? "normal") ?? .normal
         highQuality = defaults.bool(forKey: "native.highQuality")
-        volume = max(0, min(1, defaults.float(forKey: "native.volume")))
+        let legacyVolume = defaults.float(forKey: "native.volume")
+        musicVolume = max(0, min(1, defaults.object(forKey: "native.musicVolume") == nil ? legacyVolume : defaults.float(forKey: "native.musicVolume")))
+        effectsVolume = max(0, min(1, defaults.object(forKey: "native.effectsVolume") == nil ? legacyVolume : defaults.float(forKey: "native.effectsVolume")))
         sensitivity = max(0.0006, min(0.006, defaults.float(forKey: "native.sensitivity")))
         fps = defaults.integer(forKey: "native.fps") == 120 ? 120 : 60
     }
     func save(defaults: UserDefaults = .standard) {
         defaults.set(difficulty.rawValue, forKey: "native.difficulty")
         defaults.set(highQuality, forKey: "native.highQuality")
-        defaults.set(volume, forKey: "native.volume")
+        defaults.set(musicVolume, forKey: "native.musicVolume")
+        defaults.set(effectsVolume, forKey: "native.effectsVolume")
         defaults.set(sensitivity, forKey: "native.sensitivity")
         defaults.set(fps, forKey: "native.fps")
     }

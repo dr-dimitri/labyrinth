@@ -1,32 +1,57 @@
 import AVFoundation
+import AudioToolbox
 import Foundation
 import simd
 import BlacksiteCore
 
 /// Precomputed native PCM voices: no allocation or synthesis in the audio callback.
 final class NativeAudio {
-    private let engine = AVAudioEngine()
+    private let engine: AVAudioEngine
     private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
     private var voices: [AVAudioPlayerNode] = []
     private let atmosphere = AVAudioPlayerNode()
     private let combat = AVAudioPlayerNode()
+    private let musicBus = AVAudioMixerNode()
+    private let effectsBus = AVAudioMixerNode()
+    private let masterBus = AVAudioMixerNode()
+    private let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+        componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
     private var buffers: [String: AVAudioPCMBuffer] = [:]
     private var nextVoice = 0
     private var started = false
     private var paused = true
     private var stepClock: Float = 0
-    private var volume: Float = 0.45
+    private var levels = NativeAudioLevels()
     private var threat: Float = 0
     private var alertCooldown: Float = 0
 
-    init() {
+    init(engine: AVAudioEngine = AVAudioEngine()) {
+        self.engine = engine
+        let stereo = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
+        engine.attach(masterBus)
+        for node in [musicBus, effectsBus] {
+            engine.attach(node); engine.connect(node, to: masterBus, format: stereo)
+        }
+        engine.attach(limiter)
+        // Both independently controlled buses pass through one master limiter.
+        // Leave the main mixer's hardware-format negotiation intact, and keep
+        // a little output headroom after limiting synchronized combat transients.
+        engine.connect(masterBus, to: limiter, format: stereo)
+        engine.connect(limiter, to: engine.mainMixerNode, format: stereo)
+        for (parameter, value) in [(kLimiterParam_AttackTime, Float(0.001)),
+                                   (kLimiterParam_DecayTime, Float(0.06)),
+                                   (kLimiterParam_PreGain, Float(0))] {
+            let status = AudioUnitSetParameter(limiter.audioUnit, parameter, kAudioUnitScope_Global, 0, value, 0)
+            if status != noErr { NSLog("Blacksite audio limiter parameter: %d", status) }
+        }
         for _ in 0..<16 {
             let voice = AVAudioPlayerNode()
-            engine.attach(voice); engine.connect(voice, to: engine.mainMixerNode, format: format)
+            engine.attach(voice); engine.connect(voice, to: effectsBus, format: format)
             voices.append(voice)
         }
         for node in [atmosphere, combat] {
-            engine.attach(node); engine.connect(node, to: engine.mainMixerNode, format: format)
+            engine.attach(node); engine.connect(node, to: musicBus, format: format)
         }
         buffers["rifle"] = sound(duration: 0.16, low: 140, gain: 0.28, decay: 34)
         buffers["sniper"] = sound(duration: 0.6, low: 72, gain: 0.48, decay: 10)
@@ -39,14 +64,18 @@ final class NativeAudio {
         buffers["notice"] = tone(duration: 0.35, frequency: 440, gain: 0.075)
         buffers["ambient"] = music(combat: false)
         buffers["combat"] = music(combat: true)
-        engine.mainMixerNode.outputVolume = volume
+        musicBus.outputVolume = levels.music; effectsBus.outputVolume = levels.effects
+        atmosphere.volume = 0.55; combat.volume = 0
+        masterBus.outputVolume = 0.7; engine.mainMixerNode.outputVolume = 0.9
         engine.prepare()
     }
 
-    func setVolume(_ value: Float) {
-        volume = max(0, min(1, value)); engine.mainMixerNode.outputVolume = volume * 0.7
-        if volume == 0 { engine.pause() }
-        else if !paused { start() }
+    func setVolumes(music: Float, effects: Float) {
+        levels = NativeAudioLevels(music: music, effects: effects)
+        musicBus.outputVolume = levels.music; effectsBus.outputVolume = levels.effects
+        if levels.effects == 0 { voices.forEach { $0.stop() } }
+        if levels.shouldRun(paused: paused) { start() }
+        else { engine.pause() }
     }
 
     func setPaused(_ value: Bool) {
@@ -54,7 +83,7 @@ final class NativeAudio {
         if value {
             voices.forEach { $0.stop() }
             engine.pause()
-        } else if volume > 0 { start() }
+        } else if levels.shouldRun(paused: paused) { start() }
     }
 
     private func start() {
@@ -71,14 +100,21 @@ final class NativeAudio {
         }
     }
 
-    func handle(_ events: [GameEvent]) {
+    func handle(_ events: [GameEvent], simulation: CombatSimulation) {
+        guard !paused, levels.effects > 0 else { return }
         for event in events {
             switch event.kind {
             case .shot: play(event.weapon == .sniper ? "sniper" : "rifle")
-            case .enemyShot: play("enemy")
+            case .enemyShot:
+                let spatial = NativeSpatialAudio.sample(.enemyShot, source: event.position,
+                    listener: simulation.eyePosition, yaw: simulation.player.yaw)
+                play("enemy", gain: spatial.gain, pan: spatial.pan)
             case .enemyAlert:
                 if alertCooldown <= 0 { play("notice", gain: 0.6); alertCooldown = 1.5 }
-            case .explosion: play("explosion")
+            case .explosion:
+                let spatial = NativeSpatialAudio.sample(.explosion, source: event.position,
+                    listener: simulation.eyePosition, yaw: simulation.player.yaw)
+                play("explosion", gain: spatial.gain, pan: spatial.pan)
             case .damage: play("damage")
             case .reload: play("reload")
             case .land: play("step")
@@ -90,7 +126,7 @@ final class NativeAudio {
 
     func update(delta: Float, simulation: CombatSimulation) {
         alertCooldown = max(0, alertCooldown - max(0, delta))
-        guard !paused, volume > 0 else { return }
+        guard levels.shouldRun(paused: paused) else { return }
         let target: Float = simulation.enemies.contains(where: { $0.health > 0 && $0.seesPlayer }) ? 1 : 0
         threat += (target - threat) * min(1, delta * 2)
         atmosphere.volume = 0.55 - threat * 0.3; combat.volume = threat * 0.45
@@ -104,23 +140,21 @@ final class NativeAudio {
     }
 
     func handleShellImpacts(_ impacts: [ShellImpact], simulation: CombatSimulation) {
-        guard !paused, volume > 0 else { return }
-        let right = SIMD3<Float>(cos(simulation.player.yaw), 0, -sin(simulation.player.yaw))
+        guard !paused, levels.effects > 0 else { return }
         // Limit simultaneous clicks during bursts and attenuate distant impacts.
         for impact in impacts.prefix(3) {
-            let offset = impact.position - simulation.eyePosition
-            let distance = simd_length(offset)
-            guard distance < 12, impact.speed > 0.65 else { continue }
-            let gain = min(0.65, impact.speed * 0.10) / (1 + distance * distance * 0.12)
-            let pan = simd_dot(offset / max(0.1, distance), right) * 0.8
-            play("shell", gain: gain, pan: pan)
+            guard impact.speed > 0.65 else { continue }
+            let spatial = NativeSpatialAudio.sample(.shellImpact, source: impact.position,
+                listener: simulation.eyePosition, yaw: simulation.player.yaw)
+            play("shell", gain: min(0.65, impact.speed * 0.10) * spatial.gain, pan: spatial.pan)
         }
     }
 
     private func play(_ name: String, gain: Float = 1, pan: Float = 0) {
-        guard !paused, volume > 0, let buffer = buffers[name], engine.isRunning else { return }
+        guard !paused, levels.effects > 0, gain > 0, let buffer = buffers[name], engine.isRunning else { return }
         let voice = voices[nextVoice]; nextVoice = (nextVoice + 1) % voices.count
-        voice.stop(); voice.volume = gain; voice.pan = pan; voice.scheduleBuffer(buffer); voice.play()
+        voice.stop(); voice.volume = max(0, min(1, gain)); voice.pan = max(-1, min(1, pan))
+        voice.scheduleBuffer(buffer); voice.play()
     }
 
     private func shellClink() -> AVAudioPCMBuffer {

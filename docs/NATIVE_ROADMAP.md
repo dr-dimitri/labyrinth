@@ -17,7 +17,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 1 | #12 Evakuierungshinweis | Umgesetzt und geprüft |
 | 2 | #7 Faire Sichtwahrnehmung | Umgesetzt und geprüft |
 | 3 | #8 Sichere Verstärkungen | Umgesetzt und geprüft |
-| 4 | #10 Richtungsfeedback und räumlicher Sound | Offen |
+| 4 | #10 Richtungsfeedback und räumlicher Sound | Umgesetzt und geprüft |
 | 5 | #1 Nahschatten | Offen |
 | 6 | #2 Ego-Waffen und Hände | Offen |
 | 7 | #3 Einschläge und Explosionen | Offen |
@@ -71,3 +71,22 @@ abgeschlossen; unnötige Hindernisprüfungen bei der Auswahl der nächsten
 Navigationszelle wurden dabei vermieden. Release-Kernbenchmark: Median 9,724 µs
 je 120-Hz-Schritt, fünf identische Prüfsummen bei je 60 simulierten Sekunden und
 zwölf Gegnern. Dies misst die Simulation, nicht die Gesamtbildrate.
+
+### #10 – Richtungsfeedback und räumlicher Sound
+
+Beschuss zeigt kurzlebige, kamerabezogene Pfeile mit Text; bis zu drei nahe
+Granaten erhalten nummerierte Richtungen und den echten Zünder-Countdown.
+Vertikale Gefahren werden als oben/unten bezeichnet. Hinweise funktionieren
+ohne Ton und ohne reine Farbcodierung, einschließlich Accessibility-Text.
+Pause friert ihre Simulationszeit ein; ein neuer Einsatz setzt sie zurück.
+Gegnerschüsse, Explosionen und Hülsen werden nach Richtung und Entfernung
+gemischt. Musik und Effekte besitzen unabhängig gespeicherte Regler mit Migration
+des bisherigen Lautstärkewertes. Ein gemeinsamer PeakLimiter schützt den Mix.
+
+Validierung: 87 reguläre Tests bestanden; zusätzlich echter Offline-Audiotest
+mit 16 gleichzeitigen Explosionen und einzeln stummgeschalteten Bussen bestanden.
+Der System-Audiotest benötigt `BLACKSITE_TEST_SYSTEM_AUDIO=1` und Zugriff auf die
+macOS-AudioUnits; die normalen Tests benötigen keine Audioausgabe.
+Unabhängiges Review abgeschlossen und den dabei gefundenen vertikalen
+Richtungsfehler behoben. Interaktive Bedienprüfung vorerst durch gesperrten Mac
+unterbrochen; vollständiger nativer Paketbuild und automatisierte Tests geprüft.

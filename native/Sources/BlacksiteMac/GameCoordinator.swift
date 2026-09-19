@@ -18,6 +18,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var bannerLabel = "", bannerTitle = "", bannerDetail = "", toastText = "", killText = ""
     var bannerUntil: Double = 0, toastUntil: Double = 0, hitUntil: Double = 0, killUntil: Double = 0, damageUntil: Double = 0
     var lastHitHeadshot = false
+    var combatFeedback = CombatFeedback()
     var showPerformance = false
     var performanceText = ""
     private var keys = Set<UInt16>()
@@ -42,7 +43,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         root.addSubview(view); root.addSubview(hud); window.contentView = root
         view.coordinator = self; hud.coordinator = self
         view.preferredFramesPerSecond = 30; view.delegate = self
-        audio.setVolume(settings.volume)
+        audio.setVolumes(music: settings.musicVolume, effects: settings.effectsVolume)
         hud.refresh()
         DispatchQueue.main.async { [weak self] in self?.initializeGraphics() }
     }
@@ -80,7 +81,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             simulation.step(deltaTime: delta, input: input)
             if simulation.elapsed > previousTime { pendingFire = false }
             let events = simulation.drainEvents()
-            renderer.handle(events: events, simulation: simulation); audio.handle(events); process(events)
+            renderer.handle(events: events, simulation: simulation); audio.handle(events, simulation: simulation); process(events)
             audio.update(delta: Float(delta), simulation: simulation)
         }
         renderer.draw(in: view, simulation: simulation, mode: mode, deltaTime: mode == .paused || mode == .result ? 0 : Float(delta))
@@ -98,7 +99,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func startMatch() {
         guard ready, window.attachedSheet == nil else { return }
         simulation = CombatSimulation(difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000))
-        yaw = 0; pitch = 0; renderer?.reset()
+        yaw = 0; pitch = 0; renderer?.reset(); combatFeedback.reset()
         banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
         toastUntil = 0; hitUntil = 0; killUntil = 0; damageUntil = 0
         setMode(.playing)
@@ -107,7 +108,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
-        renderer?.reset(); simulation = CombatSimulation()
+        renderer?.reset(); simulation = CombatSimulation(); combatFeedback.reset()
         bannerUntil = 0; toastUntil = 0; setMode(.menu)
     }
 
@@ -134,7 +135,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             switch event.kind {
             case .shot:
                 if event.amount > 0 { hitUntil = now + 0.14; lastHitHeadshot = event.headshot }
-            case .damage: damageUntil = now + 0.4
+            case .damage:
+                damageUntil = now + 0.4
+                combatFeedback.record(event, time: simulation.elapsed)
             case .kill:
                 killUntil = now + 1.6
                 killText = "\(event.headshot ? "KOPFTREFFER" : "ZIEL AUSGESCHALTET")  +\(Int(event.amount)) XP"
@@ -252,30 +255,34 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func showSettings() {
         guard window.attachedSheet == nil else { return }
         pause()
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 490, height: 390), styleMask: [.titled], backing: .buffered, defer: false)
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 490, height: 439), styleMask: [.titled], backing: .buffered, defer: false)
         panel.title = "Blacksite – Einstellungen"; panel.appearance = NSAppearance(named: .darkAqua)
         let content = panel.contentView!
         func label(_ value: String, y: CGFloat) {
-            let field = NSTextField(labelWithString: value); field.frame = NSRect(x: 28, y: y, width: 210, height: 23); field.font = .systemFont(ofSize: 13); content.addSubview(field)
+            let field = NSTextField(labelWithString: value); field.frame = NSRect(x: 28, y: y + 49, width: 210, height: 23); field.font = .systemFont(ofSize: 13); content.addSubview(field)
         }
         label("Schwierigkeit", y: 329)
-        let difficulty = NSPopUpButton(frame: NSRect(x: 255, y: 326, width: 205, height: 28)); difficulty.addItems(withTitles: ["Rekrut", "Operator", "Veteran"]); difficulty.selectItem(at: settings.difficulty == .easy ? 0 : settings.difficulty == .hard ? 2 : 1); content.addSubview(difficulty)
-        let note = NSTextField(labelWithString: "Schwierigkeit gilt ab dem nächsten Einsatz."); note.frame = NSRect(x: 28, y: 300, width: 420, height: 20); note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor; content.addSubview(note)
+        let difficulty = NSPopUpButton(frame: NSRect(x: 255, y: 375, width: 205, height: 28)); difficulty.addItems(withTitles: ["Rekrut", "Operator", "Veteran"]); difficulty.selectItem(at: settings.difficulty == .easy ? 0 : settings.difficulty == .hard ? 2 : 1); content.addSubview(difficulty)
+        let note = NSTextField(labelWithString: "Schwierigkeit gilt ab dem nächsten Einsatz."); note.frame = NSRect(x: 28, y: 349, width: 420, height: 20); note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor; content.addSubview(note)
         label("Grafikqualität", y: 256)
-        let quality = NSPopUpButton(frame: NSRect(x: 255, y: 253, width: 205, height: 28)); quality.addItems(withTitles: ["Ausgewogen", "Hoch"]); quality.selectItem(at: settings.highQuality ? 1 : 0); content.addSubview(quality)
+        let quality = NSPopUpButton(frame: NSRect(x: 255, y: 302, width: 205, height: 28)); quality.addItems(withTitles: ["Ausgewogen", "Hoch"]); quality.selectItem(at: settings.highQuality ? 1 : 0); content.addSubview(quality)
         label("Bildratenlimit", y: 207)
-        let frameRate = NSPopUpButton(frame: NSRect(x: 255, y: 204, width: 205, height: 28)); frameRate.addItems(withTitles: ["60 FPS – sparsam", "120 FPS – flüssig"]); frameRate.selectItem(at: settings.fps == 120 ? 1 : 0); content.addSubview(frameRate)
+        let frameRate = NSPopUpButton(frame: NSRect(x: 255, y: 253, width: 205, height: 28)); frameRate.addItems(withTitles: ["60 FPS – sparsam", "120 FPS – flüssig"]); frameRate.selectItem(at: settings.fps == 120 ? 1 : 0); content.addSubview(frameRate)
         label("Mausempfindlichkeit", y: 158)
-        let sensitivity = NSSlider(value: Double(settings.sensitivity), minValue: 0.0006, maxValue: 0.006, target: nil, action: nil); sensitivity.frame = NSRect(x: 255, y: 154, width: 205, height: 28); sensitivity.setAccessibilityLabel("Mausempfindlichkeit"); content.addSubview(sensitivity)
-        label("Lautstärke", y: 109)
-        let volume = NSSlider(value: Double(settings.volume), minValue: 0, maxValue: 1, target: nil, action: nil); volume.frame = NSRect(x: 255, y: 105, width: 205, height: 28); volume.setAccessibilityLabel("Lautstärke"); content.addSubview(volume)
+        let sensitivity = NSSlider(value: Double(settings.sensitivity), minValue: 0.0006, maxValue: 0.006, target: nil, action: nil); sensitivity.frame = NSRect(x: 255, y: 203, width: 205, height: 28); sensitivity.setAccessibilityLabel("Mausempfindlichkeit"); content.addSubview(sensitivity)
+        label("Musik", y: 109)
+        let music = NSSlider(value: Double(settings.musicVolume), minValue: 0, maxValue: 1, target: nil, action: nil); music.frame = NSRect(x: 255, y: 154, width: 205, height: 28); music.setAccessibilityLabel("Musiklautstärke"); content.addSubview(music)
+        label("Effekte und Warnungen", y: 60)
+        let effects = NSSlider(value: Double(settings.effectsVolume), minValue: 0, maxValue: 1, target: nil, action: nil); effects.frame = NSRect(x: 255, y: 105, width: 205, height: 28); effects.setAccessibilityLabel("Effektlautstärke"); content.addSubview(effects)
         let done = NativeButton("EINSTELLUNGEN SPEICHERN", primary: true) { [weak self, weak panel] in
             guard let self, let panel else { return }
             self.settings.difficulty = [Difficulty.easy, .normal, .hard][difficulty.indexOfSelectedItem]
             self.settings.highQuality = quality.indexOfSelectedItem == 1
             self.settings.fps = frameRate.indexOfSelectedItem == 1 ? 120 : 60
-            self.settings.volume = Float(volume.doubleValue); self.settings.sensitivity = Float(sensitivity.doubleValue)
-            self.settings.save(); self.renderer?.setQuality(self.settings.highQuality); self.audio.setVolume(self.settings.volume)
+            self.settings.musicVolume = Float(music.doubleValue); self.settings.effectsVolume = Float(effects.doubleValue)
+            self.settings.sensitivity = Float(sensitivity.doubleValue)
+            self.settings.save(); self.renderer?.setQuality(self.settings.highQuality)
+            self.audio.setVolumes(music: self.settings.musicVolume, effects: self.settings.effectsVolume)
             self.window.endSheet(panel); self.sheet = nil; self.hud.refresh(); self.view.setNeedsDisplay(self.view.bounds)
         }
         done.frame = NSRect(x: 28, y: 28, width: 432, height: 46); content.addSubview(done)
