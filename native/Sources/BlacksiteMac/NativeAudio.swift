@@ -17,6 +17,7 @@ final class NativeAudio {
     private var stepClock: Float = 0
     private var volume: Float = 0.45
     private var threat: Float = 0
+    private var alertCooldown: Float = 0
 
     init() {
         for _ in 0..<16 {
@@ -49,7 +50,7 @@ final class NativeAudio {
     }
 
     func setPaused(_ value: Bool) {
-        paused = value; stepClock = 0
+        paused = value; stepClock = 0; alertCooldown = 0
         if value {
             voices.forEach { $0.stop() }
             engine.pause()
@@ -75,6 +76,8 @@ final class NativeAudio {
             switch event.kind {
             case .shot: play(event.weapon == .sniper ? "sniper" : "rifle")
             case .enemyShot: play("enemy")
+            case .enemyAlert:
+                if alertCooldown <= 0 { play("notice", gain: 0.6); alertCooldown = 1.5 }
             case .explosion: play("explosion")
             case .damage: play("damage")
             case .reload: play("reload")
@@ -86,6 +89,7 @@ final class NativeAudio {
     }
 
     func update(delta: Float, simulation: CombatSimulation) {
+        alertCooldown = max(0, alertCooldown - max(0, delta))
         guard !paused, volume > 0 else { return }
         let target: Float = simulation.enemies.contains(where: { $0.health > 0 && $0.seesPlayer }) ? 1 : 0
         threat += (target - threat) * min(1, delta * 2)

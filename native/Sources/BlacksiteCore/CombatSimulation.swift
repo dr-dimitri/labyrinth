@@ -81,7 +81,8 @@ public final class CombatSimulation {
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
         for enemy in enemies {
-            brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02)
+            brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02,
+                                         patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
             nextID = max(nextID, enemy.id + 1)
         }
     }
@@ -233,11 +234,7 @@ public final class CombatSimulation {
         guard weapon.ammo > 0 else { reload(); return false }
         weapon.ammo -= 1; weapon.cooldown = activeWeapon.fireInterval; weapons[activeWeapon] = weapon
         lastShot = elapsed
-        for enemy in enemies where enemy.health > 0 && horizontalDistance(enemy.position, player.position) < 38 {
-            guard var brain = brains[enemy.id] else { continue }
-            brain.lastKnown = player.position; brain.memory = 7; brain.alert = true
-            brains[enemy.id] = brain
-        }
+        hearNoise(at: player.position, radius: 38)
         let spread: Float = isAiming ? (activeWeapon == .sniper ? 0.0002 : 0.0017) : (activeWeapon == .sniper ? 0.021 : 0.009)
         let direction = viewDirection(yaw: player.yaw + (random() - 0.5) * spread,
                                       pitch: player.pitch + (random() - 0.5) * spread)
@@ -258,19 +255,20 @@ public final class CombatSimulation {
             hitPoint = muzzle + corrected * hit.distance
         }
         let damage = activeWeapon.damage * (hit.headshot ? 2.4 : 1)
-        if let index = hit.enemyIndex { damageEnemy(index: index, amount: damage, headshot: hit.headshot) }
+        if let index = hit.enemyIndex { damageEnemy(index: index, amount: damage, headshot: hit.headshot, from: eye) }
         if let index = hit.obstacleIndex { damageCover(index: index, amount: activeWeapon.damage) }
         emit(GameEvent(kind: .shot, position: muzzle, endPosition: hitPoint,
                        amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon))
         return true
     }
 
-    func damageEnemy(index: Int, amount: Float, headshot: Bool = false) {
+    func damageEnemy(index: Int, amount: Float, headshot: Bool = false, from source: SIMD3<Float>? = nil) {
         guard enemies.indices.contains(index), enemies[index].health > 0, amount.isFinite, amount > 0 else { return }
         let id = enemies[index].id
         enemies[index].health = max(0, enemies[index].health - amount)
         if var brain = brains[id] {
-            brain.alert = true; brain.hurt = 0.3; brain.suppression = 1.8; brain.lastKnown = player.position; brain.memory = 6
+            investigate(source ?? player.position, enemy: &enemies[index], brain: &brain)
+            brain.hurt = 0.3; brain.suppression = 1.8
             brains[id] = brain
         }
         if enemies[index].health <= 0 {
@@ -326,10 +324,11 @@ public final class CombatSimulation {
         var pending = [position], next = 0
         while next < pending.count {
             let center = pending[next] + SIMD3<Float>(0, 0.18, 0); next += 1
+            hearNoise(at: center, radius: 30)
             for index in enemies.indices where enemies[index].health > 0 {
                 let target = EnemyPose(enemies[index]).bodyCenter
                 let distance = simd_distance(center, target)
-                if distance < 8 && clearLine(center, target) { damageEnemy(index: index, amount: 220 * (1 - distance / 8)) }
+                if distance < 8 && clearLine(center, target) { damageEnemy(index: index, amount: 220 * (1 - distance / 8), from: center) }
             }
             let distance = simd_distance(center, eyePosition)
             if distance < 8 && clearLine(center, eyePosition) { damagePlayer(amount: 145 * (1 - distance / 8), from: center) }
@@ -536,7 +535,11 @@ public final class CombatSimulation {
             guard let position else { continue }
             let enemy = EnemyState(id: allocateID(), position: position, health: Float(90 + wave * 10))
             enemies.append(enemy)
-            var brain = EnemyBrain(cooldown: 2 + Float(offset) * 0.35, sightTimer: Float(offset % 5) * 0.02)
+            // Reinforcements approach a fixed staging area, not an unseen player.
+            let staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+            var brain = EnemyBrain(cooldown: 2 + Float(offset) * 0.35, sightTimer: Float(offset % 5) * 0.02,
+                                   patrolAnchor: staging, patrolYaw: enemy.yaw)
+            brain.patrolGoal = staging; brain.watchTimer = 0; brain.arriving = true
             brain.side = offset.isMultiple(of: 2) ? -1 : 1
             brains[enemy.id] = brain
         }
@@ -557,7 +560,17 @@ private struct EnemyBrain {
     var hurt: Float = 0
     var alert = false
     var lastKnown: SIMD3<Float>?
-    var memory: Float = 0
+    var visualContact = false
+    var searchAge: Float = 0
+    var searchTimer: Float = 0
+    var searchingInPlace = false
+    var stuckTime: Float = 0
+    var patrolAnchor: SIMD3<Float>
+    var patrolYaw: Float
+    var patrolGoal: SIMD3<Float>?
+    var patrolIndex = 0
+    var watchTimer: Float = 2.2
+    var arriving = false
     var path: [SIMD3<Float>] = []
     var pathIndex = 0
     var pathTimer: Float = 0
@@ -621,7 +634,7 @@ extension CombatSimulation {
         return result.reversed()
     }
 
-    private func nearestCover(for position: SIMD3<Float>) -> SIMD3<Float>? {
+    private func nearestCover(for position: SIMD3<Float>, threat: SIMD3<Float>) -> SIMD3<Float>? {
         var result: SIMD3<Float>?, best: Float = 13
         for box in obstacles where !box.destroyed && box.size.y > 0.8 {
             let candidates = [SIMD3(box.minimum.x - 0.75, 0, box.position.z),
@@ -632,7 +645,7 @@ extension CombatSimulation {
                 let candidate = groundedPoint(raw), distance = horizontalDistance(position, candidate)
                 if distance < best && !blocked(candidate, height: 1.96, radius: 0.4) &&
                     terrain.normal(x: candidate.x, z: candidate.z).y >= 0.72 &&
-                    !clearLine(candidate + SIMD3(0, 0.98, 0), eyePosition) {
+                    !clearLine(candidate + SIMD3(0, 0.98, 0), threat) {
                     result = candidate; best = distance
                 }
             }
@@ -695,30 +708,148 @@ extension CombatSimulation {
         } else { enemy.grounded = false }
     }
 
+    private func investigate(_ source: SIMD3<Float>, enemy: inout EnemyState, brain: inout EnemyBrain) {
+        guard !enemy.seesPlayer else { return }
+        let target = groundedPoint(source)
+        // Automatic fire at one location must not trigger a BFS for every bullet.
+        if enemy.awareness == .watching || brain.searchingInPlace ||
+            brain.lastKnown.map({ horizontalDistance($0, target) > 2 }) != false { brain.pathTimer = 0 }
+        enemy.awareness = .investigating; enemy.windup = 0
+        brain.alert = true; brain.lastKnown = target
+        brain.searchAge = 0; brain.searchTimer = 0; brain.searchingInPlace = false
+        brain.stuckTime = 0; brain.patrolGoal = nil
+    }
+
+    private func hearNoise(at source: SIMD3<Float>, radius: Float) {
+        for index in enemies.indices where enemies[index].health > 0 && horizontalDistance(enemies[index].position, source) < radius {
+            guard var brain = brains[enemies[index].id] else { continue }
+            investigate(source, enemy: &enemies[index], brain: &brain)
+            brains[enemies[index].id] = brain
+        }
+    }
+
+    private func updateAwareness(_ enemy: inout EnemyState, brain: inout EnemyBrain, dt: Float) {
+        if brain.sightTimer <= 0 {
+            let offset = eyePosition - EnemyPose(enemy).eyePosition
+            let horizontal = sqrt(offset.x * offset.x + offset.z * offset.z)
+            let forward = SIMD2<Float>(sin(enemy.yaw), cos(enemy.yaw))
+            // Local +Z is forward. A cheap 120-degree cone test precedes raycasts.
+            let inCone = horizontal < 0.05 || simd_dot(forward, SIMD2(offset.x, offset.z)) >= horizontal * 0.5
+            brain.visualContact = horizontal < 48 && inCone && clearLine(EnemyPose(enemy).eyePosition, eyePosition)
+            brain.sightTimer = 0.1
+            if brain.visualContact {
+                let reaction: Float = (difficulty == .easy ? 0.8 : difficulty == .hard ? 0.4 : 0.6) *
+                    (horizontal < 8 ? 0.7 : 1) * (player.prone ? 1.25 : 1)
+                enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction)
+                if enemy.detectionProgress >= 1 {
+                    if enemy.awareness != .engaged {
+                        emit(GameEvent(kind: .enemyAlert, position: enemy.position, id: enemy.id))
+                    }
+                    enemy.awareness = .engaged; enemy.seesPlayer = true
+                    brain.lastKnown = player.position; brain.searchAge = 0; brain.searchingInPlace = false
+                    brain.stuckTime = 0
+                }
+            } else {
+                enemy.detectionProgress = max(0, enemy.detectionProgress - 0.2)
+                if enemy.seesPlayer || enemy.awareness == .engaged {
+                    enemy.awareness = .searching; enemy.detectionProgress = 0
+                    enemy.windup = 0; brain.holdTimer = 0; brain.pathTimer = 0
+                    brain.searchAge = 0; brain.searchingInPlace = false; brain.stuckTime = 0
+                }
+                enemy.seesPlayer = false
+            }
+        }
+        brain.alert = enemy.awareness != .watching
+        if brain.alert && !enemy.seesPlayer {
+            brain.searchAge += dt
+            if !brain.searchingInPlace && (brain.lastKnown.map { horizontalDistance(enemy.position, $0) < 1.1 } == true ||
+                                          brain.stuckTime > 4 || brain.searchAge > 30) {
+                brain.searchingInPlace = true; brain.searchTimer = 4
+                brain.coverGoal = nil; enemy.awareness = .searching
+            }
+            if brain.searchingInPlace {
+                brain.searchTimer -= dt
+                if brain.searchTimer <= 0 && !brain.visualContact {
+                    enemy.awareness = .watching; brain.alert = false; brain.lastKnown = nil
+                    brain.searchingInPlace = false; brain.patrolAnchor = enemy.position
+                    brain.patrolYaw = enemy.yaw; brain.patrolGoal = nil; brain.watchTimer = 1.2
+                    brain.coverGoal = nil; brain.path.removeAll(keepingCapacity: true)
+                }
+            }
+        }
+    }
+
+    private func turn(_ enemy: inout EnemyState, toward yaw: Float, dt: Float) {
+        let difference = atan2(sin(yaw - enemy.yaw), cos(yaw - enemy.yaw))
+        enemy.yaw += clamp(difference, -2.8 * dt, 2.8 * dt)
+    }
+
+    private func moveEnemy(_ enemy: inout EnemyState, brain: inout EnemyBrain, toward goal: SIMD3<Float>,
+                           running: Bool, dt: Float) {
+        if brain.pathTimer <= 0 {
+            brain.path = findPath(from: enemy.position, to: goal); brain.pathIndex = 0
+            brain.pathTimer = 1.2 + random() * 0.6
+        }
+        let next = horizontalDistance(enemy.position, goal) < 2.6 ? goal :
+            (brain.pathIndex < brain.path.count ? brain.path[brain.pathIndex] : enemy.position)
+        let length = horizontalDistance(enemy.position, next)
+        if length < 0.2 { brain.pathIndex += 1; return }
+        startUsefulJump(&enemy, brain: &brain, toward: next)
+        enemy.isRunning = running && enemy.crouchAmount < 0.3
+        let speed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
+        let direction = SIMD3<Float>(next.x - enemy.position.x, 0, next.z - enemy.position.z) / length
+        enemy.position = moved(enemy.position, delta: direction * min(length, dt * speed),
+                               height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
+        if !enemy.seesPlayer || enemy.isRunning { turn(&enemy, toward: atan2(direction.x, direction.z), dt: dt) }
+    }
+
+    private func patrol(_ enemy: inout EnemyState, brain: inout EnemyBrain, dt: Float) {
+        guard !brain.visualContact else { return }
+        if let goal = brain.patrolGoal, horizontalDistance(enemy.position, goal) < 0.7 || brain.stuckTime > 3 {
+            brain.patrolGoal = nil; brain.watchTimer = 2.2 + Float(enemy.id % 4) * 0.3
+            brain.stuckTime = 0; brain.arriving = false
+        }
+        if brain.patrolGoal == nil {
+            // Guards scan while pausing between short routes, including behind them.
+            brain.stuckTime = 0
+            enemy.yaw += dt * 0.65
+            brain.watchTimer -= dt
+            if brain.watchTimer <= 0 {
+                for _ in 0..<6 {
+                    brain.patrolIndex += 1
+                    let angle = brain.patrolYaw + Float(brain.patrolIndex) * 2.39996
+                    let candidate = groundedPoint(brain.patrolAnchor + SIMD3(sin(angle) * 5, 0, cos(angle) * 5))
+                    guard !blocked(candidate, height: 1.96, radius: 0.4), terrain.normal(x: candidate.x, z: candidate.z).y >= 0.72 else { continue }
+                    let path = findPath(from: enemy.position, to: candidate)
+                    guard let end = path.last, horizontalDistance(end, candidate) < 2 else { continue }
+                    brain.patrolGoal = candidate; brain.path = path; brain.pathIndex = 0; brain.pathTimer = 1.5
+                    break
+                }
+                if brain.patrolGoal == nil { brain.watchTimer = 1 }
+            }
+        }
+        if let goal = brain.patrolGoal { moveEnemy(&enemy, brain: &brain, toward: goal, running: brain.arriving, dt: dt) }
+    }
+
     private func updateEnemies(_ dt: Float) {
         for index in enemies.indices where enemies[index].health > 0 {
             var enemy = enemies[index]
             guard var brain = brains[enemy.id] else { continue }
-            let distance = horizontalDistance(enemy.position, player.position)
             brain.cooldown -= dt; brain.pathTimer -= dt; brain.sightTimer -= dt; brain.coverDecisionTimer -= dt
             brain.hurt = max(0, brain.hurt - dt); brain.suppression = max(0, brain.suppression - dt)
             brain.holdTimer = max(0, brain.holdTimer - dt); brain.jumpCooldown = max(0, brain.jumpCooldown - dt)
             brain.coverTimer = max(0, brain.coverTimer - dt); brain.coverCooldown = max(0, brain.coverCooldown - dt)
             brain.repositionTimer -= dt; enemy.recoil *= exp(-dt * 16)
-            if brain.sightTimer <= 0 {
-                enemy.seesPlayer = distance < 48 && clearLine(EnemyPose(enemy).eyePosition, eyePosition)
-                brain.sightTimer = 0.1
-                if enemy.seesPlayer { brain.lastKnown = player.position; brain.memory = 6; brain.alert = true }
-            }
-            if !enemy.seesPlayer { brain.memory = max(0, brain.memory - dt) }
-            if brain.memory == 0 { brain.alert = false }
+            updateAwareness(&enemy, brain: &brain, dt: dt)
+            let distance = horizontalDistance(enemy.position, brain.lastKnown ?? enemy.position)
+            let threat = (brain.lastKnown ?? enemy.position) + SIMD3<Float>(0, 1.6, 0)
             if brain.coverDecisionTimer <= 0 || (brain.hurt > 0 && brain.coverCooldown <= 0) {
                 brain.coverDecisionTimer = 1.3 + Float(enemy.id % 5) * 0.12
                 if brain.alert && brain.coverCooldown <= 0 && (brain.suppression > 0 || (enemy.seesPlayer && distance < 32)) {
-                    brain.coverGoal = nearestCover(for: enemy.position)
+                    brain.coverGoal = nearestCover(for: enemy.position, threat: threat)
                     brain.coverTimer = 4.6; brain.coverCooldown = 9; brain.pathTimer = 0
                 }
-                if let goal = brain.coverGoal, clearLine(goal + SIMD3(0, 0.98, 0), eyePosition) { brain.coverGoal = nil }
+                if let goal = brain.coverGoal, clearLine(goal + SIMD3(0, 0.98, 0), threat) { brain.coverGoal = nil }
             }
             let seekingCover = brain.coverGoal != nil && brain.coverTimer > 0
             let nearCover = seekingCover && horizontalDistance(enemy.position, brain.coverGoal!) < 0.8
@@ -728,7 +859,8 @@ extension CombatSimulation {
             enemy.crouchAmount += ((wantCrouch ? 1 : 0) - enemy.crouchAmount) * min(1, dt * 10)
             enemy.isMoving = false; enemy.isRunning = false
             if hurtPause && enemy.windup > 0 { enemy.windup = 0; brain.cooldown = max(brain.cooldown, 0.7) }
-            if enemy.seesPlayer || enemy.windup > 0 { aim(&enemy, at: eyePosition) }
+            // Only a current visual observation may follow the real player.
+            if brain.visualContact { aim(&enemy, at: eyePosition) }
             let pose = EnemyPose(enemy)
             let needsMuzzleCheck = enemy.seesPlayer && ((enemy.windup > 0 && enemy.windup <= dt) || (enemy.windup <= 0 && brain.cooldown <= 0))
             let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && clearLine(pose.muzzlePosition, eyePosition)
@@ -754,26 +886,15 @@ extension CombatSimulation {
                 enemy.windup = 0.65
             }
             let pursuit = seekingCover ? brain.coverGoal! : (brain.lastKnown ?? enemy.position)
-            if brain.alert && enemy.windup <= 0 && brain.holdTimer <= 0 && !hurtPause && !nearCover && state == .active {
-                let before = enemy.position
-                if !enemy.seesPlayer || distance > 19 || seekingCover {
-                    if brain.pathTimer <= 0 {
-                        brain.path = findPath(from: enemy.position, to: pursuit); brain.pathIndex = 0
-                        brain.pathTimer = 1.2 + random() * 0.6
-                    }
-                    let next = horizontalDistance(enemy.position, pursuit) < 2.6 ? pursuit :
-                        (brain.pathIndex < brain.path.count ? brain.path[brain.pathIndex] : enemy.position)
-                    let length = horizontalDistance(enemy.position, next)
-                    if length < 0.2 { brain.pathIndex += 1 }
-                    else {
-                        startUsefulJump(&enemy, brain: &brain, toward: next)
-                        enemy.isRunning = enemy.crouchAmount < 0.3 && (seekingCover || distance > 22 || !enemy.seesPlayer)
-                        let moveSpeed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
-                        let offset = SIMD3<Float>(next.x - enemy.position.x, 0, next.z - enemy.position.z) / length
-                        enemy.position = moved(enemy.position, delta: offset * min(length, dt * moveSpeed),
-                                               height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
-                        if enemy.isRunning { enemy.yaw = atan2(offset.x, offset.z) }
-                    }
+            let before = enemy.position
+            if enemy.windup <= 0 && brain.holdTimer <= 0 && !hurtPause && !nearCover && state == .active {
+                if !brain.alert {
+                    patrol(&enemy, brain: &brain, dt: dt)
+                } else if brain.searchingInPlace && !enemy.seesPlayer {
+                    if !brain.visualContact { enemy.yaw += dt * 1.15 }
+                } else if !enemy.seesPlayer || distance > 19 || seekingCover {
+                    moveEnemy(&enemy, brain: &brain, toward: pursuit,
+                              running: seekingCover || distance > 22 || !enemy.seesPlayer, dt: dt)
                 } else if brain.repositionTimer > 0 || distance < 7 {
                     let strafe = brain.side * 1.1 * dt, retreat: Float = distance < 7 ? -1.7 * dt : 0
                     let delta = SIMD3(cos(enemy.yaw) * strafe + sin(enemy.yaw) * retreat, 0,
@@ -781,10 +902,11 @@ extension CombatSimulation {
                     enemy.position = moved(enemy.position, delta: delta, height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
                     if horizontalDistance(enemy.position, before) < 0.001 { brain.side *= -1 }
                 } else if brain.repositionTimer < -3.3 { brain.repositionTimer = 0.65 + random() * 0.5 }
-                enemy.isMoving = horizontalDistance(before, enemy.position) > 0.0001
-                enemy.isRunning = enemy.isRunning && enemy.isMoving
-                if enemy.isMoving { enemy.walkCycle += dt * (enemy.isRunning ? 12 : 7) }
             }
+            enemy.isMoving = horizontalDistance(before, enemy.position) > 0.0001
+            enemy.isRunning = enemy.isRunning && enemy.isMoving
+            if enemy.isMoving { enemy.walkCycle += dt * (enemy.isRunning ? 12 : 7); brain.stuckTime = 0 }
+            else if !nearCover && !hurtPause && !enemy.seesPlayer && !brain.searchingInPlace { brain.stuckTime += dt }
             applyGravity(&enemy, dt: dt)
             let aimTarget: Float = enemy.windup > 0 || brain.holdTimer > 0 ? 1 : enemy.seesPlayer && !enemy.isRunning ? 0.65 : 0
             enemy.aimBlend += (aimTarget - enemy.aimBlend) * min(1, dt * 12)

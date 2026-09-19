@@ -73,7 +73,7 @@ final class GameHUDView: NSView {
         if let c = coordinator {
             let s = c.simulation
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
-            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend").")
+            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)).")
         }
     }
 
@@ -164,6 +164,20 @@ final class GameHUDView: NSView {
         text(c.renderer?.deviceName ?? "Metal", x: w - 320, y: h - 37, size: 8, color: muted, width: 275, alignment: .right, mono: true)
     }
 
+    private func awarenessText(_ simulation: CombatSimulation) -> String {
+        var detection: Float = 0, investigating = false, searching = false
+        for enemy in simulation.enemies where enemy.health > 0 {
+            if enemy.seesPlayer { return "ENTDECKT · DECKUNG SUCHEN" }
+            detection = max(detection, enemy.detectionProgress)
+            investigating = investigating || enemy.awareness == .investigating
+            searching = searching || enemy.awareness == .searching
+        }
+        if detection > 0 { return "VERDACHT · \(Int(detection * 100)) %" }
+        if investigating { return "FEINDE PRÜFEN EIN GERÄUSCH" }
+        if searching { return "KEIN SICHTKONTAKT · FEINDE SUCHEN" }
+        return simulation.isHidden ? "VERSTECKT · WACHEN PATROUILLIEREN" : "SEKTOR BEOBACHTEN"
+    }
+
     private func drawHUD(_ c: GameCoordinator) {
         let s = c.simulation, p = s.player, w = bounds.width, h = bounds.height, now = CACurrentMediaTime()
         let scoped = s.isAiming && s.activeWeapon == .sniper && c.mode == .playing
@@ -209,7 +223,7 @@ final class GameHUDView: NSView {
         fill(NSRect(x: hx, y: hy + 60, width: barWidth * CGFloat(max(0, p.health) / 100), height: 7), NSColor(hex: 0xe95449))
         fill(NSRect(x: hx, y: hy + 74, width: barWidth, height: 2), muted.withAlphaComponent(0.15))
         fill(NSRect(x: hx, y: hy + 74, width: barWidth * CGFloat(p.stamina / 100), height: 2), muted)
-        text(s.isHidden ? "●  VERSTECKT · KEIN SICHTKONTAKT" : s.enemies.contains(where: { $0.health > 0 && $0.seesPlayer }) ? "●  ENTDECKT · DECKUNG SUCHEN" : "●  SEKTOR BEOBACHTEN", x: hx, y: hy + 87, size: 8, color: s.isHidden ? NSColor(hex: 0xa5e4b5) : muted, mono: true)
+        text("●  " + awarenessText(s), x: hx, y: hy + 87, size: 8, color: s.isHidden ? NSColor(hex: 0xa5e4b5) : muted, mono: true)
         let weapon = s.weapons[s.activeWeapon]!, ax = w - 273, aw: CGFloat = 240
         text(s.activeWeapon == .sniper ? "SCHARFSCHÜTZENGEWEHR" : "STURMGEWEHR", x: ax, y: hy - 10, size: 8, color: muted, tracking: 1.5, width: aw, alignment: .right, mono: true)
         text(s.activeWeapon.displayName, x: ax, y: hy + 7, size: 13, weight: .semibold, tracking: 1.6, width: aw, alignment: .right)

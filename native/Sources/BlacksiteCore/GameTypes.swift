@@ -12,6 +12,7 @@ public enum WeaponKind: String, CaseIterable, Sendable {
 }
 public enum Difficulty: String, CaseIterable, Sendable { case easy, normal, hard }
 public enum MatchState: String, Sendable { case active, won, lost }
+public enum EnemyAwareness: String, Sendable { case watching, investigating, searching, engaged }
 public enum ObstacleKind: String, Sendable { case bunker, container, barrier, crate, barrel }
 
 public struct GameInput: Sendable {
@@ -49,6 +50,9 @@ public struct EnemyState: Sendable {
     public var windup: Float = 0
     public var deathTime: Double?
     public var seesPlayer = false
+    public var awareness: EnemyAwareness = .watching
+    /// Visual recognition, not knowledge of the player's position through cover.
+    public var detectionProgress: Float = 0
     public var isMoving = false
     public var crouchAmount: Float = 0
     public var isRunning = false
@@ -156,7 +160,7 @@ public struct SupplyState: Sendable {
 
 public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
-        case shot, enemyShot, explosion, damage, kill, coverDestroyed
+        case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
         case waveStarted, waveCleared, extractionUnlocked, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind

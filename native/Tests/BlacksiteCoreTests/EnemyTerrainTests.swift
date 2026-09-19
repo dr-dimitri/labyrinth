@@ -171,7 +171,9 @@ struct EnemyTerrainTests {
 
     @Test func soldierJumpsLowBarrierAndLandsWithoutRepeatedBunnyHops() {
         let barrier = Obstacle(id: 1, kind: .barrier, position: SIMD3(0, 0, 1), size: SIMD3(6, 1.05, 0.85))
-        let game = scenario(player: SIMD3(0, 0, -38), enemies: [EnemyState(id: 1, position: SIMD3(0, 0, 4))], world: [barrier])
+        // This is a traversal test: give the guard a view of the pursuit target.
+        var pursuer = EnemyState(id: 1, position: SIMD3(0, 0, 4)); pursuer.yaw = .pi
+        let game = scenario(player: SIMD3(0, 0, -38), enemies: [pursuer], world: [barrier])
         var jumps = 0, wasGrounded = true, highest: Float = 0
         for _ in 0..<360 {
             game.step(deltaTime: 1.0 / 120, input: GameInput())
@@ -185,8 +187,10 @@ struct EnemyTerrainTests {
         #expect(highest > 1.1)
         #expect(game.enemies[0].position.z < 0.2)
         #expect(game.enemies[0].grounded)
-        let flat = scenario(player: SIMD3(0, 0, -35), enemies: [EnemyState(id: 1, position: .zero)])
-        for _ in 0..<180 {
+        pursuer.position = .zero
+        let flat = scenario(player: SIMD3(0, 0, -35), enemies: [pursuer])
+        // Include the new recognition phase before measuring pursuit distance.
+        for _ in 0..<240 {
             flat.step(deltaTime: 1.0 / 120, input: GameInput())
             #expect(flat.enemies[0].grounded)
         }

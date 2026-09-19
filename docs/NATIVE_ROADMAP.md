@@ -15,7 +15,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | Reihenfolge | Issue | Stand |
 | --- | --- | --- |
 | 1 | #12 Evakuierungshinweis | Umgesetzt und geprüft |
-| 2 | #7 Faire Sichtwahrnehmung | Offen |
+| 2 | #7 Faire Sichtwahrnehmung | Umgesetzt und geprüft |
 | 3 | #8 Sichere Verstärkungen | Offen |
 | 4 | #10 Richtungsfeedback und räumlicher Sound | Offen |
 | 5 | #1 Nahschatten | Offen |
@@ -37,3 +37,18 @@ die Zwischenwellen behalten ihren bisherigen Ablauf. Der Regressionstest
 durchläuft beide Zwischenwellen, die Extraktion und einen neuen Einsatz.
 
 Validierung: 64 Tests bestanden; unabhängiges Review ohne Befund.
+
+### #7 – Faire Sichtwahrnehmung
+
+Gegner verwenden einen horizontalen 120°-Sichtkegel und eine kurze Erkennungsphase.
+Wachgänge, Geräuschuntersuchung, Suche und Kampf haben erkennbare Zustände.
+Feste Anrückziele und kurze Patrouillen verhindern untätige Gegner. Nach
+Sichtverlust bricht die Schussvorbereitung ab; Geräusch- und Explosionsquellen
+verraten keine späteren verdeckten Bewegungen. Deckungswahl verwendet ebenfalls
+nur bekannte Positionen. Wiederholte Schüsse am selben Ort erzwingen keine
+Wegsuche pro Patrone.
+
+Validierung: 71 Tests bestanden, darunter sieben neue Verhaltenstests für
+Sichtfeld, Reaktionszeit, Suche, Geräusche, Explosionen, Patrouillen und Pause.
+Unabhängiges Code-Review abgeschlossen. Bestehende Sprung- und Deckungstests
+behalten ihre Verhaltensprüfungen; die Blickrichtung ist nun explizit.
