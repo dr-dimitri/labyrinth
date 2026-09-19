@@ -16,7 +16,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | --- | --- | --- |
 | 1 | #12 Evakuierungshinweis | Umgesetzt und geprüft |
 | 2 | #7 Faire Sichtwahrnehmung | Umgesetzt und geprüft |
-| 3 | #8 Sichere Verstärkungen | Offen |
+| 3 | #8 Sichere Verstärkungen | Umgesetzt und geprüft |
 | 4 | #10 Richtungsfeedback und räumlicher Sound | Offen |
 | 5 | #1 Nahschatten | Offen |
 | 6 | #2 Ego-Waffen und Hände | Offen |
@@ -52,3 +52,22 @@ Validierung: 71 Tests bestanden, darunter sieben neue Verhaltenstests für
 Sichtfeld, Reaktionszeit, Suche, Geräusche, Explosionen, Patrouillen und Pause.
 Unabhängiges Code-Review abgeschlossen. Bestehende Sprung- und Deckungstests
 behalten ihre Verhaltensprüfungen; die Blickrichtung ist nun explizit.
+
+### #8 – Sichere Verstärkungen
+
+Ausstehende Gegner bleiben in der Welle erhalten. Alle 0,5 Sekunden prüft ein
+begrenzter Versuch freie, verdeckte und erreichbare Eintrittspunkte. Der ganze
+Körper muss hinter der Kamera oder einem gemeinsamen intakten Hindernis liegen.
+Navigationskomponenten berücksichtigen auch dünne Hindernisse zwischen
+Rasterzellen. Das HUD zählt lebende und ausstehende Gegner getrennt; tatsächliche
+Anrückrichtungen werden zusammengefasst gemeldet. Wellenende und Extraktion
+warten im Wellenmodus auf alle angekündigten Gegner.
+
+Validierung: 77 Tests bestanden. Sechs neue Tests prüfen unter anderem verzögerte
+Verstärkungen und vollständigen Missionsabschluss. 144 reale Kartenkonfigurationen
+(Dächer, Hügel, verschiedene Blickrichtungen und Pitch ±1,4, zerstörte Deckung)
+setzen alle neun Gegner innerhalb von zwei Sekunden ein. Unabhängiges Review
+abgeschlossen; unnötige Hindernisprüfungen bei der Auswahl der nächsten
+Navigationszelle wurden dabei vermieden. Release-Kernbenchmark: Median 9,724 µs
+je 120-Hz-Schritt, fünf identische Prüfsummen bei je 60 simulierten Sekunden und
+zwölf Gegnern. Dies misst die Simulation, nicht die Gesamtbildrate.

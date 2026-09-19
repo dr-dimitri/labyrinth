@@ -73,7 +73,7 @@ final class GameHUDView: NSView {
         if let c = coordinator {
             let s = c.simulation
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
-            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)).")
+            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)).")
         }
     }
 
@@ -190,11 +190,13 @@ final class GameHUDView: NSView {
         let detail: String
         if s.extractionReady {
             detail = s.extractionProgress > 0 ? String(format: "Evakuierung in %.1f s", 3 - s.extractionProgress) : "\(Int(simd_distance(p.position, GameMap.extraction))) m bis zum Evakuierungspunkt"
+        } else if s.pendingReinforcements > 0 {
+            detail = "\(s.pendingReinforcements) Verstärkungen im Anmarsch"
         } else { detail = s.intermission > 0 ? "Verstärkung in \(Int(ceil(s.intermission))) s" : "\(s.kills) Abschüsse  ·  \(timeString(s.elapsed))" }
         text("●  " + detail, x: 32, y: 90, size: 10, color: muted, mono: true)
         text("ANGRIFFSWELLE", x: w - 210, y: 42, size: 8, color: muted, tracking: 2, width: 175, alignment: .right, mono: true)
         text(String(format: "%02d", max(1, s.wave)) + " / 03", x: w - 200, y: 61, size: 30, width: 165, alignment: .right, mono: true)
-        text("\(s.aliveCount) FEINDE  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
+        text("\(s.remainingEnemies) FEINDE  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
         if !scoped {
             let heading = Int(((-p.yaw * 180 / .pi).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360))
             let names = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"], index = (Int(Float(heading) / 45 + 0.5)) % 8

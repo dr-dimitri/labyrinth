@@ -129,6 +129,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     private func process(_ events: [GameEvent]) {
         let now = CACurrentMediaTime()
+        var arrivalSectors = Set<Int>(), arrivals = 0
         for event in events {
             switch event.kind {
             case .shot:
@@ -137,7 +138,12 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .kill:
                 killUntil = now + 1.6
                 killText = "\(event.headshot ? "KOPFTREFFER" : "ZIEL AUSGESCHALTET")  +\(Int(event.amount)) XP"
-            case .waveStarted: banner("FEINDLICHE VERSTÄRKUNG", String(format: "WELLE %02d", event.count), "\(Int(event.amount)) Kontakte im Einsatzgebiet")
+            case .waveStarted: banner("FEINDLICHE VERSTÄRKUNG", String(format: "WELLE %02d", event.count), "\(Int(event.amount)) Kontakte angekündigt")
+            case .reinforcementsArrived:
+                let offset = event.position - event.endPosition
+                let angle = atan2(offset.x, -offset.z)
+                let sector = (Int((angle / (.pi / 4)).rounded()) + 8) % 8
+                arrivalSectors.insert(sector); arrivals += 1
             case .waveCleared:
                 banner("SEKTOR VORERST GESICHERT", "DURCHATMEN.", "Nachschub erhalten · Nächste Welle in 7 Sekunden", duration: 4)
             case .extractionUnlocked:
@@ -147,6 +153,11 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .win, .lose: setMode(.result)
             default: break
             }
+        }
+        if arrivals > 0 {
+            let names = ["NORD", "NORDOST", "OST", "SÜDOST", "SÜD", "SÜDWEST", "WEST", "NORDWEST"]
+            let directions = arrivalSectors.sorted().map { names[$0] }.joined(separator: " / ")
+            toast("\(arrivals) NEUE KONTAKTE · \(directions)", duration: 3.5)
         }
     }
 

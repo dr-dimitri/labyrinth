@@ -161,7 +161,7 @@ public struct SupplyState: Sendable {
 public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
         case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
-        case waveStarted, waveCleared, extractionUnlocked, supply, win, lose, reload, jump, land, climb, throwGrenade
+        case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
     public var position: SIMD3<Float>
@@ -206,6 +206,21 @@ public enum GameMap {
         SIMD3(9, 0, 1), SIMD3(-8, 0, 5), SIMD3(25, 0, -10), SIMD3(-11, 0, -17),
         SIMD3(2, 0, -30), SIMD3(-30, 0, 14), SIMD3(30, 0, 21), SIMD3(11, 0, -30), SIMD3(-28, 0, -30)
     ]
+    /// Preferred positions, then permanent perimeter/building approaches. The
+    /// simulation validates every entry again against current cover and sight.
+    static let reinforcementEntries: [SIMD3<Float>] = {
+        var points = spawns
+        for x: Float in [-34, -26, -18, -10, 0, 10, 18, 26, 34] {
+            points.append(SIMD3(x, 0, -38)); points.append(SIMD3(x, 0, 38))
+        }
+        for z: Float in [-30, -20, -10, 0, 10, 20, 30] {
+            points.append(SIMD3(-34, 0, z)); points.append(SIMD3(34, 0, z))
+        }
+        for x: Float in [-32, -12, 16, 32] {
+            for z: Float in [-36, -20, -4] { points.append(SIMD3(x, 0, z)) }
+        }
+        return points
+    }()
 }
 
 @inline(__always) func clamp<T: Comparable>(_ value: T, _ lower: T, _ upper: T) -> T {

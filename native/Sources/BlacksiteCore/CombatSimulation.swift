@@ -25,7 +25,9 @@ public final class CombatSimulation {
     public private(set) var isMoving = false
     public private(set) var intermission: Float = 1.4
     public private(set) var extractionProgress: Float = 0
-    public var extractionReady: Bool { wave == 3 && aliveCount == 0 }
+    public private(set) var pendingReinforcements = 0
+    public var remainingEnemies: Int { aliveCount + pendingReinforcements }
+    public var extractionReady: Bool { wave == 3 && remainingEnemies == 0 }
     public var aliveCount: Int { enemies.reduce(0) { $0 + ($1.health > 0 ? 1 : 0) } }
     public var eyePosition: SIMD3<Float> { player.position + SIMD3(0, player.height - 0.1, 0) }
     public var isHidden: Bool {
@@ -42,6 +44,9 @@ public final class CombatSimulation {
     private var grenadeCooldown: Float = 0
     private var lastShot: Double = -20
     private var extractionAnnounced = false
+    private var reinforcementTimer: Float = 0
+    private var reinforcementCursor = 0
+    private var deployedThisWave = 0
     private var events: [GameEvent] = []
     private var climbing: ClimbState?
     private var brains: [Int: EnemyBrain] = [:]
@@ -50,6 +55,8 @@ public final class CombatSimulation {
     private let navWidth = 39, navDepth = 43
     private var navigation = [Bool](repeating: false, count: 39 * 43)
     private var navigationHeights = [Float](repeating: 0, count: 39 * 43)
+    private var navigationLinks = [UInt8](repeating: 0, count: 39 * 43)
+    private var navigationComponents = [Int](repeating: 0, count: 39 * 43)
     private var visited = [UInt32](repeating: 0, count: 39 * 43)
     private var previous = [Int](repeating: -1, count: 39 * 43)
     private var searchGeneration: UInt32 = 0
@@ -488,7 +495,11 @@ public final class CombatSimulation {
     }
 
     private func updateWaves(_ dt: Float) {
-        guard aliveCount == 0 else { return }
+        if pendingReinforcements > 0 {
+            reinforcementTimer -= dt
+            if reinforcementTimer <= 0 { deployReinforcements(); reinforcementTimer = 0.5 }
+        }
+        guard remainingEnemies == 0 else { return }
         if wave < 3 {
             if intermission <= 0 {
                 intermission = 7; player.health = min(100, player.health + 25)
@@ -514,36 +525,80 @@ public final class CombatSimulation {
     }
 
     func spawnWave() {
-        guard wave < 3, state == .active else { return }
+        guard wave < 3, state == .active, remainingEnemies == 0 else { return }
         wave += 1; intermission = 0
         enemies.removeAll { $0.health <= 0 && elapsed - ($0.deathTime ?? 0) >= 5 }
         let liveIDs = Set(enemies.map(\.id)); brains = brains.filter { liveIDs.contains($0.key) }
-        let count = 3 + wave * 2
-        let candidates = GameMap.spawns.map(groundedPoint).filter {
-            horizontalDistance($0, player.position) > 14 && !blocked($0, height: 1.9, radius: 0.4)
+        pendingReinforcements = 3 + wave * 2; deployedThisWave = 0
+        reinforcementCursor = 0; reinforcementTimer = 0.5
+        emit(GameEvent(kind: .waveStarted, amount: Float(pendingReinforcements), count: wave))
+        deployReinforcements()
+    }
+
+    private func deployReinforcements() {
+        guard pendingReinforcements > 0, state == .active else { return }
+        rebuildNavigationIfNeeded()
+        // The closest walkable ground cell also handles players on container roofs.
+        var combatCell: Int?, nearest: Float = .infinity
+        for index in navigation.indices where navigationComponents[index] > 0 {
+            let point = navigationPoint(index)
+            let offset = point - player.position, distance = offset.x * offset.x + offset.z * offset.z
+            if distance < nearest && !blocked(point, height: 2, radius: 0.45) { nearest = distance; combatCell = index }
         }
-        for offset in 0..<count {
-            let base = candidates.isEmpty ? GameMap.spawns[offset % GameMap.spawns.count] : candidates[offset % candidates.count]
-            var position: SIMD3<Float>?
-            for attempt in 0..<40 {
-                let candidate = groundedPoint(base + (attempt == 0 ? .zero : SIMD3((random() - 0.5) * 12, 0, (random() - 0.5) * 12)))
-                if !blocked(candidate, height: 1.9, radius: 0.4) && horizontalDistance(candidate, player.position) > 12 &&
-                    !enemies.contains(where: { $0.health > 0 && horizontalDistance($0.position, candidate) < 1.2 }) {
-                    position = candidate; break
-                }
-            }
-            guard let position else { continue }
-            let enemy = EnemyState(id: allocateID(), position: position, health: Float(90 + wave * 10))
+        guard let combatCell else { return }
+        let component = navigationComponents[combatCell], candidates = GameMap.reinforcementEntries
+        // One bounded pass per retry; no random relaxation of the safety rules.
+        for attempt in 0..<candidates.count {
+            guard pendingReinforcements > 0 else { break }
+            let position = groundedPoint(candidates[(reinforcementCursor + attempt) % candidates.count])
+            guard horizontalDistance(position, player.position) >= 14,
+                  !blocked(position, height: 2, radius: 0.6),
+                  terrain.normal(x: position.x, z: position.z).y >= 0.72,
+                  !enemies.contains(where: { $0.health > 0 && horizontalDistance($0.position, position) < 1.6 }),
+                  let cell = navigationCell(at: position), navigationComponents[cell] == component,
+                  reinforcementIsHidden(at: position) else { continue }
+            let offset = deployedThisWave
+            var enemy = EnemyState(id: allocateID(), position: position, health: Float(90 + wave * 10))
+            let staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+            enemy.yaw = atan2(staging.x - position.x, staging.z - position.z)
             enemies.append(enemy)
             // Reinforcements approach a fixed staging area, not an unseen player.
-            let staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
             var brain = EnemyBrain(cooldown: 2 + Float(offset) * 0.35, sightTimer: Float(offset % 5) * 0.02,
                                    patrolAnchor: staging, patrolYaw: enemy.yaw)
             brain.patrolGoal = staging; brain.watchTimer = 0; brain.arriving = true
             brain.side = offset.isMultiple(of: 2) ? -1 : 1
             brains[enemy.id] = brain
+            pendingReinforcements -= 1; deployedThisWave += 1
+            emit(GameEvent(kind: .reinforcementsArrived, position: position, endPosition: player.position,
+                           amount: 1, id: enemy.id, count: wave))
         }
-        emit(GameEvent(kind: .waveStarted, amount: Float(aliveCount), count: wave))
+        reinforcementCursor = (reinforcementCursor + 7) % candidates.count
+    }
+
+    /// Conservative whole-body visibility: outside the camera's rear plane, or
+    /// inside the shadow volume of one solid convex box. Checking all corners
+    /// against the same occluder cannot hide a head behind a feet-only ray.
+    func reinforcementIsHidden(at position: SIMD3<Float>) -> Bool {
+        let center = position + SIMD3<Float>(0, 1.03, 0), extent = SIMD3<Float>(0.85, 1.02, 0.85)
+        let facing = viewDirection(yaw: player.yaw, pitch: player.pitch)
+        let projectedExtent = abs(facing.x) * extent.x + abs(facing.y) * extent.y + abs(facing.z) * extent.z
+        if simd_dot(center - eyePosition, facing) + projectedExtent < -0.1 { return true }
+        for box in obstacles where !box.destroyed {
+            var hidden = true
+            for corner in 0..<8 {
+                let point = center + SIMD3<Float>(corner & 1 == 0 ? -extent.x : extent.x,
+                                                  corner & 2 == 0 ? -extent.y : extent.y,
+                                                  corner & 4 == 0 ? -extent.z : extent.z)
+                let offset = point - eyePosition, length = simd_length(offset)
+                if length < 0.01 { hidden = false; break }
+                guard let hit = rayBox(origin: eyePosition, direction: offset / length,
+                                       minimum: box.minimum, maximum: box.maximum), hit.distance < length - 0.05 else {
+                    hidden = false; break
+                }
+            }
+            if hidden { return true }
+        }
+        return false
     }
 }
 
@@ -586,28 +641,94 @@ private struct EnemyBrain {
 }
 
 extension CombatSimulation {
-    func findPath(from: SIMD3<Float>, to: SIMD3<Float>) -> [SIMD3<Float>] {
-        if navigationDirty {
-            for z in 0..<navDepth {
-                for x in 0..<navWidth {
-                    let point = groundedPoint(SIMD3(-38 + Float(x) * 2, 0, -42 + Float(z) * 2))
-                    navigationHeights[z * navWidth + x] = point.y
-                    // Low barriers are traversable with a deliberate vault/jump;
-                    // buildings and containers still require a route around them.
-                    // Keep the 2.5cm collision tolerance below the 1.12m jump
-                    // limit: a 1.20m crate must route around, not become a trap.
-                    navigation[z * navWidth + x] = blocked(point + SIMD3(0, 1.09, 0), height: 0.87, radius: 0.48) ||
-                        terrain.normal(x: point.x, z: point.z).y < 0.72
+    private func gridKey(_ position: SIMD3<Float>) -> Int {
+        let x = clamp(Int(((position.x + 38) / 2).rounded()), 0, navWidth - 1)
+        let z = clamp(Int(((position.z + 42) / 2).rounded()), 0, navDepth - 1)
+        return z * navWidth + x
+    }
+
+    private func navigationPoint(_ index: Int) -> SIMD3<Float> {
+        SIMD3(-38 + Float(index % navWidth) * 2, navigationHeights[index], -42 + Float(index / navWidth) * 2)
+    }
+
+    private func navigationSegmentIsOpen(from: SIMD3<Float>, to: SIMD3<Float>) -> Bool {
+        guard abs(from.y - to.y) <= 1.6 else { return false }
+        let middle = (from + to) * 0.5
+        guard terrain.normal(x: middle.x, z: middle.z).y >= 0.72 else { return false }
+        let offset = to - from, length = simd_length(offset)
+        if length < 0.001 { return true }
+        // Sweep the standing body above the deliberately jumpable 1.12m layer.
+        // Unlike testing only raster cells this also catches walls between cells.
+        for box in obstacles where !box.destroyed {
+            if let hit = rayBox(origin: from + SIMD3(0, 1.09, 0), direction: offset / length,
+                                minimum: box.minimum - SIMD3(0.48, 0.87, 0.48),
+                                maximum: box.maximum + SIMD3(0.48, -0.025, 0.48)), hit.distance <= length {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func rebuildNavigationIfNeeded() {
+        guard navigationDirty else { return }
+        for index in navigation.indices {
+            let point = groundedPoint(SIMD3(-38 + Float(index % navWidth) * 2, 0, -42 + Float(index / navWidth) * 2))
+            navigationHeights[index] = point.y
+            navigation[index] = blocked(point + SIMD3(0, 1.09, 0), height: 0.87, radius: 0.48) ||
+                terrain.normal(x: point.x, z: point.z).y < 0.72
+            navigationLinks[index] = 0; navigationComponents[index] = 0
+        }
+        for index in navigation.indices where !navigation[index] {
+            for (offset, forward, backward) in [(1, UInt8(2), UInt8(8)), (navWidth, UInt8(4), UInt8(1))] {
+                let next = index + offset
+                guard next < navigation.count, (offset != 1 || index % navWidth < navWidth - 1), !navigation[next],
+                      navigationSegmentIsOpen(from: navigationPoint(index), to: navigationPoint(next)) else { continue }
+                navigationLinks[index] |= forward; navigationLinks[next] |= backward
+            }
+        }
+        var component = 0
+        for start in navigation.indices where !navigation[start] && navigationComponents[start] == 0 {
+            component += 1; searchQueue.removeAll(keepingCapacity: true)
+            searchQueue.append(start); navigationComponents[start] = component
+            var cursor = 0
+            while cursor < searchQueue.count {
+                let current = searchQueue[cursor]; cursor += 1
+                for (bit, offset) in [(UInt8(1), -navWidth), (UInt8(2), 1), (UInt8(4), navWidth), (UInt8(8), -1)] {
+                    guard navigationLinks[current] & bit != 0 else { continue }
+                    let next = current + offset
+                    if navigationComponents[next] == 0 { navigationComponents[next] = component; searchQueue.append(next) }
                 }
             }
-            navigationDirty = false
         }
-        func gridKey(_ position: SIMD3<Float>) -> Int {
-            let x = clamp(Int(((position.x + 38) / 2).rounded()), 0, navWidth - 1)
-            let z = clamp(Int(((position.z + 42) / 2).rounded()), 0, navDepth - 1)
-            return z * navWidth + x
-        }
-        let start = gridKey(from), end = gridKey(to)
+        navigationDirty = false
+    }
+
+    private func navigationCell(at position: SIMD3<Float>) -> Int? {
+        let point = groundedPoint(position), key = gridKey(point)
+        guard !blocked(point, height: 1.96, radius: 0.38), terrain.normal(x: point.x, z: point.z).y >= 0.72 else { return nil }
+        var result: Int?, best: Float = .infinity
+        for dz in -1...1 { for dx in -1...1 {
+            let x = key % navWidth + dx, z = key / navWidth + dz
+            guard x >= 0, x < navWidth, z >= 0, z < navDepth else { continue }
+            let index = z * navWidth + x
+            guard !navigation[index] else { continue }
+            let candidate = navigationPoint(index), distance = simd_distance_squared(point, candidate)
+            if distance < best && navigationSegmentIsOpen(from: point, to: candidate) { best = distance; result = index }
+        } }
+        return result
+    }
+
+    /// Unlike findPath's useful partial routes, this proves both endpoints share
+    /// a connected walkable region, including the swept links between grid cells.
+    func hasReachableRoute(from: SIMD3<Float>, to: SIMD3<Float>) -> Bool {
+        rebuildNavigationIfNeeded()
+        guard let start = navigationCell(at: from), let end = navigationCell(at: to) else { return false }
+        return navigationComponents[start] == navigationComponents[end]
+    }
+
+    func findPath(from: SIMD3<Float>, to: SIMD3<Float>) -> [SIMD3<Float>] {
+        rebuildNavigationIfNeeded()
+        let start = navigationCell(at: from) ?? gridKey(from), end = gridKey(to)
         searchGeneration &+= 1
         if searchGeneration == 0 { visited = [UInt32](repeating: 0, count: navWidth * navDepth); searchGeneration = 1 }
         searchQueue.removeAll(keepingCapacity: true); searchQueue.append(start); visited[start] = searchGeneration
@@ -618,11 +739,10 @@ extension CombatSimulation {
             let distance = abs(x - end % navWidth) + abs(z - end / navWidth)
             if distance < best { found = current; best = distance }
             if distance == 0 { break }
-            for (dx, dz) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
-                let nx = x + dx, nz = z + dz
-                guard nx >= 0, nx < navWidth, nz >= 0, nz < navDepth else { continue }
-                let next = nz * navWidth + nx
-                if visited[next] == searchGeneration || navigation[next] || abs(navigationHeights[next] - navigationHeights[current]) > 1.6 { continue }
+            for (bit, offset) in [(UInt8(1), -navWidth), (UInt8(2), 1), (UInt8(4), navWidth), (UInt8(8), -1)] {
+                guard navigationLinks[current] & bit != 0 else { continue }
+                let next = current + offset
+                if visited[next] == searchGeneration { continue }
                 visited[next] = searchGeneration; previous[next] = current; searchQueue.append(next)
             }
         }
@@ -630,6 +750,11 @@ extension CombatSimulation {
         while current != start {
             result.append(SIMD3(-38 + Float(current % navWidth) * 2, navigationHeights[current], -42 + Float(current / navWidth) * 2))
             current = previous[current]
+        }
+        if let first = result.last, !navigationSegmentIsOpen(from: groundedPoint(from), to: first) {
+            // Keep the proven connector when a replacement start cell is needed
+            // beside cover; jumping straight to its neighbour could cut a corner.
+            result.append(navigationPoint(start))
         }
         return result.reversed()
     }
