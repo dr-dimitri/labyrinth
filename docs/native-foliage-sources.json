@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "retrieved_at_utc": "2026-09-18T18:58:38.756603+00:00",
+  "asset_id": "pine_tree_01",
+  "asset_title": "Pine Tree 01",
+  "provider": "Poly Haven",
+  "asset_page": "https://polyhaven.com/a/pine_tree_01",
+  "files_api": "https://api.polyhaven.com/files/pine_tree_01",
+  "files_api_response_sha256": "6dc7a454e1047014ba5dc0cc3fe62a0f5ade64c25051f46b9789136dc46b0551",
+  "authors": [
+    {
+      "name": "Rico Cilliers",
+      "role": "Modeling"
+    },
+    {
+      "name": "Rob Tuytel",
+      "role": "Photography"
+    }
+  ],
+  "license": {
+    "spdx": "CC0-1.0",
+    "provider_license_url": "https://polyhaven.com/license",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "scope": "Downloaded source texture assets, not website preview renders."
+  },
+  "evidence": [
+    {
+      "url": "https://polyhaven.com/a/pine_tree_01",
+      "supports": "Asset identity; Rico Cilliers credited for Modeling; Rob Tuytel credited for Photography; CC0 License; official Twig Alpha, Twig Diff, Twig Nor Gl and Twig Rough download links."
+    },
+    {
+      "url": "https://polyhaven.com/license",
+      "supports": "All downloadable asset models and textures use CC0; reuse and redistribution are permitted."
+    },
+    {
+      "url": "https://api.polyhaven.com/files/pine_tree_01",
+      "supports": "Exact original download URLs, byte counts and MD5 digests; all four local files verified against official metadata."
+    }
+  ],
+  "files": [
+    {
+      "path": "native/Assets/textures/pine/color.jpg",
+      "map": "twig_diff",
+      "resolution_label": "4k",
+      "width": 4096,
+      "height": 4096,
+      "format": "JPEG",
+      "color_space": "sRGB",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/4k/pine_tree_01/pine_tree_01_twig_diff_4k.jpg",
+      "bytes": 5052372,
+      "sha256": "7925309c0e289b75cf2edb9f11a56f734e11e6cb5ce494c3cf654da63ba48342",
+      "upstream_md5": "3737fc64698acd22af0edc2f8314eb58",
+      "md5_matches_upstream": true,
+      "modifications": "None. Original downloaded bytes; filename only changed."
+    },
+    {
+      "path": "native/Assets/textures/pine/alpha.jpg",
+      "map": "twig_alpha",
+      "resolution_label": "4k",
+      "width": 4096,
+      "height": 4096,
+      "format": "JPEG",
+      "color_space": "linear coverage",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/4k/pine_tree_01/pine_tree_01_twig_alpha_4k.jpg",
+      "bytes": 1458733,
+      "sha256": "0d7023a29f0da76b94ba1df8dd70d09400b4fc2a3bec82c0febba85b283cb971",
+      "upstream_md5": "007f791ae591d7a4dcec988f0c3548c0",
+      "md5_matches_upstream": true,
+      "modifications": "None. Original downloaded bytes; filename only changed."
+    },
+    {
+      "path": "native/Assets/textures/pine/normal.jpg",
+      "map": "twig_nor_gl",
+      "resolution_label": "2k",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "color_space": "linear, tangent-space OpenGL +Y",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/pine_tree_01/pine_tree_01_twig_nor_gl_2k.jpg",
+      "bytes": 2924424,
+      "sha256": "d1275b97c77199d22aa523bb408389d1c661517fee1a73961b2f64d0697819c2",
+      "upstream_md5": "843dd3359c958c7a8bfd60f55fb4fb80",
+      "md5_matches_upstream": true,
+      "modifications": "None. Original downloaded bytes; filename only changed."
+    },
+    {
+      "path": "native/Assets/textures/pine/roughness.jpg",
+      "map": "twig_rough",
+      "resolution_label": "2k",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "color_space": "linear roughness",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/pine_tree_01/pine_tree_01_twig_rough_2k.jpg",
+      "bytes": 1273936,
+      "sha256": "78928f9b1fbaf9eba7b2e6e539ca4624ac0994aec17610f4eeea2652be7a0557",
+      "upstream_md5": "3743e26db2752ca93611b5e6f3d8ca8c",
+      "md5_matches_upstream": true,
+      "modifications": "None. Original downloaded bytes; filename only changed."
+    }
+  ],
+  "atlas_usage": {
+    "important": "The maps are a multi-island UV atlas. Do not display an entire 0..1 quad: many non-needle atlas regions are intentionally opaque. Sample a polygon restricted to a needle-twig island. No source images were cropped, painted, recolored, resized or channel-packed.",
+    "uv_convention": "Normalized U rightward, V downward from TOP LEFT of source image. Convert V if renderer uses bottom-left origin. All four maps share identical normalized UV layout despite differing resolution.",
+    "twig_a": {
+      "description": "Upright photographic needle twig at the top-left of atlas; stem base below, tip above.",
+      "source_pixel_dimensions": [
+        4096,
+        4096
+      ],
+      "stem_base_pixels": [
+        556,
+        1810
+      ],
+      "tip_pixels": [
+        520,
+        185
+      ],
+      "polygon_pixels_clockwise": [
+        [
+          30,
+          100
+        ],
+        [
+          850,
+          100
+        ],
+        [
+          990,
+          500
+        ],
+        [
+          920,
+          1300
+        ],
+        [
+          855,
+          1540
+        ],
+        [
+          650,
+          1810
+        ],
+        [
+          390,
+          1825
+        ],
+        [
+          360,
+          1800
+        ],
+        [
+          250,
+          1740
+        ],
+        [
+          190,
+          1680
+        ],
+        [
+          155,
+          1500
+        ],
+        [
+          119,
+          1310
+        ],
+        [
+          30,
+          1000
+        ]
+      ],
+      "polygon_uv_clockwise": [
+        [
+          0.00732421875,
+          0.0244140625
+        ],
+        [
+          0.20751953125,
+          0.0244140625
+        ],
+        [
+          0.24169921875,
+          0.1220703125
+        ],
+        [
+          0.224609375,
+          0.3173828125
+        ],
+        [
+          0.208740234375,
+          0.3759765625
+        ],
+        [
+          0.15869140625,
+          0.44189453125
+        ],
+        [
+          0.09521484375,
+          0.445556640625
+        ],
+        [
+          0.087890625,
+          0.439453125
+        ],
+        [
+          0.06103515625,
+          0.4248046875
+        ],
+        [
+          0.04638671875,
+          0.41015625
+        ],
+        [
+          0.037841796875,
+          0.3662109375
+        ],
+        [
+          0.029052734375,
+          0.31982421875
+        ],
+        [
+          0.00732421875,
+          0.244140625
+        ]
+      ],
+      "boundary_check": {
+        "samples_per_edge": 1001,
+        "maximum_alpha_u8": 0
+      },
+      "alpha_threshold": 0.5,
+      "coverage_fraction_within_polygon": 0.2401392910098953,
+      "opaque_pixels": 338320,
+      "polygon_pixels": 1408849,
+      "opaque_bounds_pixels_inclusive": [
+        145,
+        180,
+        899,
+        1809
+      ]
+    },
+    "twig_b": "A second horizontal twig appears around U0.65..0.95,V0.34..0.52; no safe polygon has been validated for that island."
+  },
+  "selection_rationale": "4K color and alpha preserve thin needle silhouettes. 2K normal and roughness reduce download and resident texture cost while preserving shared UVs. Bark is acquired separately for trunk meshes."
+}

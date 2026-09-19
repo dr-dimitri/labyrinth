@@ -1,0 +1,29 @@
+NACHTGANG — BLACKSITE NATIVE TEXTURE CREDITS
+
+Six photographic material sets from Poly Haven, licensed CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+https://polyhaven.com/license
+
+Brown Mud 03 [forest-earth] — Rob Tuytel (All)
+https://polyhaven.com/a/brown_mud_03
+
+Concrete Floor Worn 02 [floor] — Dimitrios Savva (All)
+https://polyhaven.com/a/concrete_floor_worn_02
+
+Rock Face [forest-rock] — Greg Zaal (Photography); Dario Barresi (Processing)
+https://polyhaven.com/a/rock_face
+
+Bark Brown 01 [forest-bark] — Rob Tuytel (All)
+https://polyhaven.com/a/bark_brown_01
+
+Forest Ground 03 [forest-ground] — Rob Tuytel (All)
+https://polyhaven.com/a/forrest_ground_03
+
+Asphalt 01 [asphalt] — Dario Barresi (Processing); Charlotte Baglioni (Photography)
+https://polyhaven.com/a/asphalt_01
+
+Included per material: original 4096x4096 color, 2048x2048 OpenGL normal
+and 1024x1024 roughness JPEG maps. Images have not been upscaled or recompressed.
+texture-sources.json records official metadata/download URLs, pixel sizes,
+upstream MD5 and verified SHA-256 checksums. Source image bytes are unchanged.
+The project's code and original procedural geometry use its separate MIT license.
