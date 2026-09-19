@@ -450,8 +450,11 @@ unverändert. Release-App für ARM64 gebaut und Bundlesignatur erfolgreich gepr�
 ## Abschluss
 
 Alle zwölf Roadmap-Pakete und der zusätzlich gefundene Deckungshöhen-Bug #14
-sind lokal implementiert, geprüft und in getrennten Commits gesichert. Die
-GitHub-Issues bleiben bis zur Veröffentlichung des Branches offen. Die App liegt
+sind implementiert, geprüft und in getrennten Commits gesichert. Der Branch
+[`codex/native-game-roadmap`](https://github.com/dr-dimitri/labyrinth/tree/codex/native-game-roadmap)
+ist auf GitHub veröffentlicht; die Issues #1–#14 einschließlich der Roadmap #13
+sind mit Commit- und Prüfverweisen abgeschlossen. Der Branch ist noch nicht in
+`main` gemergt. Die App liegt
 in `release/Blacksite.app`; die reguläre Testsuite umfasst jetzt 183 erfolgreiche
 Tests. Systemaudio- und GPU-Texturtests sind separate Opt-in-Prüfungen und wurden
 bei den betreffenden Arbeitspaketen erfolgreich ausgeführt.
