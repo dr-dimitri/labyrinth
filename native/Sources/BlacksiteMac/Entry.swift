@@ -61,6 +61,7 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "Blacksite beenden", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let gameItem = NSMenuItem(); main.addItem(gameItem)
         let game = NSMenu(title: "Einsatz"); gameItem.submenu = game
+        let briefing = game.addItem(withTitle: "Einsatzbriefing …", action: #selector(GameCoordinator.briefingMenu(_:)), keyEquivalent: "b"); briefing.target = coordinator
         let start = game.addItem(withTitle: "Neuer Einsatz", action: #selector(GameCoordinator.newMatchMenu(_:)), keyEquivalent: "n"); start.target = coordinator
         let pause = game.addItem(withTitle: "Pause / Fortsetzen", action: #selector(GameCoordinator.pauseMenu(_:)), keyEquivalent: "p"); pause.target = coordinator
         let windowItem = NSMenuItem(); main.addItem(windowItem)
@@ -79,6 +80,18 @@ struct BlacksiteMain {
     @MainActor static func main() {
         let args = CommandLine.arguments
         let app = NSApplication.shared
+        if args.contains("--briefing-check") {
+            app.setActivationPolicy(.prohibited)
+            do {
+                let output: String
+                if let index = args.firstIndex(of: "--output"), index + 1 < args.count { output = args[index + 1] }
+                else { output = FileManager.default.currentDirectoryPath + "/native-briefing.png" }
+                let result = try NativeBriefingCheck.makePNG(output: URL(fileURLWithPath: output))
+                let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
+                print(String(decoding: data, as: UTF8.self))
+            } catch { fputs("Briefing check failed: \(error.localizedDescription)\n", stderr); exit(1) }
+            return
+        }
         if args.contains("--smoke-test") || args.contains("--graphics-benchmark") {
             app.setActivationPolicy(.prohibited)
             do {

@@ -12,6 +12,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var renderer: NativeRenderer?
     var simulation = CombatSimulation()
     private(set) var selectedMap = MapDefinition.blacksite
+    private(set) var activeRun: ActiveRunConfiguration?
     var isAimPresented: Bool { simulation.isAiming && !(renderer?.weaponAimObstructed ?? false) }
     var mode: NativeRenderMode = .menu
     var settings = NativeSettings()
@@ -39,6 +40,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         view = NativeGameView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800), device: MTLCreateSystemDefaultDevice())
         hud = GameHUDView(frame: view.frame)
         super.init()
+        selectedMap = PublishedMapRegistry.map(id: settings.selectedMapID) ?? .blacksite
+        if !selectedMap.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData }
+        simulation = CombatSimulation(map: selectedMap)
         inputState.reconfigure(bindings: settings.bindings, aimMode: settings.aimMode, sprintMode: settings.sprintMode)
         window.delegate = self; window.acceptsMouseMovedEvents = true
         let root = NSView(frame: view.frame)
@@ -102,13 +106,38 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     func startMatch() {
         guard ready, window.attachedSheet == nil else { return }
-        guard prepareMap(selectedMap) else { return }
-        simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission,
-                                      loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
+        let configuration = ActiveRunConfiguration(map: selectedMap, seed: UInt64.random(in: 1...UInt64.max),
+            mission: settings.selectedMission, difficulty: settings.difficulty,
+            loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
+        beginRun(configuration)
+    }
+
+    func retryMatch() {
+        guard ready, mode == .result, window.attachedSheet == nil, let activeRun else { return }
+        beginRun(activeRun)
+    }
+
+    private func beginRun(_ configuration: ActiveRunConfiguration) {
+        let map: MapDefinition, nextSimulation: CombatSimulation
+        do {
+            map = try configuration.restoreMap()
+            nextSimulation = try configuration.makeSimulation()
+        } catch {
+            let alert = NSAlert(); alert.messageText = "Einsatz konnte nicht vorbereitet werden"
+            alert.informativeText = error.localizedDescription; alert.beginSheetModal(for: window)
+            return
+        }
+        guard prepareMap(map) else { return }
+        activateRun(configuration, map: map, simulation: nextSimulation)
+    }
+
+    /// All fallible preparation has completed before the run becomes visible.
+    private func activateRun(_ configuration: ActiveRunConfiguration, map: MapDefinition, simulation nextSimulation: CombatSimulation) {
+        selectedMap = map; simulation = nextSimulation; activeRun = configuration
         yaw = simulation.player.yaw; pitch = simulation.player.pitch
         renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0
-        if settings.selectedMission == .waves {
+        if configuration.mission == .waves {
             banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
         }
         toastUntil = 0; hitUntil = 0; killUntil = 0; damageUntil = 0
@@ -125,14 +154,16 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func selectMap(_ map: MapDefinition) {
         guard ready, mode == .menu, window.attachedSheet == nil, prepareMap(map) else { return }
         selectedMap = map
-        if !map.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData; settings.save() }
+        settings.selectedMapID = map.id
+        if !map.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData }
+        settings.save()
         simulation = CombatSimulation(map: map)
         renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0
         clearInput(); hud.refresh()
     }
 
-    private func prepareMap(_ map: MapDefinition) -> Bool {
+    private func prepareMap(_ map: MapDefinition, alertParent: NSWindow? = nil) -> Bool {
         do {
             try renderer?.setMap(map)
             return true
@@ -141,7 +172,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             alert.messageText = "Einsatzgebiet konnte nicht geladen werden"
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: "OK")
-            alert.beginSheetModal(for: window)
+            alert.beginSheetModal(for: alertParent ?? window)
             return false
         }
     }
@@ -310,6 +341,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     @objc func pauseMenu(_ sender: Any?) { mode == .paused ? resume() : pause() }
     @objc func settingsMenu(_ sender: Any?) { showSettings() }
     @objc func helpMenu(_ sender: Any?) { showHelp() }
+    @objc func briefingMenu(_ sender: Any?) { showLoadout() }
 
     func showHelp() {
         guard window.attachedSheet == nil else { return }
@@ -355,16 +387,42 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func showLoadout() {
         guard mode == .menu, ready, window.attachedSheet == nil else { return }
         clearInput()
-        let panel = NativeLoadoutPanel(pattern: settings.selectedCamouflage)
-        panel.loadoutView.onCancel = { [weak self, weak panel] in
+        let panel = NativeBriefingPanel(draft: NativeBriefingDraft(map: selectedMap,
+            mission: settings.selectedMission, difficulty: settings.difficulty, camouflage: settings.selectedCamouflage),
+            interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings))
+        var preparedRun: (configuration: ActiveRunConfiguration, simulation: CombatSimulation)?
+        panel.briefingView.onCancel = { [weak self, weak panel] in
             guard let self, let panel else { return }
             self.clearInput(); self.window.endSheet(panel); self.sheet = nil
         }
-        panel.loadoutView.onApply = { [weak self, weak panel] pattern in
+        panel.briefingView.onApply = { [weak self, weak panel] draft, start in
             guard let self, let panel else { return }
-            self.settings.selectedCamouflage = pattern; self.settings.save()
-            self.clearInput(); self.window.endSheet(panel); self.sheet = nil; self.hud.refresh()
+            if start {
+                let configuration = ActiveRunConfiguration(map: draft.map, seed: UInt64.random(in: 1...UInt64.max),
+                    mission: draft.mission, difficulty: draft.difficulty, loadout: draft.loadout)
+                do { preparedRun = (configuration, try configuration.makeSimulation()) }
+                catch {
+                    let alert = NSAlert(); alert.messageText = "Einsatz konnte nicht vorbereitet werden"
+                    alert.informativeText = error.localizedDescription; alert.beginSheetModal(for: panel)
+                    return
+                }
+            } else { preparedRun = nil }
+            guard self.prepareMap(draft.map, alertParent: panel) else { preparedRun = nil; return }
+            self.selectedMap = draft.map
+            self.settings.selectedMapID = draft.map.id; self.settings.selectedMission = draft.mission
+            self.settings.difficulty = draft.difficulty; self.settings.selectedCamouflage = draft.camouflage
+            self.settings.save()
+            self.simulation = CombatSimulation(map: draft.map)
+            self.renderer?.reset(); self.combatFeedback.reset(); self.noisePresentation.clear(); self.alarmPresentation.clear(); self.audio.reset()
+            self.bannerUntil = 0; self.toastUntil = 0
+            self.clearInput(); self.window.endSheet(panel, returnCode: start ? .OK : .stop)
+            self.sheet = nil; self.hud.refresh()
         }
-        sheet = panel; window.beginSheet(panel)
+        sheet = panel
+        window.beginSheet(panel) { [weak self] response in
+            if response == .OK, let self, let preparedRun {
+                self.activateRun(preparedRun.configuration, map: self.selectedMap, simulation: preparedRun.simulation)
+            }
+        }
     }
 }

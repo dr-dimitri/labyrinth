@@ -1,0 +1,31 @@
+{
+  "issue": 25,
+  "tests": {
+    "targeted": 12,
+    "suites": [
+      "NativeBriefingTests",
+      "NativeRunConfigurationTests",
+      "NativeHUDTests"
+    ],
+    "result": "passed on isolated exact staged source snapshot after final start-path correction"
+  },
+  "review": {
+    "independentConfigurationUI": "passed",
+    "fix": "Briefing start prepares resources once; validates simulation before saving; activates only after sheet completion. Failed preparation retains draft and settings.",
+    "retry": "Immutable map ID/version, seed, mission, difficulty and loadout; unavailable versions rejected rather than silently migrated."
+  },
+  "staticNativeImage": {
+    "file": "/private/tmp/blacksite-issue25-briefing.png",
+    "logicalSize": [
+      860,
+      550
+    ],
+    "pixels": [
+      1720,
+      1100
+    ],
+    "inspection": "readable controls, inventories, known map, legend and all actions; no clipping",
+    "scope": "actual AppKit drawing; not an input interaction test"
+  },
+  "nativeInteraction": "Still requires unlocked Mac for final native start/pause/focus/death/retry cycle; current locked-host limitation explicitly not counted as passed."
+}

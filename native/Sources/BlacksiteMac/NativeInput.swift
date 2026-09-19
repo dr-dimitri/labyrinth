@@ -36,6 +36,7 @@ struct NativeSettings {
     static let defaultSensitivity: Float = 0.0023
     static let sensitivityRange: ClosedRange<Float> = 0.0001...0.006
     var difficulty: Difficulty = .normal
+    var selectedMapID = PublishedMapRegistry.defaultMapID
     var selectedMission: MissionKind = .waves
     var selectedCamouflage: CamouflagePattern = .none
     var highQuality = true
@@ -55,6 +56,7 @@ struct NativeSettings {
         defaults.register(defaults: ["native.difficulty": "normal", "native.highQuality": true,
                                     "native.volume": 0.45, "native.sensitivity": 0.0023, "native.fps": 60])
         difficulty = Difficulty(rawValue: defaults.string(forKey: "native.difficulty") ?? "normal") ?? .normal
+        selectedMapID = PublishedMapRegistry.normalizedID(defaults.string(forKey: "native.mapID"))
         selectedMission = MissionKind(rawValue: defaults.string(forKey: "native.mission") ?? "waves") ?? .waves
         selectedCamouflage = CamouflagePattern(rawValue: defaults.string(forKey: "native.camouflage") ?? "none") ?? .none
         soundCaptions = defaults.object(forKey: "native.soundCaptions") == nil || defaults.bool(forKey: "native.soundCaptions")
@@ -73,6 +75,7 @@ struct NativeSettings {
     }
     func save(defaults: UserDefaults = .standard) {
         defaults.set(difficulty.rawValue, forKey: "native.difficulty")
+        defaults.set(PublishedMapRegistry.normalizedID(selectedMapID), forKey: "native.mapID")
         defaults.set(selectedMission.rawValue, forKey: "native.mission")
         defaults.set(selectedCamouflage.rawValue, forKey: "native.camouflage")
         defaults.set(highQuality, forKey: "native.highQuality")

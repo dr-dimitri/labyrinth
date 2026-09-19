@@ -20,7 +20,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #20 | Strom, Licht und Servicetore | Umgesetzt, Review/Tests, Release-Build und Bilder bestanden |
 | #23 | Lokale Kontaktmeldungen | Umgesetzt, unabhängige Reviews, Tests und Bilder bestanden |
 | #26 | Umgebung und Extraktionsentscheidung | Umgesetzt, Reviews, Tests, Build und Bilder bestanden; native Bedienprüfung vorgemerkt |
-| #25 | Briefing und Tarnungsfeedback | Offen |
+| #25 | Briefing und Tarnungsfeedback | Umgesetzt, Review, gezielte Tests und AppKit-Bild bestanden; native Bedienprüfung vorgemerkt |
 | #21 | Rauch, Dampf und Gischt | Offen |
 | #22 | Durchbrechbare Zugänge | Offen |
 | #24 | Drei Solo-Klassen | Offen |
@@ -248,3 +248,22 @@ isoliertem Kampf geprüft. Releasebuild, Signatur und vier Metal-Szenen bestande
 Die nachgebesserten Diagnosekameras zeigen bodengebundene Evakuierungsringe
 und physische Lampen. Native Bedienprüfung ist wegen gesperrtem Mac noch für
 den Abschlusslauf vorgemerkt. [Prüfdaten](native-environment/issue26.json).
+
+### #25 – Natives Einsatzbriefing und unveränderlicher Neustart
+
+Das kompakte native Briefing bündelt veröffentlichte Karte, Auftrag,
+Schwierigkeit, Tarnung und tatsächlichen Startvorrat. Die schematische Übersicht
+zeigt bekannte Bauwerke, Wege und Ziele, ohne gegnerische Laufzeitdaten.
+Abbrechen verwirft den Entwurf. Die Auswahl wird erst nach erfolgreicher
+Ressourcenvorbereitung gespeichert; der Start aktiviert den vorbereiteten Einsatz
+erst nach Abschluss des Sheets. Das Review beseitigte eine doppelte und dadurch
+nicht atomare Ressourceninitialisierung.
+
+Retry rekonstruiert exakt die ursprüngliche Karte samt Version, Seed, Auftrag,
+Schwierigkeit und Ausrüstung; neue Menüeinstellungen ändern den laufenden
+Einsatz nicht. Ein neuer Einsatz erhält einen neuen Seed. Zwölf gezielte Tests
+bestanden auf einem isolierten Abbild des tatsächlich vorgemerkten Commits,
+einschließlich der letzten Startkorrektur. Ein echtes AppKit-Bild belegt das
+lesbare Layout bei 860×550 Punkten. Native Eingaben mit Start/Pause/Fokus/Retry
+werden nach Entsperren des Macs nachgeprüft; das statische Bild ersetzt diese
+Prüfung nicht. [Prüfdaten](native-environment/issue25.json).

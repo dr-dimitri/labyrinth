@@ -91,11 +91,11 @@ final class GameHUDView: NSView {
         startButton = NativeButton("EINSATZ STARTEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
         settingsButton = NativeButton("EINSTELLUNGEN") { [weak self] in self?.coordinator?.showSettings() }
         helpButton = NativeButton("STEUERUNG / ARSENAL") { [weak self] in self?.coordinator?.showHelp() }
-        loadoutButton = NativeButton("FELDAUSRÜSTUNG") { [weak self] in self?.coordinator?.showLoadout() }
-        loadoutButton.setAccessibilityHelp("Tarnmuster und tatsächlichen Startvorrat für den nächsten Einsatz wählen")
+        loadoutButton = NativeButton("EINSATZBRIEFING") { [weak self] in self?.coordinator?.showLoadout() }
+        loadoutButton.setAccessibilityHelp("Karte, Auftrag, Schwierigkeit, Tarnmuster und Startvorrat wählen")
         resumeButton = NativeButton("FORTSETZEN", primary: true) { [weak self] in self?.coordinator?.resume() }
         leaveButton = NativeButton("ZURÜCK ZUM HAUPTMENÜ") { [weak self] in self?.coordinator?.returnToMenu() }
-        retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
+        retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.retryMatch() }
         pauseButton = NativeButton("Ⅱ  ESC") { [weak self] in self?.coordinator?.pause() }
         for button in [startButton, settingsButton, helpButton, loadoutButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
         for mission in MissionKind.allCases {
@@ -116,7 +116,7 @@ final class GameHUDView: NSView {
             let hints = NativeHUDControlHints(settings:c.settings)
             updateMissionSelection(c.settings.selectedMission,interactionLabel:hints.interactionLabel)
             if c.mode == .menu {
-                setAccessibilityValue("Hauptmenü. Auftrag: \(NativeMissionPresentation.name(c.settings.selectedMission)). \(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:hints.interactionLabel)). \(NativeCamouflagePresentation.name(c.settings.selectedCamouflage)), \(LoadoutDefinition(camouflage: c.settings.selectedCamouflage).fragmentationGrenades) Splittergranaten. \(hints.modeLines.joined(separator:". "))")
+                setAccessibilityValue("Hauptmenü. Karte: \(c.selectedMap.displayName). Auftrag: \(NativeMissionPresentation.name(c.settings.selectedMission)). \(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:hints.interactionLabel)). \(NativeCamouflagePresentation.name(c.settings.selectedCamouflage)), \(LoadoutDefinition(camouflage: c.settings.selectedCamouflage).fragmentationGrenades) Splittergranaten. \(hints.modeLines.joined(separator:". "))")
                 return
             }
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
