@@ -139,8 +139,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                 killText = "\(event.headshot ? "KOPFTREFFER" : "ZIEL AUSGESCHALTET")  +\(Int(event.amount)) XP"
             case .waveStarted: banner("FEINDLICHE VERSTÄRKUNG", String(format: "WELLE %02d", event.count), "\(Int(event.amount)) Kontakte im Einsatzgebiet")
             case .waveCleared:
-                if event.count == 3 { banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6) }
-                else { banner("SEKTOR VORERST GESICHERT", "DURCHATMEN.", "Nachschub erhalten · Nächste Welle in 7 Sekunden", duration: 4) }
+                banner("SEKTOR VORERST GESICHERT", "DURCHATMEN.", "Nachschub erhalten · Nächste Welle in 7 Sekunden", duration: 4)
+            case .extractionUnlocked:
+                banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6)
             case .supply: toast("NACHSCHUB  +45 Sturmgewehr · +5 Scharfschützengewehr")
             case .coverDestroyed: toast("DECKUNG ZERSTÖRT  +25 XP", duration: 1.7)
             case .win, .lose: setMode(.result)

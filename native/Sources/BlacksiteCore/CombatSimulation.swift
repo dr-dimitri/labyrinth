@@ -41,6 +41,7 @@ public final class CombatSimulation {
     private var nextID = 100
     private var grenadeCooldown: Float = 0
     private var lastShot: Double = -20
+    private var extractionAnnounced = false
     private var events: [GameEvent] = []
     private var climbing: ClimbState?
     private var brains: [Int: EnemyBrain] = [:]
@@ -500,6 +501,10 @@ public final class CombatSimulation {
             intermission = max(0, intermission - dt)
             if intermission == 0 { spawnWave() }
         } else {
+            if !extractionAnnounced {
+                extractionAnnounced = true
+                emit(GameEvent(kind: .extractionUnlocked, position: extractionPosition, count: wave))
+            }
             extractionProgress = horizontalDistance(player.position, extractionPosition) < GameMap.extractionRadius && player.grounded &&
                 abs(player.position.y - extractionPosition.y) < 0.2 ? min(3, extractionProgress + dt) : 0
             if extractionProgress >= 3 {

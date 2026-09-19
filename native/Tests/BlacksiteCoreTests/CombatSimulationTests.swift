@@ -294,4 +294,42 @@ struct CombatSimulationTests {
         #expect(!(game.jump())); #expect(!(game.throwGrenade())); #expect(!(game.reload()))
         #expect((game.drainEvents().filter { $0.kind == .lose }.count) == (1))
     }
+
+    @Test func extractionIsAnnouncedOnceAfterFinalWaveAndResetsForNewMission() {
+        // A new simulation is also the production restart path. Run twice so
+        // the announcement cannot accidentally be retained across missions.
+        for _ in 0..<2 {
+            let game = simulation(position: GameMap.extraction, wave: 0)
+            advance(game, 1.5)
+            _ = game.drainEvents()
+            for completedWave in 1...2 {
+                for index in game.enemies.indices { game.damageEnemy(index: index, amount: 1000) }
+                advance(game, 0.1)
+                let events = game.drainEvents()
+                #expect(events.filter { $0.kind == .waveCleared }.map(\.count) == [completedWave])
+                #expect(!events.contains { $0.kind == .extractionUnlocked })
+                #expect(game.intermission > 6.8 && game.intermission < 7)
+                advance(game, 7)
+                #expect(game.wave == completedWave + 1)
+                _ = game.drainEvents()
+            }
+            for index in game.enemies.indices { game.damageEnemy(index: index, amount: 1000) }
+            advance(game, 0.1)
+            let events = game.drainEvents()
+            let announcements = events.filter { $0.kind == .extractionUnlocked }
+            #expect(announcements.count == 1)
+            #expect(announcements.first?.position == game.extractionPosition)
+            #expect(!events.contains { $0.kind == .waveCleared })
+            // Pause supplies no positive simulation time and must not re-emit.
+            game.step(deltaTime: 0, input: GameInput())
+            advance(game, 2.7)
+            #expect(game.state == .active)
+            #expect(!game.drainEvents().contains { $0.kind == .extractionUnlocked })
+            advance(game, 0.3)
+            #expect(game.state == .won)
+            let finalEvents = game.drainEvents()
+            #expect(finalEvents.filter { $0.kind == .win }.count == 1)
+            #expect(!finalEvents.contains { $0.kind == .extractionUnlocked })
+        }
+    }
 }

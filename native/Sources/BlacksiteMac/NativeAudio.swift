@@ -79,7 +79,7 @@ final class NativeAudio {
             case .damage: play("damage")
             case .reload: play("reload")
             case .land: play("step")
-            case .waveStarted, .waveCleared, .supply: play("notice")
+            case .waveStarted, .waveCleared, .extractionUnlocked, .supply: play("notice")
             default: break
             }
         }

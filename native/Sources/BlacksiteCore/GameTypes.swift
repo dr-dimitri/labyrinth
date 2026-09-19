@@ -157,7 +157,7 @@ public struct SupplyState: Sendable {
 public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
         case shot, enemyShot, explosion, damage, kill, coverDestroyed
-        case waveStarted, waveCleared, supply, win, lose, reload, jump, land, climb, throwGrenade
+        case waveStarted, waveCleared, extractionUnlocked, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
     public var position: SIMD3<Float>
