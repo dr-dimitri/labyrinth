@@ -14,7 +14,7 @@ enum NativeMissionCheck {
         var errorDescription: String? { message }
     }
 
-    static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
+    static func prepare(arguments: [String], renderer: NativeRenderer, loadout: LoadoutDefinition = .init()) throws -> Result? {
         func value(_ flag: String) -> String? {
             guard let i = arguments.firstIndex(of: flag), i+1 < arguments.count else { return nil }
             return arguments[i+1]
@@ -40,7 +40,7 @@ enum NativeMissionCheck {
             enemies.append(guardState)
         }
         let simulation = CombatSimulation(difficulty: .easy, seed: 1745, world: map.obstacles,
-                                          startingPlayer: player, startingEnemies: enemies, terrain: terrain, mission: kind, map: map)
+                                          startingPlayer: player, startingEnemies: enemies, terrain: terrain, mission: kind, map: map, loadout: loadout)
         try renderer.setMap(simulation.map)
         var input = GameInput(); input.yaw = player.yaw; input.pitch = player.pitch
         var phases: [String] = [], arrivals = 0

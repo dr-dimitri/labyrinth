@@ -13,7 +13,7 @@ enum NativeBattlefieldCheck {
         var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, destruction-crate, destruction-barrel, destruction-barrier, destruction-container, destruction-chain, destruction-stress, level-west, level-east, level-north, level-roof, level-gate, level-road, firefight, terrain or hollow." }
     }
 
-    static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
+    static func prepare(arguments: [String], renderer: NativeRenderer, loadout: LoadoutDefinition = .init()) throws -> Result? {
         func value(_ flag: String) -> String? {
             guard let i=arguments.firstIndex(of:flag), i+1<arguments.count else { return nil }
             return arguments[i+1]
@@ -175,7 +175,7 @@ enum NativeBattlefieldCheck {
             player.position.x += max(-0.5, min(0.5, cameraOffset))
         }
         let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:world,
-                                         startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain,map:map)
+                                         startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain,map:map,loadout:loadout)
         try renderer.setMap(simulation.map)
         var observed=Set<String>(), shots=0
         var input=GameInput(); input.yaw=player.yaw; input.pitch=player.pitch

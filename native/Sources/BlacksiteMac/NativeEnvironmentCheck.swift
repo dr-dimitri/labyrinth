@@ -15,7 +15,7 @@ enum NativeEnvironmentCheck {
         var errorDescription: String? { message }
     }
 
-    static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
+    static func prepare(arguments: [String], renderer: NativeRenderer, loadout: LoadoutDefinition = .init()) throws -> Result? {
         func value(_ flag: String) -> String? {
             guard let index = arguments.firstIndex(of: flag), index + 1 < arguments.count else { return nil }
             return arguments[index + 1]
@@ -62,7 +62,7 @@ enum NativeEnvironmentCheck {
         soldier.yaw = atan2(player.position.x - target.x, player.position.z - target.z)
         soldier.aimBlend = 0.3
         let simulation = CombatSimulation(difficulty: .easy, seed: 1745, world: world,
-                                          startingPlayer: player, startingEnemies: [soldier], startingWave: 3, map: map)
+                                          startingPlayer: player, startingEnemies: [soldier], startingWave: 3, map: map, loadout: loadout)
         try renderer.setMap(simulation.map)
         let sample = simulation.environmentSample(at: simulation.player.position)
         let eye = EnemyPose(soldier).eyePosition

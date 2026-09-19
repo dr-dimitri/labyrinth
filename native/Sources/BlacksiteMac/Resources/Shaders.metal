@@ -261,10 +261,29 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     metal=clamp(metal,0.0,0.28);
     map=weaponMetalNormal.sample(surface,uv).xyz*2-1;
     n=perturbNormal(n,in.world,uv,map,0.28);
-  } else if(id==16) {
+  } else if(id==16 || id==30 || id==31) {
     uv=in.detailUV*1.6+float2(0.64,0.31);
     float3 textile=weaponClothColor.sample(surface,uv).rgb;
     float value=dot(textile,float3(0.2126,0.7152,0.0722));
+    if(id==30 || id==31) {
+      // Centimetre-scale fabric patches stay in each articulated part's local
+      // metric coordinates. Reloading, aiming and walking cannot slide the
+      // pattern across the cloth. These IDs belong only to player clothing.
+      float2 fabric=in.detailUV*18.0;
+      if(id==30) fabric*=float2(0.82,1.15);
+      float2 warp=float2(noise(fabric*0.43+float2(4.7,9.2)),noise(fabric*0.43+float2(12.1,1.8)));
+      float patch=noise(fabric+warp*1.8);
+      float fleck=noise(fabric*2.6+float2(11.3,-4.7));
+      float3 base=id==30 ? float3(0.16,0.20,0.105):float3(0.30,0.30,0.265);
+      float3 light=id==30 ? float3(0.33,0.28,0.17):float3(0.43,0.40,0.33);
+      float3 dark=id==30 ? float3(0.063,0.085,0.050):float3(0.13,0.15,0.14);
+      float3 pattern=mix(base,light,smoothstep(0.43,0.56,patch));
+      pattern=mix(pattern,dark,smoothstep(0.63,0.73,fleck));
+      // Original piece luminance retains dark palm/fingertip reinforcements;
+      // sleeves and glove backs share a finish without becoming one flat tint.
+      float pieceValue=clamp(dot(albedo,float3(0.2126,0.7152,0.0722))/0.25,0.15,1.15);
+      albedo=pattern*pieceValue;
+    }
     albedo*=0.72+value*1.05;metal=0;
     rough=clamp(0.76+weaponClothRough.sample(surface,uv).r*0.22,0.80,0.99);
     map=weaponClothNormal.sample(surface,uv).xyz*2-1;
@@ -364,7 +383,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
     lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
   }
-  if((id>=9 && id<=13) || id==15 || id==16) {
+  if((id>=9 && id<=13) || id==15 || id==16 || id==30 || id==31) {
     float3 reflected=reflect(-v,n);
     float2 envUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
     float3 environment=photoSky.sample(surface,envUV,level(rough*7.0)).rgb;

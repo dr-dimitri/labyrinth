@@ -1,0 +1,79 @@
+{
+  "issue": 18,
+  "tests": {
+    "core": 128,
+    "macReported": 97,
+    "fullSuite": "passed",
+    "optionalSystemAudioAndMetalUpload": "not enabled in this run"
+  },
+  "reviews": {
+    "code": "independent review passed after reset/loadout fixes",
+    "images": "seven final images reviewed; no relevant new defects"
+  },
+  "productionBuild": {
+    "release": true,
+    "signature": "passed",
+    "smoke": "passed"
+  },
+  "nativeUI": {
+    "selectionCancelApply": true,
+    "startWithThreeGrenades": true,
+    "throwConsumesOne": true,
+    "pauseResume": true,
+    "retryAfterDeathRestoresHealthAndLoadout": true,
+    "restoredOriginalPreferences": true,
+    "visualLimitation": "CUA captured a small Stage Manager thumbnail; native states were verified via accessibility, full render images separately."
+  },
+  "scenes": {
+    "none": {
+      "loadoutCamouflage": "none",
+      "loadoutFragmentationGrenades": 4,
+      "playerCamouflagePattern": "none",
+      "camouflageClothingInstances": 0,
+      "metalValidation": "passed"
+    },
+    "vegetation": {
+      "loadoutCamouflage": "vegetation",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "vegetation",
+      "camouflageClothingInstances": 32,
+      "metalValidation": "passed"
+    },
+    "mineral": {
+      "loadoutCamouflage": "mineral",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "mineral",
+      "camouflageClothingInstances": 32,
+      "metalValidation": "passed"
+    },
+    "reload": {
+      "loadoutCamouflage": "vegetation",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "vegetation",
+      "camouflageClothingInstances": 32,
+      "metalValidation": "passed"
+    },
+    "wall": {
+      "loadoutCamouflage": "mineral",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "mineral",
+      "camouflageClothingInstances": 32,
+      "metalValidation": "passed"
+    },
+    "scope": {
+      "loadoutCamouflage": "mineral",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "mineral",
+      "camouflageClothingInstances": 0,
+      "metalValidation": "passed"
+    },
+    "reset": {
+      "loadoutCamouflage": "mineral",
+      "loadoutFragmentationGrenades": 3,
+      "playerCamouflagePattern": "mineral",
+      "camouflageClothingInstances": 32,
+      "metalValidation": "passed"
+    }
+  },
+  "resourceImpact": "No additional textures, clothing instances or draw calls; material variants reuse existing cloth resources."
+}

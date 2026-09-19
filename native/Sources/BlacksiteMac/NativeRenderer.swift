@@ -151,6 +151,8 @@ final class NativeRenderer {
     private var weaponAimBlend: Float = 0
     private var weaponWallBlend: Float = 0
     private var weaponParts: [WeaponKind: WeaponParts] = [:]
+    private var displayedCamouflagePattern: CamouflagePattern = .none
+    private var camouflageClothingInstances = 0
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
@@ -176,6 +178,8 @@ final class NativeRenderer {
         diagnostics["gameplayVegetationInstances"]=vegetationBatches.count
         diagnostics["gameplayVegetationAlphaWidth"]=vegetationAlpha?.width ?? 0
         diagnostics["gameplayVegetationPlantBudget"]=NativeVegetationGeometry.maximumPlants
+        diagnostics["playerCamouflagePattern"]=displayedCamouflagePattern.rawValue
+        diagnostics["camouflageClothingInstances"]=camouflageClothingInstances
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
@@ -374,7 +378,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         // Only hit owners need surface extraction. These are the exact cached
@@ -597,6 +601,8 @@ final class NativeRenderer {
     }
     private func prepare(simulation: CombatSimulation, mode: NativeRenderMode, size: SIMD2<Float>, deltaTime: Float) -> PreparedScene {
         let p = simulation.player
+        displayedCamouflagePattern=simulation.loadout.camouflage
+        camouflageClothingInstances=0
         var eye = simulation.eyePosition
         var yaw = p.yaw, pitch = p.pitch
         if mode == .menu { eye = map.scenery.menuEye; let dir = simd_normalize(map.scenery.menuTarget - eye); yaw = atan2(-dir.x, -dir.z); pitch = asin(dir.y) }
@@ -709,6 +715,7 @@ final class NativeRenderer {
             // Use the same unshaken pose as the actual shot/ejection event.
             for item in weapon(simulation: simulation, eye: simulation.eyePosition, yaw: p.yaw, pitch: p.pitch) {
                 weaponByMesh[item.mesh].append(item.instance)
+                if item.instance.material.w == 30 || item.instance.material.w == 31 { camouflageClothingInstances+=1 }
                 // Flash, reticle and transmissive scope glass cannot cast an
                 // opaque shadow across the hand or receiver.
                 if item.instance.material.z<=0 && Int(item.instance.material.w+0.5) != 12 { weaponCastersByMesh[item.mesh].append(item.instance) }
@@ -1200,16 +1207,17 @@ final class NativeRenderer {
         guard let parts=weaponParts[kind] else { return [] }
         let base=weaponTransform(simulation:simulation,eye:eye,yaw:yaw,pitch:pitch)
         var out:[RenderItem]=[]; out.reserveCapacity(parts.fixed.count+parts.magazine.count+parts.leftHand.count+parts.rightHand.count+12)
-        func transformed(_ group:[RenderItem],_ matrix:simd_float4x4) {
+        func transformed(_ group:[RenderItem],_ matrix:simd_float4x4,clothing:Bool=false) {
             for item in group {
                 let tint=item.instance.tint
-                appendTransformed(to:&out,mesh:item.mesh,transform:matrix*item.instance.model,color:SIMD3(tint.x,tint.y,tint.z),material:item.instance.material,shadow:false)
+                let material=clothing ? NativeCamouflageAppearance.material(item.instance.material,pattern:simulation.loadout.camouflage):item.instance.material
+                appendTransformed(to:&out,mesh:item.mesh,transform:matrix*item.instance.model,color:SIMD3(tint.x,tint.y,tint.z),material:material,shadow:false)
             }
         }
         let reload=reloadPose(simulation), leftPose=base*reload.supportHandTransform
-        transformed(parts.fixed,base); transformed(parts.rightHand,base)
+        transformed(parts.fixed,base); transformed(parts.rightHand,base,clothing:true)
         transformed(parts.magazine,base*reload.magazineTransform)
-        transformed(parts.leftHand,leftPose)
+        transformed(parts.leftHand,leftPose,clothing:true)
         transformed(parts.chargingHandle,base*Self.translation(SIMD3(0,0,reload.slideOffset)))
         // Hands follow their grip points; the sleeves connect those wrists to
         // elbows below the camera, instead of moving a rigid arm as one object.
@@ -1221,7 +1229,8 @@ final class NativeRenderer {
             guard length>0.001 else { return }
             let start=end+simd_normalize(towardsElbow)*length
             let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:(end-start)/length))
-            appendTransformed(to:&out,mesh:14,transform:Self.translation((start+end)*0.5)*rotation*Self.scale(SIMD3(0.032,length,0.029)),color:SIMD3(0.24,0.27,0.20),material:SIMD4(0.94,0,0,16),shadow:false)
+            let cloth=NativeCamouflageAppearance.material(SIMD4(0.94,0,0,16),pattern:simulation.loadout.camouflage)
+            appendTransformed(to:&out,mesh:14,transform:Self.translation((start+end)*0.5)*rotation*Self.scale(SIMD3(0.032,length,0.029)),color:SIMD3(0.24,0.27,0.20),material:cloth,shadow:false)
             appendTransformed(to:&out,mesh:2,transform:Self.translation(end)*rotation*Self.scale(SIMD3(0.023,0.023,0.021)),color:SIMD3(0.08,0.10,0.075),material:SIMD4(0.9,0,0,10),shadow:false)
         }
         forearm(wrist:SIMD3(-0.040,-0.054,-0.281),pose:leftPose,elbow:SIMD3(-0.14,-0.57,0.04),maximumLength:0.34)

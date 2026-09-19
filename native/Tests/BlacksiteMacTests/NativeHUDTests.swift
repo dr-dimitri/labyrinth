@@ -8,7 +8,7 @@ import BlacksiteCore
 @Suite(.serialized)
 struct NativeHUDTests {
     private let modes: [(NativeRenderMode, Set<String>)] = [
-        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "WELLEN", "DATEN BERGEN", "FUNK SICHERN"]),
+        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "FELDAUSRÜSTUNG", "WELLEN", "DATEN BERGEN", "FUNK SICHERN"]),
         (.playing, ["Ⅱ  ESC"]),
         (.paused, ["FORTSETZEN", "EINSTELLUNGEN", "ZURÜCK ZUM HAUPTMENÜ"]),
         (.result, ["ERNEUT ANTRETEN", "ZURÜCK ZUM HAUPTMENÜ"]),
@@ -22,7 +22,7 @@ struct NativeHUDTests {
     }
 
     @Test func visibleButtonCentresReceiveHitsAcrossMenuStatesAndWindowSizes() {
-        for size in [NSSize(width: 960, height: 640), NSSize(width: 1280, height: 800), NSSize(width: 1920, height: 1080)] {
+        for size in [NSSize(width: 960, height: 618), NSSize(width: 960, height: 640), NSSize(width: 1280, height: 800), NSSize(width: 1920, height: 1080)] {
             let (parent, hud) = fixture(size: size)
             #expect(!parent.isFlipped && hud.isFlipped)
             for (mode, titles) in modes {

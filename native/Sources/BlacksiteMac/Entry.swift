@@ -95,11 +95,12 @@ struct BlacksiteMain {
                 let view = MTKView(frame: NSRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)), device: MTLCreateSystemDefaultDevice())
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
-                let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer)
-                let environmentCheck = mapCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer) : nil
-                let missionCheck = mapCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer) : nil
-                let sceneCheck = mapCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer) : nil
-                var simulation = mapCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
+                let loadout = try NativeLoadoutCheck.loadout(arguments: args)
+                let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
+                let environmentCheck = mapCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let missionCheck = mapCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let sceneCheck = mapCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                var simulation = mapCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
                 if mapCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
@@ -114,6 +115,8 @@ struct BlacksiteMain {
                 if benchmark {
                     var result = try renderer.benchmark(simulation: simulation, width: width, height: height, frames: 120)
                     result.merge(renderer.characterDiagnostics) { _, value in value }
+                    result["loadoutCamouflage"] = simulation.loadout.camouflage.rawValue
+                    result["loadoutFragmentationGrenades"] = simulation.loadout.fragmentationGrenades
                     result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(missionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(effectsCheck) { _, value in value }
@@ -138,6 +141,8 @@ struct BlacksiteMain {
                 result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(mapCycles) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
+                result["loadoutCamouflage"] = simulation.loadout.camouflage.rawValue
+                result["loadoutFragmentationGrenades"] = simulation.loadout.fragmentationGrenades
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(missionCheck?.metadata ?? [:]) { _, value in value }
                 let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])

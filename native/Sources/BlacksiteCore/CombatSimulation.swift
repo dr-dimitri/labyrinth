@@ -7,6 +7,7 @@ public final class CombatSimulation {
     public let map: MapDefinition
     public let terrain: TerrainProfile
     public let missionKind: MissionKind
+    public let loadout: LoadoutDefinition
     public private(set) var player: PlayerState
     public private(set) var enemies: [EnemyState]
     public private(set) var obstacles: [Obstacle]
@@ -41,6 +42,22 @@ public final class CombatSimulation {
     public var eyePosition: SIMD3<Float> { player.position + SIMD3(0, player.height - 0.1, 0) }
     public var isHidden: Bool {
         aliveCount > 0 && !enemies.contains { $0.health > 0 && $0.seesPlayer } && elapsed - lastShot > 1.5
+    }
+    public var concealmentStatus: ConcealmentStatus {
+        let sample = environmentSample(at: player.position)
+        let matches = loadout.camouflage.matches(sample.camouflageGround)
+        let reason: ConcealmentReason
+        if loadout.camouflage == .none { reason = .noSuit }
+        else if !player.grounded || climbing != nil { reason = .airborne }
+        else if elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration { reason = .recentShot }
+        else if !matches { reason = .unsuitableGround }
+        else if let movement = concealmentMotion.reason { reason = movement }
+        else if concealmentMotion.settleProgress < 1 { reason = .settling }
+        else { reason = .ready }
+        let strength: Float = reason == .ready ? (player.prone ? 1 : 0.4) * concealmentMotion.turnStrength : 0
+        return ConcealmentStatus(pattern: loadout.camouflage, surfaceMaterial: sample.surfaceMaterial,
+            camouflageGround: sample.camouflageGround, matchesGround: matches,
+            settleProgress: concealmentMotion.settleProgress, localStrength: strength, reason: reason)
     }
     public var mantleAvailable: Bool { state == .active && climbing == nil && player.grounded && mantleTarget() != nil }
     public var climbProgress: Float? { climbing.map { $0.progress / 0.75 } }
@@ -99,6 +116,7 @@ public final class CombatSimulation {
     private var nextID = 100
     private var grenadeCooldown: Float = 0
     private var lastShot: Double = -20
+    private var concealmentMotion = ConcealmentMotion()
     private var extractionAnnounced = false
     private var missionPhase: MissionPhase
     private var missionStarted = false
@@ -125,27 +143,29 @@ public final class CombatSimulation {
     private var searchQueue = [Int]()
 
     public convenience init(map: MapDefinition = .blacksite, difficulty: Difficulty = .normal, seed: UInt64 = 1745,
-                            terrainOverride: TerrainProfile? = nil, mission: MissionKind = .waves) {
+                            terrainOverride: TerrainProfile? = nil, mission: MissionKind = .waves, loadout: LoadoutDefinition = .init()) {
         let selected = terrainOverride.map { map.withTerrain($0) } ?? map
         self.init(difficulty: difficulty, seed: seed, world: selected.obstacles,
-                  startingEnemies: [], startingWave: 0, terrain: selected.terrain, mission: mission, map: selected)
+                  startingEnemies: [], startingWave: 0, terrain: selected.terrain, mission: mission, map: selected, loadout: loadout)
     }
 
     /// Compatibility for existing callers which explicitly selected a profile.
     public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile,
-                            mission: MissionKind = .waves) {
-        self.init(map: .blacksite, difficulty: difficulty, seed: seed, terrainOverride: terrain, mission: mission)
+                            mission: MissionKind = .waves, loadout: LoadoutDefinition = .init()) {
+        self.init(map: .blacksite, difficulty: difficulty, seed: seed, terrainOverride: terrain, mission: mission, loadout: loadout)
     }
 
     /// Explicit actor heights remain world-space. Omitted actors use the map's
     /// authored start. Legacy isolated worlds retain their flat default profile.
     public init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, world: [Obstacle],
                 startingPlayer: PlayerState? = nil, startingEnemies: [EnemyState] = [], startingWave: Int = 0,
-                terrain: TerrainProfile? = nil, mission: MissionKind = .waves, map: MapDefinition? = nil) {
+                terrain: TerrainProfile? = nil, mission: MissionKind = .waves, map: MapDefinition? = nil,
+                loadout: LoadoutDefinition = .init()) {
         let selected = map ?? MapDefinition.blacksite.withoutVegetation()
         let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
         self.map = selected.withTerrain(terrain)
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
+        self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades
         missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
         navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
         navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
@@ -169,6 +189,7 @@ public final class CombatSimulation {
         for index in enemies.indices where enemies[index].grounded && abs(enemies[index].position.y) < 0.001 {
             enemies[index].position.y = terrain.height(x: enemies[index].position.x, z: enemies[index].position.z)
         }
+        concealmentMotion.resetPose(player)
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
@@ -218,12 +239,14 @@ public final class CombatSimulation {
         guard state == .active, player.grounded, climbing == nil else { return }
         if player.prone && blocked(player.position, height: 1.72, radius: 0.32) { return }
         player.prone.toggle()
+        concealmentMotion.interrupt()
     }
 
     @discardableResult public func jump() -> Bool {
         guard state == .active, climbing == nil, player.grounded, player.stamina >= 12 else { return false }
         if player.prone { toggleProne(); return false }
         player.verticalVelocity = 6.8; player.grounded = false; player.stamina -= 12
+        concealmentMotion.interrupt()
         emit(GameEvent(kind: .jump, position: player.position))
         return true
     }
@@ -231,6 +254,7 @@ public final class CombatSimulation {
     @discardableResult public func mantle() -> Bool {
         guard state == .active, climbing == nil, player.grounded, let target = mantleTarget() else { return false }
         climbing = ClimbState(from: player.position, to: target.position, obstacleID: target.obstacleID)
+        concealmentMotion.interrupt()
         player.prone = false; player.verticalVelocity = 0; isAiming = false; isSprinting = false
         emit(GameEvent(kind: .climb, position: player.position, endPosition: target.position))
         return true
@@ -328,6 +352,7 @@ public final class CombatSimulation {
         guard weapon.ammo > 0 else { reload(); return false }
         weapon.ammo -= 1; weapon.cooldown = activeWeapon.fireInterval; weapons[activeWeapon] = weapon
         lastShot = elapsed
+        concealmentMotion.interrupt()
         hearNoise(at: player.position, radius: 38)
         let spread: Float = isAiming ? (activeWeapon == .sniper ? 0.0002 : 0.0017) : (activeWeapon == .sniper ? 0.021 : 0.009)
         let direction = viewDirection(yaw: player.yaw + (random() - 0.5) * spread,
@@ -535,6 +560,11 @@ public final class CombatSimulation {
         }
         grenadeCooldown = max(0, grenadeCooldown - dt)
         if input.fire { fire() }
+        if loadout.camouflage != .none {
+            concealmentMotion.observe(player: player, sprinting: isSprinting, climbing: climbing != nil,
+                matchesGround: loadout.camouflage.matches(environmentSample(at: player.position).camouflageGround),
+                recentShot: elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration)
+        }
         updateGrenades(dt)
         guard state == .active else { return }
         updateEnemies(dt)
@@ -656,7 +686,7 @@ public final class CombatSimulation {
         if wave < 3 {
             if intermission <= 0 {
                 intermission = 7; player.health = min(100, player.health + 25)
-                grenadeCount = min(4, grenadeCount + 2)
+                grenadeCount = min(loadout.fragmentationGrenades, grenadeCount + 2)
                 if var rifle = weapons[.rifle] { rifle.reserve = min(300, rifle.reserve + 60); weapons[.rifle] = rifle }
                 if var sniper = weapons[.sniper] { sniper.reserve = min(50, sniper.reserve + 10); weapons[.sniper] = sniper }
                 emit(GameEvent(kind: .waveCleared, position: player.position, count: wave))
@@ -1085,8 +1115,14 @@ extension CombatSimulation {
             if brain.visualContact {
                 let reaction: Float = (difficulty == .easy ? 0.8 : difficulty == .hard ? 0.4 : 0.6) *
                     (horizontal < 8 ? 0.7 : 1) * (player.prone ? 1.25 : 1)
-                let recognition = enemy.detectionProgress >= 1 ? 1 : vegetationRecognitionFactor(
-                    from: EnemyPose(enemy).eyePosition, eyeLineIsClear: true)
+                var recognition: Float = 1
+                if enemy.detectionProgress < 1 {
+                    recognition = vegetationRecognitionFactor(from: EnemyPose(enemy).eyePosition, eyeLineIsClear: true)
+                    if loadout.camouflage != .none {
+                        recognition = ConcealmentEvaluation(status: concealmentStatus, observerDistance: simd_length(offset))
+                            .combinedRecognition(vegetation: recognition)
+                    }
+                }
                 enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction * recognition)
                 if enemy.detectionProgress >= 1 {
                     if enemy.awareness != .engaged {

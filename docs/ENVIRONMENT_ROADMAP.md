@@ -13,9 +13,9 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 
 | Issue | Inhalt | Status |
 | --- | --- | --- |
-| #16 | Gemeinsame Kartendefinitionen | Umgesetzt, Review/Tests bestanden; Fensterprüfung offen |
-| #17 | Vegetation und Untergrund | Umgesetzt, Code-Review/Tests bestanden; Fensterprüfung offen |
-| #18 | Geländeabhängiger Tarnanzug | Offen |
+| #16 | Gemeinsame Kartendefinitionen | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
+| #17 | Vegetation und Untergrund | Umgesetzt, Review/Tests und Bildprüfung bestanden |
+| #18 | Geländeabhängiger Tarnanzug | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
 | #19 | Geräusche und Ablenkung | Offen |
 | #20 | Strom, Licht und Servicetore | Offen |
 | #23 | Lokale Kontaktmeldungen | Offen |
@@ -69,8 +69,12 @@ identischen Karten konstant. Der Blacksite-Bildvergleich zeigt eine mittlere
 RGB-Abweichung unter 0,001 von 255 (24 von 1.024.000 Pixeln über acht Stufen).
 [Messdaten](native-environment/issue16.json).
 
-Die direkte native Fensterprüfung (Start, Pause, Retry) ist noch offen: Der Mac
-war bei der Prüfung gesperrt. Sie wird vor Veröffentlichung nachgeholt.
+Die native Bedienprüfung wurde nach Entsperren des Macs nachgeholt: Datenauftrag
+wählen, Start, Pause/Fortsetzen, Granate und neuer Einsatz funktionieren. Mit
+dem Paket von #18 wurde zusätzlich die Ergebnisaktion „Erneut antreten“ geprüft.
+Die UI-Automation liefert nur eine verkleinerte Stage-Manager-Aufnahme; die
+Bedienzustände wurden über die tatsächlichen nativen Accessibility-Elemente
+bestätigt. Die vollständige Bildprüfung stammt aus den Metal-Prüfszenen.
 
 ### #17 – Vegetation als Sichtschutz
 
@@ -104,3 +108,28 @@ Leistungsgewinn. Ein separater synthetischer Sichtquerytest mit flachem Gelände
 und ohne Hindernisse misst 0,023/0,811/10,371 µs für 0/1/16 überlappende Zonen.
 Er deckt insbesondere noch unbestätigte Sichtkontakte ab, misst aber keine
 gesamten Frames. [Messdaten](native-environment/issue17.json).
+
+### #18 – Geländeabhängiger Tarnanzug
+
+Die Feldausrüstung bietet normale Kleidung, Vegetations- und Mineraltarnung.
+Ein Tarnanzug ersetzt eine Splittergranate. Nach 1,5 Sekunden ruhiger Haltung
+auf passendem Boden erschwert er neue Sichtkontakte auf Distanz; kurze Distanz,
+Bewegung, starkes Drehen, Klettern und Schüsse begrenzen den Vorteil. Ein Schuss
+sperrt ihn drei Sekunden. Bestätigte Gegnerkontakte bleiben erhalten. Die
+Anzeige beschreibt nur die eigene Haltung und Bodenauflage, keine verborgenen
+Gegner. Stoff und Handschuhe tragen das gewählte Muster ohne neue Texturen oder
+zusätzliche Grafikinstanzen.
+
+Unabhängiges Code- und Bildreview bestanden. Zwei Prüfszenen verloren beim
+Zurücksetzen beziehungsweise Kartenwechsel den Loadout; beide sind korrigiert.
+Alle 128 Core- und 97 gemeldeten Mac-Tests bestehen. Sie prüfen unter anderem
+Entfernungen, tatsächliche Bewegung statt Tastendruck, Bildratenunabhängigkeit,
+Schüsse gegenüber Leerabzug/Nachladen, Pause und Neustart. Sieben Metal-Szenen
+prüfen beide Muster, normale Kleidung, Nachladen, Wandhaltung, Scope und Reset.
+Release-Build, Signaturprüfung und Smokecheck bestehen.
+
+In der gebauten App wurden Auswahl, Abbrechen ohne Änderung, Übernehmen,
+Missionsstart mit drei Granaten, Verbrauch, Pause/Fortsetzen und Wiederholung
+nach echter Niederlage geprüft. Retry stellt Gesundheit und Startvorrat wieder
+her und behält das Tarnmuster. Anschließend wurde die ursprüngliche normale
+Kleidung mit vier Granaten wiederhergestellt. [Prüfdaten](native-environment/issue18.json).

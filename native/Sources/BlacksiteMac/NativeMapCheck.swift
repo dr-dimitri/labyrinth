@@ -14,7 +14,7 @@ enum NativeMapCheck {
         let message: String
         var errorDescription: String? { message }
     }
-    static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
+    static func prepare(arguments: [String], renderer: NativeRenderer, loadout: LoadoutDefinition = .init()) throws -> Result? {
         guard let index=arguments.firstIndex(of:"--scene"),index+1<arguments.count,
               arguments[index+1]=="map-test" else { return nil }
         if arguments.contains("--map-cycles") {
@@ -34,7 +34,7 @@ enum NativeMapCheck {
             return enemy
         }
         let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:map.obstacles,
-            startingPlayer:player,startingEnemies:enemies,startingWave:3,map:map)
+            startingPlayer:player,startingEnemies:enemies,startingWave:3,map:map,loadout:loadout)
         return Result(simulation:simulation,metadata:["scene":"map-test","fixtureMapID":map.id,
             "playerGroundHeight":simulation.player.position.y,"fixtureRoadMaterial":map.groundMaterial(at:player.position).rawValue,
             "fixtureMinimum":[map.minimum.x,map.minimum.z],"fixtureMaximum":[map.maximum.x,map.maximum.z]])
@@ -55,7 +55,7 @@ enum NativeMapCheck {
                 ? (initial.id==MapDefinition.testRange.id ? MapDefinition.blacksite:MapDefinition.testRange)
                 : initial
             try autoreleasepool { try renderer.setMap(next) }
-            let candidate=CombatSimulation(map:next,difficulty:.easy,seed:1745)
+            let candidate=CombatSimulation(map:next,difficulty:.easy,seed:1745,loadout:simulation.loadout)
             var measurement=try autoreleasepool {
                 try renderer.benchmark(simulation:candidate,width:width,height:height,frames:1)
             }

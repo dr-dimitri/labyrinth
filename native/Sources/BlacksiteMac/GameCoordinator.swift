@@ -100,7 +100,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func startMatch() {
         guard ready, window.attachedSheet == nil else { return }
         guard prepareMap(selectedMap) else { return }
-        simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission)
+        simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission,
+                                      loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
         yaw = simulation.player.yaw; pitch = simulation.player.pitch
         renderer?.reset(); combatFeedback.reset()
         bannerUntil = 0
@@ -329,6 +330,22 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             self.audio.setVolumes(music: draft.musicVolume, effects: draft.effectsVolume)
             self.window.endSheet(panel); self.sheet = nil
             self.hud.refresh(); self.view.setNeedsDisplay(self.view.bounds)
+        }
+        sheet = panel; window.beginSheet(panel)
+    }
+
+    func showLoadout() {
+        guard mode == .menu, ready, window.attachedSheet == nil else { return }
+        clearInput()
+        let panel = NativeLoadoutPanel(pattern: settings.selectedCamouflage)
+        panel.loadoutView.onCancel = { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            self.clearInput(); self.window.endSheet(panel); self.sheet = nil
+        }
+        panel.loadoutView.onApply = { [weak self, weak panel] pattern in
+            guard let self, let panel else { return }
+            self.settings.selectedCamouflage = pattern; self.settings.save()
+            self.clearInput(); self.window.endSheet(panel); self.sheet = nil; self.hud.refresh()
         }
         sheet = panel; window.beginSheet(panel)
     }
