@@ -22,10 +22,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var combatFeedback = CombatFeedback()
     var showPerformance = false
     var performanceText = ""
-    private var keys = Set<UInt16>()
-    private var mouseButtons = Set<Int>()
-    private var pendingFire = false
-    private var shiftDown = false, controlDown = false, mouseCaptured = false
+    private var inputState = NativeInputState()
+    private var modifierBridge = NativeModifierBridge()
+    private var mouseCaptured = false
     private var yaw: Float = 0, pitch: Float = 0
     private var lastFrame = CACurrentMediaTime(), lastHUD: Double = 0, lastScroll: Double = 0
     private var frameCounter = 0, statsStart = CACurrentMediaTime()
@@ -37,6 +36,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         view = NativeGameView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800), device: MTLCreateSystemDefaultDevice())
         hud = GameHUDView(frame: view.frame)
         super.init()
+        inputState.reconfigure(bindings: settings.bindings, aimMode: settings.aimMode, sprintMode: settings.sprintMode)
         window.delegate = self; window.acceptsMouseMovedEvents = true
         let root = NSView(frame: view.frame)
         root.wantsLayer = true; root.layer?.backgroundColor = NSColor.black.cgColor
@@ -68,19 +68,18 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard ready, let renderer else { return }
         let now = CACurrentMediaTime(), delta = min(0.1, max(0, now - lastFrame)); lastFrame = now
         if mode == .playing {
+            let controls = inputState.snapshot()
             let aimFactor: Float = isAimPresented && simulation.activeWeapon == .sniper ? 0.3 : 1
-            yaw += Float((keys.contains(123) ? 1 : 0) - (keys.contains(124) ? 1 : 0)) * Float(delta) * 1.65 * aimFactor
-            pitch = max(-1.45, min(1.45, pitch + Float((keys.contains(116) ? 1 : 0) - (keys.contains(121) ? 1 : 0)) * Float(delta)))
+            yaw += controls.yawAxis * Float(delta) * 1.65 * aimFactor
+            pitch = max(-1.45, min(1.45, pitch + controls.pitchAxis * Float(delta)))
             var input = GameInput()
             input.yaw = yaw; input.pitch = pitch
-            input.moveForward = Float((keys.contains(13) || keys.contains(126) ? 1 : 0) - (keys.contains(1) || keys.contains(125) ? 1 : 0))
-            input.moveRight = Float((keys.contains(2) ? 1 : 0) - (keys.contains(0) ? 1 : 0))
-            input.sprint = shiftDown; input.fire = pendingFire || mouseButtons.contains(0) || keys.contains(12)
-            input.aim = mouseButtons.contains(1) || keys.contains(6)
-            input.interact = keys.contains(14)
+            input.moveForward = controls.moveForward; input.moveRight = controls.moveRight
+            input.sprint = controls.sprint; input.fire = controls.fire
+            input.aim = controls.aim; input.interact = controls.interact
             let previousTime = simulation.elapsed
             simulation.step(deltaTime: delta, input: input)
-            if simulation.elapsed > previousTime { pendingFire = false }
+            if simulation.elapsed > previousTime { inputState.didAdvanceSimulation() }
             let events = simulation.drainEvents()
             renderer.handle(events: events, simulation: simulation); audio.handle(events, simulation: simulation); process(events)
             audio.update(delta: Float(delta), simulation: simulation)
@@ -161,7 +160,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .extractionUnlocked:
                 banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6)
             case .missionPhaseChanged:
-                if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase) {
+                if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase, interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings)) {
                     banner(notice.label, notice.title, notice.detail, duration: 4)
                 }
             case .supply: toast("NACHSCHUB  +45 Sturmgewehr · +5 Scharfschützengewehr")
@@ -190,46 +189,54 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         }
         if event.keyCode == 96 && !event.isARepeat { showPerformance.toggle(); hud.refresh(); return }
         guard mode == .playing else { return }
-        keys.insert(event.keyCode)
-        guard !event.isARepeat else { return }
-        switch event.keyCode {
-        case 12: pendingFire = true
-        case 49: simulation.jump()
-        case 8: simulation.toggleProne()
-        case 14: if !simulation.missionInteractionAvailable { simulation.mantle() }
-        case 5: simulation.throwGrenade()
-        case 15: simulation.reload()
-        case 18: simulation.selectWeapon(.rifle)
-        case 19: simulation.selectWeapon(.sniper)
-        default: break
-        }
-        hud.refresh()
+        performInputActions(inputState.press(.key(event.keyCode), isRepeat: event.isARepeat))
     }
-    func keyUp(_ event: NSEvent) { keys.remove(event.keyCode) }
+    func keyUp(_ event: NSEvent) { inputState.release(.key(event.keyCode)) }
     func flagsChanged(_ event: NSEvent) {
-        let control = event.modifierFlags.contains(.control)
-        if mode == .playing && control && !controlDown { simulation.toggleProne() }
-        controlDown = control; shiftDown = event.modifierFlags.contains(.shift)
+        guard mode == .playing else { return }
+        if event.modifierFlags.contains(.command) { clearInput(); return }
+        guard let (button, down) = modifierBridge.change(keyCode: event.keyCode, flags: event.modifierFlags) else { return }
+        if down { performInputActions(inputState.press(button)) } else { inputState.release(button) }
     }
     func mouseMoved(_ event: NSEvent) {
         guard mode == .playing, mouseCaptured else { return }
-        let factor: Float = isAimPresented ? simulation.activeWeapon == .sniper ? 0.19 : 0.65 : 1
-        yaw -= Float(event.deltaX) * settings.sensitivity * factor
-        pitch = max(-1.45, min(1.45, pitch - Float(event.deltaY) * settings.sensitivity * factor))
+        let delta = settings.mouseLookDelta(dx: Float(event.deltaX), dy: Float(event.deltaY), aiming: isAimPresented, weapon: simulation.activeWeapon)
+        yaw += delta.x; pitch = max(-1.45, min(1.45, pitch + delta.y))
     }
     func mouseButton(_ button: Int, down: Bool) {
         guard mode == .playing else { return }
         if down {
-            mouseButtons.insert(button)
-            if button == 0 { pendingFire = true }
+            performInputActions(inputState.press(.mouse(button)))
             captureMouse()
-        } else { mouseButtons.remove(button) }
+        } else { inputState.release(.mouse(button)) }
+    }
+    func scrollInput(_ direction: NativeWheelDirection) {
+        guard mode == .playing else { return }
+        performInputActions(inputState.pulse(direction))
+    }
+    private func performInputActions(_ actions: [NativeInputAction]) {
+        for action in actions {
+            switch action {
+            case .jump: simulation.jump()
+            case .prone: simulation.toggleProne()
+            case .interact: if !simulation.missionInteractionAvailable { simulation.mantle() }
+            case .grenade: simulation.throwGrenade()
+            case .reload: simulation.reload()
+            case .rifle: simulation.selectWeapon(.rifle)
+            case .sniper: simulation.selectWeapon(.sniper)
+            case .nextWeapon: switchWeapon()
+            default: break
+            }
+        }
+        if !actions.isEmpty { hud.refresh() }
     }
     func switchWeapon() {
         guard mode == .playing, CACurrentMediaTime() - lastScroll > 0.22 else { return }
         lastScroll = CACurrentMediaTime(); simulation.selectWeapon(simulation.activeWeapon == .rifle ? .sniper : .rifle)
     }
-    private func clearInput() { keys.removeAll(keepingCapacity: true); mouseButtons.removeAll(keepingCapacity: true); pendingFire = false; shiftDown = false; controlDown = false }
+    private func clearInput() {
+        inputState.clear(); modifierBridge.synchronize(flags: NSEvent.modifierFlags)
+    }
     private func captureMouse() {
         guard !mouseCaptured, window.isKeyWindow else { return }
         let center = window.convertPoint(toScreen: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
@@ -249,8 +256,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         if mode == .menu { view.enableSetNeedsDisplay = false; view.isPaused = false; lastFrame = CACurrentMediaTime() }
     }
-    func windowWillClose(_ notification: Notification) { releaseMouse(); audio.setPaused(true) }
-    func shutdown() { releaseMouse(); audio.setPaused(true); view.isPaused = true }
+    func windowWillClose(_ notification: Notification) { clearInput(); releaseMouse(); audio.setPaused(true) }
+    func shutdown() { clearInput(); releaseMouse(); audio.setPaused(true); view.isPaused = true }
 
     @objc func newMatchMenu(_ sender: Any?) { startMatch() }
     @objc func pauseMenu(_ sender: Any?) { mode == .paused ? resume() : pause() }
@@ -259,57 +266,42 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     func showHelp() {
         guard window.attachedSheet == nil else { return }
-        pause()
+        pause(); clearInput()
         let mission = mode == .menu ? settings.selectedMission : simulation.missionKind
+        let interact = NativeControlLabels.label(for: .interact, bindings: settings.bindings)
         let alert = NSAlert(); alert.messageText = "Dein Feldhandbuch"
-        alert.informativeText = "W A S D – Bewegen     Maus – Umsehen\nShift – Sprinten     Leertaste – Springen\nC / Strg – Hinlegen oder aufstehen\nE halten – Daten bergen oder Funk aktivieren\nE – An einer Kante hochklettern (ohne Stationsaktion)\nLinksklick / Q – Schießen\nRechtsklick / Z halten – Zielen / 6× Zielfernrohr\n1 / 2 / Mausrad – Waffe wechseln\nR – Nachladen     G – Granate (2,8 s)\nEsc – Pause     F5 – Leistungsanzeige\n\nAR-4: 30 Schuss, automatisches Feuer.\nM82: 5 Schuss, sechsfaches Zielfernrohr.\nKopftreffer verursachen zusätzlichen Schaden.\n\nDeckung unterbricht die Sicht der Gegner. Kisten, Barrieren und Container sind zerstörbar; Fässer explodieren. Mit E erreichst du Containerdächer. Intakte Deckung schützt auch vor Granaten.\n\nGesundheit regeneriert nach 5,5 Sekunden ohne Treffer.\n\nAuftrag: \(NativeMissionPresentation.name(mission))\n\(NativeMissionPresentation.rules(mission))\nDie Zielanzeige nennt Entfernung, benötigte Zeit und Unterbrechungen. Während des Ladens am Boden bleiben; beim Funkhalten pausiert fehlender Bodenkontakt ebenfalls den Fortschritt."
+        alert.informativeText = NativeControlLabels.help(settings: settings) + "\n\nAuftrag: \(NativeMissionPresentation.name(mission))\n" +
+            NativeMissionPresentation.rules(mission, interactionLabel: interact) +
+            "\n\nAR-4: 30 Schuss, automatisch. M82: 5 Schuss, 6× Zielfernrohr.\nKopftreffer verursachen zusätzlichen Schaden. Granaten: 2,8 s Zündzeit.\nDeckung schützt vor Sicht, Beschuss und Granaten. Fässer explodieren.\nAn einer Kante hebt Interagieren dich auf Containerdächer.\nGesundheit regeneriert nach 5,5 Sekunden ohne Treffer."
         alert.addButton(withTitle: "Verstanden"); alert.beginSheetModal(for: window)
     }
 
     func showSettings() {
         guard window.attachedSheet == nil else { return }
-        pause()
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 490, height: 439), styleMask: [.titled], backing: .buffered, defer: false)
-        panel.title = "Blacksite – Einstellungen"; panel.appearance = NSAppearance(named: .darkAqua)
-        let content = panel.contentView!
-        func label(_ value: String, y: CGFloat) {
-            let field = NSTextField(labelWithString: value); field.frame = NSRect(x: 28, y: y + 49, width: 210, height: 23); field.font = .systemFont(ofSize: 13); content.addSubview(field)
-        }
-        label("Schwierigkeit", y: 329)
-        let difficulty = NSPopUpButton(frame: NSRect(x: 255, y: 375, width: 205, height: 28)); difficulty.addItems(withTitles: ["Rekrut", "Operator", "Veteran"]); difficulty.selectItem(at: settings.difficulty == .easy ? 0 : settings.difficulty == .hard ? 2 : 1); content.addSubview(difficulty)
-        let note = NSTextField(labelWithString: "Schwierigkeit gilt ab dem nächsten Einsatz."); note.frame = NSRect(x: 28, y: 349, width: 420, height: 20); note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor; content.addSubview(note)
-        label("Grafikqualität", y: 256)
-        let quality = NSPopUpButton(frame: NSRect(x: 255, y: 302, width: 205, height: 28)); quality.addItems(withTitles: ["Ausgewogen", "Hoch"]); quality.selectItem(at: settings.highQuality ? 1 : 0); content.addSubview(quality)
-        label("Bildratenlimit", y: 207)
-        let frameRate = NSPopUpButton(frame: NSRect(x: 255, y: 253, width: 205, height: 28)); frameRate.addItems(withTitles: ["60 FPS – sparsam", "120 FPS – flüssig"]); frameRate.selectItem(at: settings.fps == 120 ? 1 : 0); content.addSubview(frameRate)
-        label("Mausempfindlichkeit", y: 158)
-        let sensitivity = NSSlider(value: Double(settings.sensitivity), minValue: 0.0006, maxValue: 0.006, target: nil, action: nil); sensitivity.frame = NSRect(x: 255, y: 203, width: 205, height: 28); sensitivity.setAccessibilityLabel("Mausempfindlichkeit"); content.addSubview(sensitivity)
-        label("Musik", y: 109)
-        let music = NSSlider(value: Double(settings.musicVolume), minValue: 0, maxValue: 1, target: nil, action: nil); music.frame = NSRect(x: 255, y: 154, width: 205, height: 28); music.setAccessibilityLabel("Musiklautstärke"); content.addSubview(music)
-        label("Effekte und Warnungen", y: 60)
-        let effects = NSSlider(value: Double(settings.effectsVolume), minValue: 0, maxValue: 1, target: nil, action: nil); effects.frame = NSRect(x: 255, y: 105, width: 205, height: 28); effects.setAccessibilityLabel("Effektlautstärke"); content.addSubview(effects)
-        let done = NativeButton("EINSTELLUNGEN SPEICHERN", primary: true) { [weak self, weak panel] in
+        pause(); clearInput()
+        let panel = NativeSettingsPanel(settings: settings)
+        panel.settingsView.onCancel = { [weak self, weak panel] in
             guard let self, let panel else { return }
-            let highQuality = quality.indexOfSelectedItem == 1
+            self.clearInput(); self.window.endSheet(panel); self.sheet = nil
+        }
+        panel.settingsView.onSave = { [weak self, weak panel] draft in
+            guard let self, let panel else { return }
             do {
-                try self.renderer?.setQuality(highQuality)
+                try self.renderer?.setQuality(draft.highQuality)
             } catch {
                 let alert = NSAlert(); alert.alertStyle = .warning
                 alert.messageText = "Grafikqualität konnte nicht gewechselt werden"
-                alert.informativeText = "Die bisherigen Einstellungen bleiben erhalten.\n\n" + error.localizedDescription
+                alert.informativeText = "Die bisherigen Einstellungen bleiben erhalten. Dein Entwurf bleibt geöffnet.\n\n" + error.localizedDescription
                 alert.addButton(withTitle: "OK"); alert.beginSheetModal(for: panel)
                 return
             }
-            self.settings.difficulty = [Difficulty.easy, .normal, .hard][difficulty.indexOfSelectedItem]
-            self.settings.highQuality = highQuality
-            self.settings.fps = frameRate.indexOfSelectedItem == 1 ? 120 : 60
-            self.settings.musicVolume = Float(music.doubleValue); self.settings.effectsVolume = Float(effects.doubleValue)
-            self.settings.sensitivity = Float(sensitivity.doubleValue)
-            self.settings.save()
-            self.audio.setVolumes(music: self.settings.musicVolume, effects: self.settings.effectsVolume)
-            self.window.endSheet(panel); self.sheet = nil; self.hud.refresh(); self.view.setNeedsDisplay(self.view.bounds)
+            self.settings = draft; self.settings.save()
+            self.inputState.reconfigure(bindings: draft.bindings, aimMode: draft.aimMode, sprintMode: draft.sprintMode)
+            self.clearInput()
+            self.audio.setVolumes(music: draft.musicVolume, effects: draft.effectsVolume)
+            self.window.endSheet(panel); self.sheet = nil
+            self.hud.refresh(); self.view.setNeedsDisplay(self.view.bounds)
         }
-        done.frame = NSRect(x: 28, y: 28, width: 432, height: 46); content.addSubview(done)
         sheet = panel; window.beginSheet(panel)
     }
 }

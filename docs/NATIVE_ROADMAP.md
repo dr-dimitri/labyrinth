@@ -25,7 +25,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 9 | #4 Schadensstufen und Trümmer | Umgesetzt und geprüft |
 | 10 | #6 Schauplätze und alternative Wege | Umgesetzt und geprüft |
 | 11 | #9 Missionsvarianten | Umgesetzt und geprüft |
-| 12 | #11 Steuerung und Zielkomfort | Offen |
+| 12 | #11 Steuerung und Zielkomfort | Umgesetzt und geprüft |
 
 ## Prüfprotokoll
 
@@ -401,3 +401,57 @@ Dies sind technische Ablaufprüfungen, keine menschlichen Spieltests.
 [Funkstation](native-roadmap/mission-radio.png).
 Die Ansichten sind über `--smoke-test --scene mission-data`, `mission-data-carried`,
 `mission-radio`, `mission-radio-active` und `mission-radio-contested` reproduzierbar.
+
+### #11 – Freie Belegung und Zielkomfort
+
+19 Spielaktionen besitzen jeweils zwei optionale Belegungen. Das Einstellungsfenster
+bietet drei Tabs für Spiel/Grafik, Maus und Tasten. Physische Tastencodes bleiben
+gespeichert; ihre Beschriftung folgt dem aktuellen macOS-Tastaturlayout. Fünf
+Maustasten, normale Tastaturtasten und Shift/Control/Alt sind unterstützt, das
+Mausrad für Einzelaktionen. Escape, F5 und Systemtasten bleiben reserviert.
+Konflikte ändern zunächst nichts; ein ausdrücklicher Tausch wird für beide
+betroffenen Aktionen validiert. Erfassung und Änderungen bleiben bis Speichern
+ein lokaler Entwurf. Abbrechen verwirft ihn, Zurücksetzen betrifft nur die Steuerung.
+
+Zielen und Sprinten unterstützen Halten oder Umschalten. Freier Blick, AR-Zielen
+und Scharfschützenvisier haben unabhängige Empfindlichkeiten; bestehende Werte
+werden mit den bisherigen Faktoren 1 / 0,65 / 0,19 migriert. Invertieren wirkt
+nur auf die vertikale Mausachse. HUD, Feldhandbuch und Missionshinweise verwenden
+die gewählten Belegungen. Missionsstationen verlangen weiterhin gehaltene Interaktion.
+
+Die Eingabeverwaltung erhält kurze Schusstastenimpulse bis zum nächsten tatsächlichen
+Simulationsschritt. Pause, Fokusverlust, neue Einsätze und geänderte Einstellungen
+löschen gehaltene Aktionen und Umschaltzustände. Der Reviewbefund mit beiden
+gedrückten Shift-Tasten wurde korrigiert: Das Loslassen nur einer Seite nach
+einer Pause zählt nicht als erneutes Drücken. Die neutrale Synchronisierung gilt
+auch für die Tastenerfassung und Cmd-Kombinationen.
+
+Validierung: 183 reguläre Tests bestanden. 15 neue reine Eingabetests prüfen
+Standardachsen, Alternativen, kurze Feuerimpulse, Wiederholung, Halten/Umschalten,
+Reset, Konflikte und Persistenz. Acht Einstellungsprüfungen decken Migration,
+unabhängige Sensitivitäten, Y-Invertierung, lokale Entwürfe, Capture, Modifier
+und das AppKit-Layout ab; fünf weitere HUD-/Missionsprüfungen decken aktuelle und
+fehlende Belegungen ab. Unabhängiges Code-Review nach den Modifier-Korrekturen
+ohne offenen Befund.
+
+Native Bedienprüfung bestanden: alle drei Einstellungs-Tabs, Scrollliste, expliziter
+Konflikttausch und Abbrechen. Der gespeicherte Tausch Feuer/Q → Feuer/A sowie
+Links/A → Links/Q funktioniert nach erneutem App-Start; ein kurzer Tastendruck
+verbraucht genau eine Patrone (30 → 29). Ein separat geänderter Zielfernrohrwert
+bleibt gespeichert, während Umsehen und AR-Zielen unverändert bleiben.
+
+Mausrad wechselt zur M82; ein Rechtsklick im Umschaltmodus zeigt die tatsächliche
+6×-Optik mit AppKit-Blende und Absehen. Nach Pause/Fortsetzen ist die Optik wieder
+ausgeschaltet. Anschließend Standardsteuerung wiederhergestellt, gespeichert und
+über die Hilfe kontrolliert. Grafik Hoch, 60 FPS und beide Audiopegel bleiben
+unverändert. Release-App für ARM64 gebaut und Bundlesignatur erfolgreich geprüft.
+[Bedienprotokoll](native-roadmap/controls-checks.json).
+
+## Abschluss
+
+Alle zwölf Roadmap-Pakete und der zusätzlich gefundene Deckungshöhen-Bug #14
+sind lokal implementiert, geprüft und in getrennten Commits gesichert. Die
+GitHub-Issues bleiben bis zur Veröffentlichung des Branches offen. Die App liegt
+in `release/Blacksite.app`; die reguläre Testsuite umfasst jetzt 183 erfolgreiche
+Tests. Systemaudio- und GPU-Texturtests sind separate Opt-in-Prüfungen und wurden
+bei den betreffenden Arbeitspaketen erfolgreich ausgeführt.

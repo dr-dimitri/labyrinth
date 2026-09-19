@@ -68,4 +68,41 @@ struct NativeMissionPresentationTests {
         #expect(NativeMissionPresentation.banner(for: .extract)?.title == "ZUR EVAKUIERUNG")
         #expect(NativeMissionPresentation.banner(for: .holdRadio)?.title == "BEREICH SICHERN")
     }
+
+    @Test func assignedInteractionReachesActionReasonAccessibilityRulesAndPhaseNotices() {
+        for label in ["MAUS 5", "NUM ENTER / MAUS 3"] {
+            for phase in [MissionPhase.collectData,.activateRadio] {
+                let kind:MissionKind=phase == .collectData ? .recoverData:.secureRadio
+                let loading=NativeMissionPresentation(status(phase,kind:kind,available:true),interactionLabel:label)
+                #expect(loading.interactionTitle?.hasPrefix(label+" HALTEN") == true)
+                #expect(loading.reason.contains(label+" weiter halten"))
+                #expect(loading.accessibilityText.contains(label))
+                let released=NativeMissionPresentation(status(phase,kind:kind,interruption:.interactionReleased,available:true),interactionLabel:label)
+                #expect(released.reason.contains(label+" halten") && released.reason.contains("Loslassen"))
+                #expect(NativeMissionPresentation.rules(kind,interactionLabel:label).contains(label+" halten"))
+                #expect(NativeMissionPresentation.banner(for:phase,interactionLabel:label)?.detail.contains(label+" halten") == true)
+                #expect(loading.interactionDetail.contains("Loslassen"))
+                #expect(!(loading.interactionTitle ?? "").contains("E HALTEN"))
+            }
+        }
+    }
+
+    @Test func unboundMissionInteractionRequestsAssignmentWithoutInventingAKey() {
+        for label in [NativeControlLabels.unboundLabel,"  "] {
+            for phase in [MissionPhase.collectData,.activateRadio] {
+                let kind:MissionKind=phase == .collectData ? .recoverData:.secureRadio
+                let presentation=NativeMissionPresentation(status(phase,kind:kind,interruption:.interactionReleased,available:true),interactionLabel:label)
+                #expect(presentation.interactionTitle == "INTERAGIEREN NICHT BELEGT")
+                #expect(presentation.reason.contains("Einstellungen"))
+                #expect(presentation.interactionDetail.contains("Einstellungen"))
+                #expect(!presentation.accessibilityText.contains("E halten"))
+                #expect(!presentation.accessibilityText.contains("NICHT BELEGT halten"))
+                #expect(NativeMissionPresentation.rules(kind,interactionLabel:label).contains("Einstellungen belegen"))
+                #expect(NativeMissionPresentation.banner(for:phase,interactionLabel:label)?.detail.contains("Einstellungen belegen") == true)
+            }
+            let holding=NativeMissionPresentation(status(.holdRadio,kind:.secureRadio,progress:10,required:45),interactionLabel:label)
+            #expect(holding.reason == "Bereich frei · Kontrolle läuft")
+            #expect(holding.interactionTitle == nil && holding.fraction > 0)
+        }
+    }
 }

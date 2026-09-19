@@ -1,0 +1,19 @@
+{
+  "regularTests": 183,
+  "coreTests": 103,
+  "macTestsExcludingOptIn": 80,
+  "build": "ARM64 release; strict bundle signature passed",
+  "independentReview": "passed after modifier neutral-state correction",
+  "nativeUI": [
+    "Spiel & Grafik, Maus and Tasten tabs render; binding list scrolls; Save/Cancel remain visible.",
+    "Conflicting fire-secondary A requires explicit swap with move-left A; Cancel preserves original Q/A assignments.",
+    "Save and app restart preserve fire-secondary A, move-left Q, aim toggle and scope sensitivity 0.00055.",
+    "Remapped fire consumes one round: AR-4 30 -> 29.",
+    "Wheel selects M82; right click toggle shows 6x scene zoom with actual AppKit scope mask and reticle.",
+    "Pause/resume clears toggle aim and restores visible M82 outside the scope.",
+    "Scope sensitivity remains 0.00055 after restart; hip 0.0023 and ADS 0.001495 remain unchanged.",
+    "Control reset/save restores Q/A defaults, hold modes and scope 0.000437; help confirms restored bindings.",
+    "High quality, 60 FPS and music/effects 0.45 unchanged."
+  ],
+  "limits": "Automated CPU mission drivers are not human playtests. Input tests cover modifier combinations and reset cases independently of native UI automation."
+}

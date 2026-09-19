@@ -117,6 +117,70 @@ struct NativeHUDTests {
             for point in centres { #expect(hud.hitTest(point) == nil) }
         }
     }
+
+    @Test func remappedControlsReachCompactAndContextualHintsAndRespectModes() throws {
+        let suite="blacksite.hud-controls.\(UUID().uuidString)"
+        let defaults=try #require(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        var settings=NativeSettings(defaults:defaults)
+        #expect(settings.bindings.assign(.mouse(4),to:.grenade,slot:.primary) == .assigned)
+        #expect(settings.bindings.assign(.modifier(.option),to:.grenade,slot:.secondary) == .assigned)
+        #expect(settings.bindings.assign(.key(76),to:.reload,slot:.primary) == .assigned)
+        #expect(settings.bindings.assign(.mouse(3),to:.reload,slot:.secondary) == .assigned)
+        #expect(settings.bindings.assign(nil,to:.interact,slot:.primary) == .assigned)
+        #expect(settings.bindings.assign(.mouse(2),to:.interact,slot:.secondary) == .assigned)
+        settings.aimMode = .toggle; settings.sprintMode = .toggle
+        let hints=NativeHUDControlHints(settings:settings)
+        #expect(hints.footer.first?.binding == "MAUS 5")
+        #expect(hints.reloadLabel == "NUM ENTER / MAUS 4")
+        #expect(hints.interactionLabel == "MAUS 3" && hints.mantleTitle == "MAUS 3  HOCHKLETTERN")
+        #expect(hints.modeLines.count == 2 && hints.modeLines.allSatisfy{$0.contains("UMSCHALTEN")})
+        let mission=MissionStatus(kind:.recoverData,phase:.collectData,objectivePosition:.zero,objectiveRadius:1.6,
+                                  distance:0,progress:0,requiredProgress:0.8,interruption:.interactionReleased,interactionAvailable:true)
+        let presentation=NativeMissionPresentation(mission,interactionLabel:hints.interactionLabel)
+        #expect(presentation.interactionTitle == "MAUS 3 HALTEN  ·  DATEN SICHERN")
+        #expect(!presentation.reason.contains("UMSCHALTEN"))
+    }
+
+    @Test func compactFooterFitsItsFixedColumnsAndUnboundActionsNeverFallBackToDefaults() throws {
+        let suite="blacksite.hud-unbound.\(UUID().uuidString)"
+        let defaults=try #require(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        var settings=NativeSettings(defaults:defaults)
+        for action in [NativeInputAction.interact,.grenade,.prone,.jump,.rifle,.sniper] {
+            for slot in NativeBindingSlot.allCases { settings.bindings.assign(nil,to:action,slot:slot) }
+        }
+        let hints=NativeHUDControlHints(settings:settings)
+        #expect(hints.interactionLabel == NativeControlLabels.unboundLabel)
+        #expect(hints.mantleTitle == "INTERAGIEREN NICHT BELEGT" && hints.mantleDetail.contains("Einstellungen"))
+        #expect(hints.footer.count == 4)
+        let font=NSFont.monospacedSystemFont(ofSize:8,weight:.regular)
+        for hint in hints.footer {
+            #expect(hint.binding.contains(NativeControlLabels.unboundLabel))
+            #expect((hint.binding as NSString).size(withAttributes:[.font:font]).width <= 139)
+        }
+        // Two long real alternatives use the first assigned slot in the small
+        // footer while contextual help keeps both actual bindings.
+        settings.bindings.assign(.key(76),to:.grenade,slot:.primary)
+        settings.bindings.assign(.mouse(4),to:.grenade,slot:.secondary)
+        let remapped=NativeHUDControlHints(settings:settings)
+        #expect(remapped.footer[0].binding == "NUM ENTER")
+        #expect(NativeControlLabels.label(for:.grenade,bindings:settings.bindings) == "NUM ENTER / MAUS 5")
+    }
+
+    @Test func missionChoiceAccessibilityTracksRebindingAndRemovalImmediately() {
+        let (parent,hud)=fixture(size:NSSize(width:960,height:640))
+        let choices=hud.subviews.compactMap{$0 as? NativeButton}.filter(\.selectionStyle)
+        for label in ["MAUS 5",NativeControlLabels.unboundLabel] {
+            hud.updateMissionSelection(.recoverData,interactionLabel:label)
+            for button in choices where button.title != "WELLEN" {
+                let help=button.accessibilityHelp() ?? ""
+                #expect(!help.contains("E halten"))
+                #expect(label == NativeControlLabels.unboundLabel ? help.contains("Einstellungen belegen") : help.contains(label+" halten"))
+            }
+        }
+        withExtendedLifetime(parent) {}
+    }
 }
 
 // KVO callbacks run synchronously on the main thread with the mutations above.

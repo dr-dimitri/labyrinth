@@ -30,6 +30,13 @@ Zum Bauen und unmittelbaren Starten:
 
 ## 3. Steuerung
 
+Die Tabelle zeigt die Standardbelegung. Unter **Einstellungen → Tasten** lassen
+sich bis zu zwei Eingaben je Spielaktion zuweisen: normale Tasten, Shift/Control/Alt,
+die ersten fünf Maustasten und für Einzelaktionen das Mausrad. Escape und F5 sowie
+macOS-Systemtasten bleiben reserviert. Bei einer bereits belegten Eingabe wird der
+Konflikt angezeigt; ein Tausch muss ausdrücklich gewählt werden. Tastenbezeichnungen
+folgen dem aktuellen macOS-Tastaturlayout.
+
 | Eingabe | Aktion |
 | --- | --- |
 | Maus | Blickrichtung |
@@ -37,14 +44,36 @@ Zum Bauen und unmittelbaren Starten:
 | Umschalttaste | Sprinten |
 | Leertaste | Springen |
 | C oder Control | Hinlegen / aufstehen |
-| E | Auf eine erreichbare Kante oder einen Container klettern |
-| Linke Maustaste | Schießen |
-| Rechte Maustaste | Mit dem Scharfschützengewehr durch das Zielfernrohr zielen |
-| 1 / 2 | Sturmgewehr / Scharfschützengewehr |
+| E | Klettern; an einer Missionsstation zum Interagieren halten |
+| Linke Maustaste / Q | Schießen |
+| Rechte Maustaste halten | Zielen; beim Scharfschützengewehr durch das Zielfernrohr |
+| 1 / 2 / Mausrad | Sturmgewehr / Scharfschützengewehr wechseln |
 | R | Nachladen |
 | G | Handgranate werfen |
 | Escape | Pausieren / Maus freigeben |
 | F5 | Leistungsanzeige ein-/ausblenden |
+
+Pfeil hoch/runter bewegt vorwärts/rückwärts; Pfeil links/rechts dreht den Blick.
+Bild hoch/runter steuert den vertikalen Blick. Das Feldhandbuch zeigt alle aktuell
+belegten Alternativen. HUD, Kletter- und Missionshinweise verwenden dieselben
+Belegungen.
+
+Unter **Einstellungen → Maus** sind freier Blick, normales Zielen und Zielfernrohr
+getrennt einstellbar. Dort lassen sich die vertikale Mausachse invertieren und
+Zielen sowie Sprinten zwischen Halten und Umschalten wechseln. Diese Optionen
+ändern die weiterhin gehaltene Interaktion an Missionsstationen nicht. Speichern
+übernimmt den Entwurf; Abbrechen verwirft ihn. „Steuerung zurücksetzen“ stellt nur
+Eingabewerte wieder her und erhält Grafik, Schwierigkeit und Audio. Pause,
+Fokusverlust und ein neuer Einsatz löschen gehaltene und umgeschaltete Aktionen.
+
+Das Hauptmenü bietet drei Aufträge: **Wellen** mit anschließender Evakuierung,
+**Daten bergen** im Containerhof und am Nordtor evakuieren sowie **Funk sichern**
+in der Wartungszone. Zum Laden von Daten oder Aktivieren der Station wird die
+Interaktionstaste gehalten; Verlassen oder Loslassen setzt diesen kurzen Vorgang
+zurück. Die anschließende Funkkontrolle dauert 45 Sekunden und pausiert außerhalb
+des Bereichs, ohne Bodenkontakt oder bei anwesenden Gegnern. Ihr Fortschritt bleibt
+erhalten. Die Evakuierung benötigt drei ununterbrochene Sekunden am Boden im
+markierten Ring.
 
 Deckung entsteht durch die Geometrie der Arena: Gegner benötigen Sichtkontakt. Hinter Kisten und Containern oder in liegender Haltung kann man sich ihrer Sicht entziehen; zerstörte Deckung schützt nicht mehr.
 
@@ -160,7 +189,13 @@ Die Metal-Shader werden beim App-Start aus der mitgelieferten Datei `Shaders.met
 
 ### Durchgeführte Validierung
 
-Der aktuelle Stand mit texturierten menschlichen Soldaten wurde auf einem **Apple M2 Pro** gebaut und geprüft:
+Die aktuelle Umsetzung und ihre Prüfungen stehen im
+[Roadmap-Protokoll](NATIVE_ROADMAP.md), einschließlich Schatten, Waffen, Effekten,
+Grafikspeicher, Schauplätzen, Missionen und Steuerung. Die folgenden Messungen
+dokumentieren die früheren Ausbaustufen und sind keine Leistungswerte des aktuellen
+Gesamtstands.
+
+Der Ausgangsstand mit texturierten menschlichen Soldaten wurde auf einem **Apple M2 Pro** gebaut und geprüft:
 
 | Prüfung | Ergebnis |
 | --- | --- |
@@ -174,7 +209,11 @@ Der aktuelle Stand mit texturierten menschlichen Soldaten wurde auf einem **Appl
 
 Die Ergebnisse stehen in `release/native-soldier-checks.json`. Die Szene `squad` mit neun Gegnern erreichte bei **2560×1600 und 4× MSAA** über 120 Messbilder durchschnittlich **5,78 ms GPU-Zeit** (P95 **7,54 ms**) und **3,35 ms CPU-Vorbereitung**. Die gesamte Szene benötigt 30 Zeichenbefehle und rund 1,10 GiB Metal-Speicher. Details: `release/native-soldier-benchmark.json`. Das ist eine reproduzierbare Render-Szene mit festen Kampfhaltungen, keine Zusage für die Bildrate eines vollständigen Einsatzes.
 
-Die erneute interaktive Fensterprüfung konnte in dieser Runde wegen Timeouts des Automatisierungszugriffs auf die noch laufende ältere App-Instanz nicht abgeschlossen werden. Eine Prozessstichprobe zeigte deren reguläre Menü-Ereignisschleife. Die neue App wurde über ihren tatsächlichen nativen Start-/Renderpfad geprüft; zum Laden des neuen Programms muss eine vorher gestartete Instanz beendet und die App neu geöffnet werden.
+Beim damaligen Ausgangsstand war die erneute interaktive Fensterprüfung durch
+Timeouts blockiert. Diese Prüfung wurde im Rahmen der Roadmap nachgeholt;
+die erfolgreichen Bedienprüfungen sind dort protokolliert. Zum Laden einer neu
+gebauten Version muss eine bereits gestartete App-Instanz beendet und neu geöffnet
+werden.
 
 Der vorherige Stand mit prozeduralen Soldaten und dem gemeinsamen Gelände wurde ebenfalls auf einem **Apple M2 Pro** geprüft:
 
