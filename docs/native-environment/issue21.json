@@ -1,0 +1,441 @@
+{
+  "issue": 21,
+  "implementation": {
+    "maximumVolumes": 4,
+    "fuseSeconds": 1.5,
+    "lifetimeSeconds": 10,
+    "opticalModel": "shared clipped quartic density integral with Beer-Lambert transmission",
+    "uniformBytes": 336,
+    "extraVolumeDrawCalls": 0
+  },
+  "review": {
+    "independentCoreGraphicsAudioUI": "passed",
+    "practicalFix": "Only optically opaque smoke triggers the 120 Hz emergency sight guard; a distant unrelated cloud no longer changes the normal hard-cover perception cadence. A real-movement regression verifies this.",
+    "nativeInput": "Actual briefing start, V throw, pause/fuse, minimize/resume, death and retry verified in the native app."
+  },
+  "tests": {
+    "core": 171,
+    "mac": 152,
+    "actualMetalOpticalIntegration": "passed",
+    "isolatedCheckoutQualification": "Nine asset tests initially lacked their external Soldier files in the temporary checkout. After linking the unchanged asset directory, all nine passed; other tests had already passed.",
+    "optionalSystemAudio": "not enabled in this issue",
+    "optionalMetalTextureUpload": "not enabled in this issue"
+  },
+  "build": "Optimized ARM64 app built, ad-hoc signature and smoke check passed. Final staged source additionally passed isolated tests after the sight-cadence correction.",
+  "scenes": {
+    "through": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 6.598052024841309,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.0013630206231027842,
+      "metalValidation": "passed"
+    },
+    "through-balanced": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 6.598052024841309,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.0013630206231027842,
+      "metalValidation": "passed"
+    },
+    "edge": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": false,
+      "opticalDepthToProbe": 0,
+      "probeTarget": [
+        3.799999952316284,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 1,
+      "metalValidation": "passed"
+    },
+    "inside": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": false,
+      "opticalDepthToProbe": 4.32374906539917,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.013250114396214485,
+      "metalValidation": "passed"
+    },
+    "wall": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": 0,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 5.192269325256348,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.0055593764409422874,
+      "metalValidation": "passed"
+    },
+    "wall-open": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": true,
+      "gateProgress": 1,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 6.596920967102051,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.001364563126116991,
+      "metalValidation": "passed"
+    },
+    "scope": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 6.598052024841309,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": true,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 0.0013630206231027842,
+      "metalValidation": "passed"
+    },
+    "overlap": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 2,
+      "activatedSmokeEvents": 4,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 4,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": true,
+      "opticalDepthToProbe": 20,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716,
+        2.200000047683716,
+        2.200000047683716,
+        1.8562500476837158
+      ],
+      "smokeGrenadeInventory": 0,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 4,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 2.06115369216775e-09,
+      "metalValidation": "passed"
+    },
+    "above": {
+      "aboveSmoke": true,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 0,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 1,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": false,
+      "opticalDepthToProbe": 0,
+      "probeTarget": [
+        0,
+        6.619999885559082,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [
+        2.200000047683716
+      ],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 1,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 1,
+      "metalValidation": "passed"
+    },
+    "expired": {
+      "aboveSmoke": false,
+      "acceptedSmokeThrows": 0,
+      "activatedSmokeEvents": 1,
+      "device": "Apple M2 Pro",
+      "expiredSmokeEvents": 1,
+      "flyingSmokeGrenades": 0,
+      "gameplaySmokeVolumes": 0,
+      "gateOpen": false,
+      "gateProgress": null,
+      "opaqueToProbe": false,
+      "opticalDepthToProbe": 0,
+      "probeTarget": [
+        0,
+        1.6200000047683716,
+        -8
+      ],
+      "scopeRequested": false,
+      "smokeDensities": [],
+      "smokeGrenadeInventory": 2,
+      "smokeUniformBytes": 336,
+      "smokeVolumeCount": 0,
+      "smokeVolumeDrawCalls": 0,
+      "transmissionToProbe": 1,
+      "metalValidation": "passed"
+    }
+  },
+  "gpuBenchmark": {
+    "high-birth": {
+      "width": 2560,
+      "height": 1600,
+      "device": "Apple M2 Pro",
+      "textureQuality": "high",
+      "gpuAverageMs": 4.2948392358084675,
+      "gpuP95Ms": 5.866416671779007,
+      "gpuAllocatedMB": 779.234375,
+      "gameplaySmokeVolumes": 2,
+      "smokeDensities": [
+        0,
+        0
+      ]
+    },
+    "high-four": {
+      "width": 2560,
+      "height": 1600,
+      "device": "Apple M2 Pro",
+      "textureQuality": "high",
+      "gpuAverageMs": 3.2794246520400825,
+      "gpuP95Ms": 4.395708325318992,
+      "gpuAllocatedMB": 779.234375,
+      "gameplaySmokeVolumes": 4,
+      "smokeDensities": [
+        2.200000047683716,
+        2.200000047683716,
+        2.200000047683716,
+        1.8562500476837158
+      ]
+    },
+    "balanced-birth": {
+      "width": 2560,
+      "height": 1600,
+      "device": "Apple M2 Pro",
+      "textureQuality": "balanced",
+      "gpuAverageMs": 2.6963416661601514,
+      "gpuP95Ms": 3.5848749976139516,
+      "gpuAllocatedMB": 220.234375,
+      "gameplaySmokeVolumes": 2,
+      "smokeDensities": [
+        0,
+        0
+      ]
+    },
+    "balanced-four": {
+      "width": 2560,
+      "height": 1600,
+      "device": "Apple M2 Pro",
+      "textureQuality": "balanced",
+      "gpuAverageMs": 2.7044815966898264,
+      "gpuP95Ms": 3.6111249937675893,
+      "gpuAllocatedMB": 220.234375,
+      "gameplaySmokeVolumes": 4,
+      "smokeDensities": [
+        2.200000047683716,
+        2.200000047683716,
+        2.200000047683716,
+        1.8562500476837158
+      ]
+    },
+    "birthQualification": "Two newly born zero-density emitters and one airborne grenade, not an empty scene; no direct speedup comparison."
+  },
+  "qualification": "Diagnostic smoke scenes use a small flat map and one soldier. CPU step time and GPU time are not complete game FPS. Scoped capture checks the zoomed camera, not the full native HUD scope overlay. Before/after CPU checksums and restart counts differ following the perception bug fix, so no equivalent-workload speedup is claimed.",
+  "coreBenchmark": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 12,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 14.944305555555555,
+    "medianCPUSeconds": 0.107599,
+    "medianWallSeconds": 0.10800433333497494,
+    "obstacleCount": 25,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 5441.1645053476095,
+        "cpuSeconds": 0.11006700000000003,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.1105002083349973
+      },
+      {
+        "checksum": 5441.1645053476095,
+        "cpuSeconds": 0.10724000000000003,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10781899999710731
+      },
+      {
+        "checksum": 5441.1645053476095,
+        "cpuSeconds": 0.10747799999999996,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.1078574166749604
+      },
+      {
+        "checksum": 5441.1645053476095,
+        "cpuSeconds": 0.107599,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10803033335832879
+      },
+      {
+        "checksum": 5441.1645053476095,
+        "cpuSeconds": 0.10772799999999999,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10800433333497494
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, initially 12 alerted AI soldiers plus any real alarm response, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed. Per-sample population bounds expose changes in combat workload.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 557.6260002416379,
+    "vegetationZoneCount": 5
+  }
+}

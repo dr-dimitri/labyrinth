@@ -204,3 +204,12 @@ public enum BlacksiteAlarm {
     public static let definition=MapAlarmDefinition(radioDeviceID:1001,radioPosition:SIMD3(27,1.18,2.625),
         returnGuardPosts:[SIMD3(-7.8,0,-19),SIMD3(7.8,0,-19)])
 }
+
+/// Periodic generator exhaust shares its authored aperture with the visible
+/// pipe. The source is optional cover, not a prerequisite for either mission.
+public enum BlacksiteSmoke {
+    public static let emitters:[SmokeEmitterDefinition] = [
+        SmokeEmitterDefinition(id:9001,kind:.steam,position:SIMD3(27,0.3,2.8),radii:SIMD3(1.25,1.8,1.25),
+            density:2.2,lifetime:10,interval:24,startDelay:2,powerDeviceID:1001)
+    ]
+}

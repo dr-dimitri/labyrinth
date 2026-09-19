@@ -299,6 +299,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                 if !simulation.missionInteractionAvailable && !simulation.deviceContextAvailable { simulation.mantle() }
             case .grenade: simulation.throwGrenade()
             case .decoy: simulation.throwNoiseDecoy()
+            case .smoke: simulation.throwSmokeGrenade()
             case .reload: simulation.reload()
             case .rifle: simulation.selectWeapon(.rifle)
             case .sniper: simulation.selectWeapon(.sniper)

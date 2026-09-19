@@ -27,5 +27,17 @@
     "inspection": "readable controls, inventories, known map, legend and all actions; no clipping",
     "scope": "actual AppKit drawing; not an input interaction test"
   },
-  "nativeInteraction": "Still requires unlocked Mac for final native start/pause/focus/death/retry cycle; current locked-host limitation explicitly not counted as passed."
+  "nativeInteraction": {
+    "result": "passed via actual AppKit controls",
+    "actions": [
+      "Open briefing; edit mineral camouflage; cancel restores normal clothing and four frags",
+      "Start directly from briefing with mineral pattern, three frags, two smoke grenades",
+      "Pause; open settings and save next-run difficulty; active run remains paused",
+      "Resume; V throws exactly one smoke grenade; pause exposes frozen remaining fuse",
+      "Minimize causes automatic pause; raise and resume; one Q press consumes one round only",
+      "Actual enemy fire causes death; Retry restores original operation, 100 HP, 30 rifle rounds, three frags and two smoke grenades",
+      "Return to menu; restore Operator difficulty and normal clothing using Apply"
+    ],
+    "qualification": "Native UI verifies observable equipment and flow; exact seed/difficulty reconstruction is separately verified by ActiveRunConfiguration tests."
+  }
 }

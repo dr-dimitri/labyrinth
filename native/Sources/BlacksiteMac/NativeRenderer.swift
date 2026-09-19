@@ -174,6 +174,9 @@ final class NativeRenderer {
     private var noiseEmitterVisualCount=0
     private var noiseDecoyVisualCount=0
     private var noisePropInstances=0
+    private var smokeVolumeCount=0
+    private var smokeGrenadeVisualCount=0
+    private var smokeDensities:[Float]=[]
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
@@ -204,6 +207,11 @@ final class NativeRenderer {
         diagnostics["noiseEmitterVisuals"]=noiseEmitterVisualCount
         diagnostics["noiseDecoyVisuals"]=noiseDecoyVisualCount
         diagnostics["noisePropInstances"]=noisePropInstances
+        diagnostics["gameplaySmokeVolumes"]=smokeVolumeCount
+        diagnostics["smokeGrenadeVisuals"]=smokeGrenadeVisualCount
+        diagnostics["smokeDensities"]=smokeDensities
+        diagnostics["smokeUniformBytes"]=MemoryLayout<GPUWorldSmoke>.stride
+        diagnostics["smokeVolumeDrawCalls"]=0
         diagnostics["alarmReporterVisuals"]=alarmReporterVisualCount
         diagnostics["alarmPropInstances"]=alarmPropInstances
         diagnostics["spotlightPowers"]=spotLightPowers
@@ -262,6 +270,10 @@ final class NativeRenderer {
               MemoryLayout<GPUUniforms>.offset(of: \.nearLightViewProjection) == 256,
               MemoryLayout<GPUUniforms>.offset(of: \.shadowParameters) == 320 else {
             throw RenderError.unavailable("CPU- und Metal-Schattenlayout stimmen nicht überein.")
+        }
+        guard MemoryLayout<GPUWorldSmoke>.stride==336,MemoryLayout<GPUWorldSmokeVolume>.stride==80,
+              MemoryLayout<GPUWorldSmoke>.offset(of:\.first)==16,MemoryLayout<GPUWorldSmoke>.offset(of:\.fourth)==256 else {
+            throw RenderError.unavailable("CPU- und Metal-Rauchlayout stimmen nicht überein.")
         }
         // The packaged .app intentionally carries a direct resource rather than
         // SwiftPM's generated bundle. Access Bundle.module only for swift run.
@@ -413,7 +425,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
@@ -631,6 +643,7 @@ final class NativeRenderer {
         var spotShadows:[[RenderBatch]]
         var spotVolumes:[SpotShadowVolume]
         var spotlights:[WorldSpotlightState]
+        var smoke:GPUWorldSmoke
         var spotDrawCount:Int { spotlights.indices.reduce(0) { $0 + (spotlights[$1].enabled && spotlights[$1].power>0 ? spotShadows[$1].count+1:0) } }
         var weaponLightMatrix: simd_float4x4
         var nearVolume: DirectionalShadowVolume
@@ -687,6 +700,20 @@ final class NativeRenderer {
         appendAcousticProps(to:&all,simulation:simulation)
         appendAlarmProps(to:&all,simulation:simulation)
         appendDeviceProps(to:&all,simulation:simulation)
+        smokeVolumeCount=simulation.smokeVolumes.count
+        smokeGrenadeVisualCount=simulation.smokeGrenades.count
+        smokeDensities=simulation.smokeVolumes.map(\.density)
+        let smokeLighting=simulation.smokeVolumes.map { volume -> SIMD2<Float> in
+            let light=simulation.lightSample(at:volume.position)
+            return SIMD2(light.directSun,light.artificial)
+        }
+        let smoke=GPUWorldSmoke(volumes:simulation.smokeVolumes,lighting:smokeLighting)
+        for grenade in simulation.smokeGrenades {
+            for part in NativeSmokeGeometry.grenade(position:grenade.position) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,
+                    material:part.material,shadow:part.castsShadow)
+            }
+        }
         if skinnedSoldiers != nil { for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) } }
         for grenade in simulation.grenades {
             appendItem(to: &all, mesh: 1, position: grenade.position, scale: SIMD3(0.085, 0.105, 0.085), color: SIMD3(0.18, 0.23, 0.12), material: SIMD4(0.48, 0.6, 0, 0))
@@ -805,7 +832,7 @@ final class NativeRenderer {
         let visible = worldByMesh.reduce(0) { $0 + $1.count } + weaponByMesh.reduce(0) { $0+$1.count }, main = batches(worldByMesh), weaponBatches=batches(weaponByMesh), weaponShadowBatches=batches(weaponCastersByMesh)
         let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
                                   shadowParameters: SIMD4(1 / Float(shadowResolution), DirectionalShadowVolume.nearWidth, DirectionalShadowVolume.nearDepth, 0.30))
-        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,spotShadows:spotBatches,spotVolumes:spotVolumes,spotlights:spotlights,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
+        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,spotShadows:spotBatches,spotVolumes:spotVolumes,spotlights:spotlights,smoke:smoke,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
                              enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
     }
     private func encode(command: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, samples: Int, slot: Int, scene: PreparedScene) {
@@ -891,6 +918,10 @@ final class NativeRenderer {
         }
         guard let encoder = command.makeRenderCommandEncoder(descriptor: descriptor), let pipeline = pipelines[samples], let skyPipeline = skyPipelines[samples] else { return }
         encoder.setFragmentBuffer(appearanceBuffer,offset:0,index:4)
+        var smoke=scene.smoke
+        // The copied fragment block survives all material rebindings, including
+        // soldier texture slots, viewmodel uniforms and transparent effects.
+        encoder.setFragmentBytes(&smoke,length:MemoryLayout<GPUWorldSmoke>.stride,index:6)
         encoder.label = "Atmosphere and instanced world"; encoder.setCullMode(.none)
         encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 2)
         encoder.setFragmentTexture(textures[23], index: 23); encoder.setFragmentSamplerState(sampler, index: 0)
@@ -1166,6 +1197,26 @@ final class NativeRenderer {
             for part in NativeAlarmGeometry.module(position:map.grounded(alarm.radioPosition)) {
                 appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
             }
+        }
+        // Derive a short physical exhaust connection from the same authored
+        // source used by Core. It stays in the owning cover cache on damage,
+        // translation or destruction; it is never a separate floating prop.
+        for source in map.environment.smokeEmitters {
+            guard let deviceID=source.powerDeviceID,
+                  map.environment.devices.first(where:{ $0.id==deviceID })?.ownerObstacleID==obstacle.id else { continue }
+            let aperture=map.grounded(source.position)
+            var attachment=aperture
+            attachment.y=min(p.y+s.y-0.06,max(p.y+0.06,aperture.y))
+            if abs((aperture.x-p.x)/s.x)>abs((aperture.z-p.z)/s.z) {
+                attachment.x=p.x+(aperture.x<p.x ? -1:1)*s.x*0.5
+            } else { attachment.z=p.z+(aperture.z<p.z ? -1:1)*s.z*0.5 }
+            let delta=aperture-attachment,length=simd_length(delta)
+            guard length>0.02,length<0.6 else { continue }
+            let orientation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:delta/length))
+            appendTransformed(to:&items,mesh:10,transform:Self.translation((aperture+attachment)*0.5)*orientation*Self.scale(SIMD3(0.039,length,0.039)),
+                color:SIMD3(0.19,0.22,0.20),material:SIMD4(0.65,0.45,0,15))
+            appendTransformed(to:&items,mesh:10,transform:Self.translation(attachment+delta/length*0.011)*orientation*Self.scale(SIMD3(0.063,0.02,0.063)),
+                color:SIMD3(0.25,0.28,0.25),material:SIMD4(0.7,0.35,0,15))
         }
         return items
     }

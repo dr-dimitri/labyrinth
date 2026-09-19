@@ -13,6 +13,9 @@ public final class CombatSimulation {
     public private(set) var obstacles: [Obstacle]
     public private(set) var coverDebris: [CoverDebrisState] = []
     public private(set) var grenades: [GrenadeState] = []
+    public private(set) var smokeGrenades: [SmokeGrenadeState] = []
+    public private(set) var smokeVolumes: [SmokeVolumeState] = []
+    public private(set) var smokeGrenadeCount = 2
     public private(set) var supplies: [SupplyState] = []
     public private(set) var pendingContactReports: [PendingContactReport] = []
     public private(set) var contactReports: [ContactReport] = []
@@ -149,6 +152,8 @@ public final class CombatSimulation {
     private var playerStepDistance: Float = 0
     private var decoyCooldown: Float = 0
     private var grenadeCooldown: Float = 0
+    private var smokeCooldown: Float = 0
+    private var smokeEmitterCycles: [Int: Int] = [:]
     private var lastShot: Double = -20
     private var concealmentMotion = ConcealmentMotion()
     private var extractionAnnounced = false
@@ -204,6 +209,7 @@ public final class CombatSimulation {
         let mission = selected.supportsMission(mission) ? mission : .recoverData
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
         self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
+        smokeGrenadeCount = loadout.smokeGrenades
         missionPhase = mission == .waves ? .waves : mission == .secureRadio ? .activateRadio : mission == .operation ? .prepareOperation : .collectData
         navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
         navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
@@ -247,12 +253,14 @@ public final class CombatSimulation {
         concealmentMotion.resetPose(player)
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
+        smokeGrenades.reserveCapacity(SmokeVolumeState.maximumCount); smokeVolumes.reserveCapacity(SmokeVolumeState.maximumCount)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
         hearingStimuli.reserveCapacity(64); decoys.reserveCapacity(NoiseDecoyState.maximumCount)
         pendingContactReports.reserveCapacity(4); contactReports.reserveCapacity(16); assignedGuardIDs.reserveCapacity(2)
         pendingCoverDebris.reserveCapacity(world.count)
         for box in obstacles { nextID = max(nextID, box.id + 1) }
         for emitter in noiseEmitters { nextID = max(nextID, emitter.id + 1) }
+        for emitter in selected.environment.smokeEmitters { nextID = max(nextID, emitter.id + 1) }
         for device in devices { nextID = max(nextID, device.id + 1) }
         for light in spotlights { nextID = max(nextID, light.id + 1) }
         for enemy in enemies {
@@ -632,6 +640,7 @@ public final class CombatSimulation {
         }
         updateGrenades(dt)
         updateDecoys(dt)
+        updateSmoke(dt)
         guard state == .active else { return }
         updateEnemies(dt)
         guard state == .active else { return }
@@ -1181,6 +1190,8 @@ extension CombatSimulation {
             // Local +Z is forward. A cheap 120-degree cone test precedes raycasts.
             let inCone = horizontal < 0.05 || simd_dot(forward, SIMD2(offset.x, offset.z)) >= horizontal * 0.5
             brain.visualContact = horizontal < 48 && inCone && clearLine(EnemyPose(enemy).eyePosition, eyePosition)
+            let smoke = brain.visualContact && !smokeVolumes.isEmpty ? playerSmokeVisibility(from: EnemyPose(enemy).eyePosition,eyeLineIsClear: true) : SmokeVisibilitySample(opticalDepth: 0)
+            if smoke.opaque { brain.visualContact = false }
             brain.sightTimer = 0.1
             if brain.visualContact {
                 let reaction: Float = (difficulty == .easy ? 0.8 : difficulty == .hard ? 0.4 : 0.6) *
@@ -1196,7 +1207,7 @@ extension CombatSimulation {
                         cachedLightFactor = lightSample(at: eyePosition).recognitionMultiplier
                         cachedLightTime = elapsed
                     }
-                    recognition = max(ConcealmentEvaluation.minimumCombinedRecognition, recognition * cachedLightFactor)
+                    recognition = max(ConcealmentEvaluation.minimumCombinedRecognition, recognition * cachedLightFactor * smoke.transmission)
                 }
                 enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction * recognition)
                 if enemy.detectionProgress >= 1 {
@@ -1300,6 +1311,13 @@ extension CombatSimulation {
             brain.holdTimer = max(0, brain.holdTimer - dt); brain.jumpCooldown = max(0, brain.jumpCooldown - dt)
             brain.coverTimer = max(0, brain.coverTimer - dt); brain.coverCooldown = max(0, brain.coverCooldown - dt)
             brain.repositionTimer -= dt; enemy.recoil *= exp(-dt * 16)
+            // A newly opaque cloud cancels stale perception immediately; the
+            // normal 10Hz cadence still handles recognition in thin/clear air.
+            if brain.visualContact && !smokeVolumes.isEmpty &&
+                smokeVisibility(from: EnemyPose(enemy).eyePosition,to: eyePosition).opaque &&
+                playerSmokeVisibility(from: EnemyPose(enemy).eyePosition).opaque {
+                brain.sightTimer = 0
+            }
             updateAwareness(&enemy, brain: &brain, dt: dt)
             let distance = horizontalDistance(enemy.position, brain.lastKnown ?? enemy.position)
             let threat = (brain.lastKnown ?? enemy.position) + SIMD3<Float>(0, 1.6, 0)
@@ -1325,7 +1343,8 @@ extension CombatSimulation {
             if brain.visualContact { aim(&enemy, at: eyePosition) }
             let pose = EnemyPose(enemy)
             let needsMuzzleCheck = enemy.seesPlayer && ((enemy.windup > 0 && enemy.windup <= dt) || (enemy.windup <= 0 && brain.cooldown <= 0))
-            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && clearLine(pose.muzzlePosition, eyePosition)
+            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && clearLine(pose.muzzlePosition, eyePosition) &&
+                !smokeVisibility(from: pose.muzzlePosition,to: eyePosition).opaque
             if enemy.windup > 0 {
                 enemy.windup = max(0, enemy.windup - dt)
                 if enemy.windup == 0 {
@@ -1658,6 +1677,7 @@ extension CombatSimulation {
         }
         devices[index].blockedByActor = false; devices[index].gateProgress = progress
         obstacles[ownerIndex] = next
+        refreshSmokeClips()
         if !navigationDirty && gateChangesNavigation(old: old, new: next) { invalidateDeviceNavigation() }
         if progress == 0 || progress == 1 {
             devices[index].isMoving = false
@@ -1894,5 +1914,67 @@ extension CombatSimulation {
         missionProgressTicks = min(requiredTicks, missionProgressTicks + 1)
         extractionProgress = min(exit.holdDuration, Float(missionProgressTicks) / 120)
         if missionProgressTicks == requiredTicks { finishObjectiveMission() }
+    }
+}
+
+extension CombatSimulation {
+    @discardableResult public func throwSmokeGrenade() -> Bool {
+        // Emitter slots stay reserved between cycles, so a timed source cannot
+        // evict a player's cloud or exceed the actual four-volume optical cap.
+        let reserved = map.environment.smokeEmitters.count + smokeGrenades.count + smokeVolumes.filter { $0.sourceEmitterID == nil }.count
+        guard state == .active, climbing == nil, smokeGrenadeCount > 0,
+              smokeCooldown <= 0, reserved < SmokeVolumeState.maximumCount else { return false }
+        let direction = viewDirection(yaw: player.yaw,pitch: clamp(player.pitch+0.18,-0.9,1.2))
+        let grenade = SmokeGrenadeState(id: allocateID(),position: eyePosition,velocity: direction*13+SIMD3(0,2.5,0))
+        smokeGrenades.append(grenade); smokeGrenadeCount -= 1; smokeCooldown = 0.7
+        emit(GameEvent(kind: .throwSmoke,position: grenade.position,id: grenade.id))
+        return true
+    }
+
+    private func activateSmoke(id: Int, kind: SmokeKind, origin: SIMD3<Float>, radii: SIMD3<Float>,
+                               density: Float, lifetime: Float, sourceEmitterID: Int? = nil) {
+        guard smokeVolumes.count < SmokeVolumeState.maximumCount else { return }
+        var volume = SmokeVolumeState(id: id,kind: kind,position: origin+SIMD3(0,1.3,0),radii: radii,
+            origin: origin,density: density,lifetime: lifetime,createdAt: elapsed,sourceEmitterID: sourceEmitterID)
+        volume.constrain(to: obstacles,terrain: terrain)
+        smokeVolumes.append(volume)
+        emit(GameEvent(kind: .smokeActivated,position: origin,id: id,smoke: volume))
+    }
+
+    private func updateSmoke(_ dt: Float) {
+        smokeCooldown = max(0,smokeCooldown-dt)
+        var index = 0
+        while index < smokeVolumes.count {
+            smokeVolumes[index].age = Float(elapsed-smokeVolumes[index].createdAt)
+            if elapsed + 0.0000001 >= smokeVolumes[index].createdAt + Double(smokeVolumes[index].lifetime) {
+                let expired = smokeVolumes.remove(at: index)
+                emit(GameEvent(kind: .smokeDissipated,position: expired.position,id: expired.id,smoke: expired))
+            } else { index += 1 }
+        }
+        index = 0
+        while index < smokeGrenades.count {
+            var grenade = smokeGrenades[index]
+            advanceThrowable(position: &grenade.position,velocity: &grenade.velocity,dt: dt)
+            grenade.remainingTicks -= 1
+            if grenade.remainingTicks <= 0 {
+                smokeGrenades.remove(at: index)
+                activateSmoke(id: grenade.id,kind: .smoke,origin: grenade.position,radii: SIMD3(3,2,3),density: 2.2,lifetime: 10)
+            } else { smokeGrenades[index] = grenade; index += 1 }
+        }
+        for source in map.environment.smokeEmitters {
+            guard elapsed + 0.0000001 >= Double(source.startDelay) else { continue }
+            let cycle = Int(floor((elapsed-Double(source.startDelay)+0.0000001)/Double(source.interval)))
+            guard smokeEmitterCycles[source.id] != cycle else { continue }
+            smokeEmitterCycles[source.id] = cycle
+            if let power = source.powerDeviceID,
+               !devices.contains(where: { $0.id == power && $0.enabled && !$0.destroyed }) { continue }
+            activateSmoke(id: allocateID(),kind: source.kind,origin: map.grounded(source.position),radii: source.radii,
+                density: source.density,lifetime: source.lifetime,sourceEmitterID: source.id)
+        }
+        refreshSmokeClips()
+    }
+
+    private func refreshSmokeClips() {
+        for index in smokeVolumes.indices { smokeVolumes[index].constrain(to: obstacles,terrain: terrain) }
     }
 }

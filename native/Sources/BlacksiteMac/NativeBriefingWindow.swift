@@ -94,7 +94,7 @@ final class NativeBriefingView: NSView {
     func updatePreview() {
         let choice = draft
         rules.stringValue = NativeMissionPresentation.rules(choice.mission, interactionLabel: interactionLabel)
-        inventory.stringValue = "STARTVORRAT · \(choice.loadout.fragmentationGrenades) Splittergranaten · \(choice.loadout.noiseDecoys) Köder\nAR-4: \(WeaponKind.rifle.capacity) + \(WeaponKind.rifle.initialReserve) · M82: \(WeaponKind.sniper.capacity) + \(WeaponKind.sniper.initialReserve) Schuss"
+        inventory.stringValue = "STARTVORRAT · \(choice.loadout.fragmentationGrenades) Splittergranaten · \(choice.loadout.noiseDecoys) Köder\n\(choice.loadout.smokeGrenades) Rauchgranaten · 1,5 s Zündung\nAR-4: \(WeaponKind.rifle.capacity) + \(WeaponKind.rifle.initialReserve) · M82: \(WeaponKind.sniper.capacity) + \(WeaponKind.sniper.initialReserve) Schuss"
         terrainAdvice.stringValue = NativeCamouflagePresentation.description(choice.camouflage) + "\n\n" + Self.terrainHint(choice.map)
         mapView.update(map: choice.map, mission: choice.mission)
     }

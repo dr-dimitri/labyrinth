@@ -84,6 +84,7 @@ public struct MapEnvironmentDefinition: Sendable {
     public var alarm: MapAlarmDefinition?
     public var devices: [WorldInteractableDefinition] = []
     public var spotlights: [WorldSpotlightDefinition] = []
+    public var smokeEmitters: [SmokeEmitterDefinition] = []
     /// Legacy name retained as a view of the same authoritative data.
     public var visibilityVolumes: [MapVisibilityVolume] {
         get { vegetationZones }
@@ -176,7 +177,7 @@ public struct MapDefinition: Sendable {
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
-        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil
+        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil; environment.smokeEmitters = []
         return copying(terrain: terrain, environment: environment, operation: nil)
     }
     private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition, operation: MapOperationDefinition?) -> MapDefinition {
@@ -339,6 +340,22 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Alarm benötigt einen vorhandenen Generator als Funkversorgung, 10–80 m Reichweite und höchstens zwei Wachposten/Verstärkungen.")
             }
         }
+        var smokeEmitterIDs = Set<Int>()
+        guard environment.smokeEmitters.count <= 2 else {
+            throw MapValidationError("Karte \(id): Höchstens zwei Dampf-/Gischtquellen reservieren Plätze im gemeinsamen Viererbudget.")
+        }
+        for emitter in environment.smokeEmitters {
+            guard smokeEmitterIDs.insert(emitter.id).inserted, inside(emitter.position),
+                  emitter.radii.x.isFinite, emitter.radii.y.isFinite, emitter.radii.z.isFinite,
+                  (0.5...4).contains(emitter.radii.x), (0.5...4).contains(emitter.radii.y), (0.5...4).contains(emitter.radii.z),
+                  emitter.density.isFinite, (0.5...4).contains(emitter.density),
+                  emitter.lifetime.isFinite, (4...15).contains(emitter.lifetime),
+                  emitter.interval.isFinite, emitter.interval >= emitter.lifetime + 2, emitter.interval <= 120,
+                  emitter.startDelay.isFinite, (0...120).contains(emitter.startDelay),
+                  emitter.powerDeviceID.map({ id in environment.devices.contains { $0.id == id && $0.kind == .generator } }) ?? true else {
+                throw MapValidationError("Karte \(id): Rauchquelle benötigt eindeutige ID, endliche begrenzte Maße/Lebensdauer, eine sichtbare Pause und vorhandene optionale Stromversorgung.")
+            }
+        }
         if let operation {
             var exitIDs = Set<String>(), preparationIDs = Set<Int>()
             guard operation.extractions.count == 2, operation.preparations.count <= 2 else {
@@ -479,6 +496,7 @@ public struct MapDefinition: Sendable {
             environment.devices = BlacksiteDevices.definitions
             environment.spotlights = BlacksiteDevices.lights
             environment.alarm = BlacksiteAlarm.definition
+            environment.smokeEmitters = BlacksiteSmoke.emitters
             return environment
         }(), resources: .blacksite, operation: BlacksiteOperation.definition)
 

@@ -19,8 +19,8 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #19 | Geräusche und Ablenkung | Umgesetzt, Review/Tests, nativer Audiomix und Bilder bestanden |
 | #20 | Strom, Licht und Servicetore | Umgesetzt, Review/Tests, Release-Build und Bilder bestanden |
 | #23 | Lokale Kontaktmeldungen | Umgesetzt, unabhängige Reviews, Tests und Bilder bestanden |
-| #26 | Umgebung und Extraktionsentscheidung | Umgesetzt, Reviews, Tests, Build und Bilder bestanden; native Bedienprüfung vorgemerkt |
-| #25 | Briefing und Tarnungsfeedback | Umgesetzt, Review, gezielte Tests und AppKit-Bild bestanden; native Bedienprüfung vorgemerkt |
+| #26 | Umgebung und Extraktionsentscheidung | Umgesetzt, Reviews, Tests, Build, Bilder und native Bedienprüfung bestanden |
+| #25 | Briefing und Tarnungsfeedback | Umgesetzt, Review, gezielte Tests, AppKit-Bild und native Bedienprüfung bestanden |
 | #21 | Rauch, Dampf und Gischt | Offen |
 | #22 | Durchbrechbare Zugänge | Offen |
 | #24 | Drei Solo-Klassen | Offen |
@@ -246,8 +246,7 @@ Operationstests bestanden nach Korrektur einer zu großzügigen Spawn-Erwartung
 der Diagnosekarte. Drei vollständige physische Blacksite-Routen wurden mit
 isoliertem Kampf geprüft. Releasebuild, Signatur und vier Metal-Szenen bestanden.
 Die nachgebesserten Diagnosekameras zeigen bodengebundene Evakuierungsringe
-und physische Lampen. Native Bedienprüfung ist wegen gesperrtem Mac noch für
-den Abschlusslauf vorgemerkt. [Prüfdaten](native-environment/issue26.json).
+und physische Lampen. Native Bedienprüfung wurde nach Entsperren des Macs nachgeholt (siehe unten). [Prüfdaten](native-environment/issue26.json).
 
 ### #25 – Natives Einsatzbriefing und unveränderlicher Neustart
 
@@ -264,6 +263,36 @@ Schwierigkeit und Ausrüstung; neue Menüeinstellungen ändern den laufenden
 Einsatz nicht. Ein neuer Einsatz erhält einen neuen Seed. Zwölf gezielte Tests
 bestanden auf einem isolierten Abbild des tatsächlich vorgemerkten Commits,
 einschließlich der letzten Startkorrektur. Ein echtes AppKit-Bild belegt das
-lesbare Layout bei 860×550 Punkten. Native Eingaben mit Start/Pause/Fokus/Retry
-werden nach Entsperren des Macs nachgeprüft; das statische Bild ersetzt diese
-Prüfung nicht. [Prüfdaten](native-environment/issue25.json).
+lesbare Layout bei 860×550 Punkten. Native Eingaben mit Start/Pause/Fokus/Retry wurden inzwischen zusätzlich
+am gestarteten Programm geprüft (siehe unten). [Prüfdaten](native-environment/issue25.json).
+
+Nachgeholte native Bedienprüfung für #25/#26: Das tatsächliche Briefing wurde
+geöffnet, eine Mineral-Tarnung verworfen und anschließend über „Einsatz starten“
+gestartet. Der HUD zeigte die Feldoperation und den passenden Vorrat. Einstellungen
+während der Pause, Rauchwurf mit pausiertem Zünder, Minimieren mit automatischer
+Pause, Fortsetzen und ein einzelner Schuss funktionierten. Nach tatsächlichem
+Tod durch Gegner stellte Retry die ursprüngliche Ausrüstung und volle Gesundheit
+wieder her. Danach wurden die vorherigen Menüwerte wiederhergestellt.
+
+### #21 – Gemeinsame Rauchvolumen für Sicht und Grafik
+
+Rauchgranaten zünden nach 1,5 Sekunden und lösen sich nach zehn Sekunden auf.
+Höchstens vier begrenzte Volumen teilen sich mit Dampf und Sprühnebel dieselbe
+Dichteberechnung in Core und Metal. Wände und geschlossene Tore begrenzen die
+Wolken; Schüsse und Schaden bleiben physisch. Dichter Rauch unterbricht aktuelle
+Sicht und Funkmeldung, löscht aber kein zuvor erworbenes Wissen. Der native HUD
+zeigt Vorrat und tatsächliche Taste; Pause hält auch den Zünder an.
+
+Unabhängige Reviews, 171 Core- und 152 Mac-Tests bestanden, einschließlich eines
+echten Metal-Abgleichs der optischen Tiefe. Das Review fand einen praktischen
+Fehler: Entfernter, optisch irrelevanter Rauch änderte den normalen Takt der
+harten Sichtprüfung. Eine Prüfung der tatsächlichen optischen Strecke und ein
+Bewegungsregressionstest beheben das. Zehn Metal-Szenen decken Innen-/Außensicht,
+Rand, erhöhte Position, Tor, Überlagerung, Vergrößerung und Ablauf ab.
+
+Vier aktive Wolken benötigen in der kleinen Diagnosekarte bei 2560×1600
+GPU-P95 4,40 ms (High) beziehungsweise 3,61 ms (Balanced); es entstehen keine
+zusätzlichen Volumen-Drawcalls. Der optimierte Core-Lauf misst 14,94 µs je Schritt.
+Die korrigierte Wahrnehmung ändert Ablauf und Arbeitslast, daher ist dies kein
+gleichwertiger Vorher-/Nachher-Geschwindigkeitsvergleich. Diese Messungen sind
+keine vollständigen Spiel-FPS. [Prüfdaten](native-environment/issue21.json).

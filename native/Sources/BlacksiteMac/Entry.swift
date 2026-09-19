@@ -109,16 +109,17 @@ struct BlacksiteMain {
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let loadout = try NativeLoadoutCheck.loadout(arguments: args)
-                let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
-                let operationCheck = mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let alarmCheck = mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let deviceCheck = mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let soundCheck = mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let environmentCheck = mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let missionCheck = mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let sceneCheck = mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                var simulation = mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
-                if mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
+                let smokeCheck = try NativeSmokeCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
+                let mapCheck = smokeCheck == nil ? try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let operationCheck = smokeCheck == nil && mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let alarmCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let deviceCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let soundCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let environmentCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let missionCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let sceneCheck = smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                var simulation = smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
+                if smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -139,6 +140,7 @@ struct BlacksiteMain {
                     result.merge(effectsCheck) { _, value in value }
                     result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
+                    result.merge(smokeCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(soundCheck?.metadata ?? [:]) { _, value in value }
@@ -158,7 +160,8 @@ struct BlacksiteMain {
                 result.merge(effectsCheck) { _, value in value }
                 result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
-                result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
+                result.merge(smokeCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(soundCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(deviceCheck?.metadata ?? [:]) { _, value in value }

@@ -7,6 +7,58 @@ struct GroundAppearanceRegion { float4 centerRadii; float4 innerOuter; float4 co
 struct MapAppearance { float4 leafGradient; float4 counts; GroundAppearanceRegion regions[8]; };
 struct WorldLight { float4x4 matrix; float4 positionRange; float4 directionOuter; float4 colorPower; float4 parameters; };
 struct WorldLighting { float4 counts; WorldLight first; WorldLight second; };
+struct WorldSmokeVolume { float4 centerDensity; float4 radiiKind; float4 clipMinimum; float4 clipMaximum; float4 scatterColor; };
+struct WorldSmoke { float4 counts; WorldSmokeVolume volumes[4]; };
+
+// Identical clipped quartic extinction and exact three-point quadrature as
+// SmokeVolumeState.opticalDepth. Only colour may vary; opacity never uses noise.
+float smokeKernel(float3 local) { float edge=max(0.0,1-dot(local,local));return edge*edge; }
+float smokeDepth(WorldSmokeVolume volume,float3 from,float3 delta,float metres,thread float3 &middlePoint) {
+  if(volume.centerDensity.w<=0 || any(volume.radiiKind.xyz<=0) || any(volume.clipMaximum.xyz<=volume.clipMinimum.xyz)) return 0;
+  float3 p=(from-volume.centerDensity.xyz)/volume.radiiKind.xyz,d=delta/volume.radiiKind.xyz;
+  float a=dot(d,d),b=dot(p,d),c=dot(p,p)-1,discriminant=b*b-a*c;
+  if(a<=0 || discriminant<=0) return 0;
+  float root=sqrt(discriminant),lo=max(0.0,(-b-root)/a),hi=min(1.0,(-b+root)/a);
+  for(uint axis=0;axis<3;++axis) {
+    if(abs(delta[axis])<0.000001) {
+      if(from[axis]<volume.clipMinimum[axis] || from[axis]>volume.clipMaximum[axis]) return 0;
+    } else {
+      float first=(volume.clipMinimum[axis]-from[axis])/delta[axis],last=(volume.clipMaximum[axis]-from[axis])/delta[axis];
+      lo=max(lo,min(first,last));hi=min(hi,max(first,last));
+    }
+  }
+  if(hi<=lo) return 0;
+  float middle=(lo+hi)*0.5,halfSpan=(hi-lo)*0.5,node=0.7745966692414834;
+  float integral=halfSpan*((5.0/9.0)*smokeKernel(p+d*(middle-halfSpan*node))+(8.0/9.0)*smokeKernel(p+d*middle)+(5.0/9.0)*smokeKernel(p+d*(middle+halfSpan*node)));
+  middlePoint=from+delta*middle;
+  return min(20.0,max(0.0,integral*metres*volume.centerDensity.w));
+}
+float smokeTransmission(float3 from,float3 to,constant WorldSmoke &smoke) {
+  if(smoke.counts.x<0.5) return 1;
+  float3 delta=to-from;float metres=length(delta);if(metres<0.000001) return 1;
+  float depth=0;float3 ignored;
+  for(uint index=0;index<min(uint(smoke.counts.x),4u);++index) depth+=smokeDepth(smoke.volumes[index],from,delta,metres,ignored);
+  return exp(-min(20.0,depth));
+}
+float3 smokeComposite(float3 color,float3 from,float3 to,constant WorldSmoke &smoke,float3 sun) {
+  if(smoke.counts.x<0.5) return color;
+  float3 delta=to-from;float metres=length(delta);if(metres<0.000001) return color;
+  float depth=0;float3 scattering=0;
+  for(uint index=0;index<min(uint(smoke.counts.x),4u);++index) {
+    WorldSmokeVolume volume=smoke.volumes[index];float3 middlePoint=volume.centerDensity.xyz;
+    float weight=smokeDepth(volume,from,delta,metres,middlePoint);
+    if(weight<=0) continue;
+    // Slow, volume-local folds change illumination only. Uniform extinction
+    // continues to hide exactly the same surfaces in High and Balanced.
+    float3 local=(middlePoint-volume.centerDensity.xyz)/volume.radiiKind.xyz;
+    float folds=0.93+0.055*sin(local.x*5.1+local.y*3.7+volume.scatterColor.w*0.45)*cos(local.z*4.3-local.y*2.1);
+    float forward=pow(max(0.0,dot(delta/metres,sun)),3.0);
+    scattering+=volume.scatterColor.rgb*(folds+forward*0.08)*weight;depth+=weight;
+  }
+  if(depth<=0) return color;
+  float transmission=exp(-min(20.0,depth));
+  return color*transmission+scattering/depth*(1-transmission);
+}
 struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float2 detailUV; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
 float3 windPosition(float3 p, float2 uv, float material, float time) {
   if(material>3.5 && material<4.5) {
@@ -195,7 +247,7 @@ float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant 
   }
   return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
 }
-fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],constant WorldLighting &lights [[buffer(5)]],
+fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
   texture2d<float> rockColor [[texture(6)]],texture2d<float> rockNormal [[texture(7)]],texture2d<float> rockRough [[texture(8)]],
@@ -451,11 +503,11 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   lit+=albedo*emissive;
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);
   float fog=1-exp(-fogDistance*fogDistance*0.0000065); lit=mix(lit,u.fogColor.rgb,fog);
-  return float4(aces(lit*1.03),coverage);
+  return float4(smokeComposite(aces(lit*1.03),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz),coverage);
 }
 struct SkyRaster { float4 position [[position]]; float2 uv; };
 vertex SkyRaster skyVertex(uint id [[vertex_id]]) { float2 p=float2((id<<1)&2,id&2); SkyRaster o; o.uv=p; o.position=float4(p*2-1,0.99999,1); return o; }
-fragment float4 skyFragment(SkyRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],texture2d<float> photoSky [[texture(23)]],sampler surface [[sampler(0)]]) {
+fragment float4 skyFragment(SkyRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]],texture2d<float> photoSky [[texture(23)]],sampler surface [[sampler(0)]]) {
   float4 p=u.inverseViewProjection*float4(in.uv*2-1,1,1); float3 ray=normalize(p.xyz/p.w-u.eyeTime.xyz);
   float azimuth=atan2(ray.z,ray.x)/(2*M_PI_F)+0.97;
   float elevation=acos(clamp(ray.y,-1.0,1.0))/M_PI_F;
@@ -463,7 +515,7 @@ fragment float4 skyFragment(SkyRaster in [[stage_in]],constant Uniforms &u [[buf
   float2 uv=float2(fract(azimuth),elevation);
   float3 photo=photoSky.sample(surface,uv).rgb;
   float horizon=1-smoothstep(-0.015,0.055,ray.y); photo=mix(photo,u.fogColor.rgb*0.70,horizon*0.45);
-  return float4(photo,1); // Source panorama is already tonemapped; no second ACES.
+  return float4(smokeComposite(photo,u.eyeTime.xyz,p.xyz/p.w,smoke,u.sunDirection.xyz),1); // Source panorama is already tonemapped.
 }
 
 // The glTF vertex layout is 64 bytes in Swift and Metal. Joint indices address
@@ -472,18 +524,18 @@ struct SoldierSkinVertex { float3 position; float3 normal; float2 uv; ushort4 jo
 // Actual skinned sole probes determine these short support-plane patches on
 // the CPU. Their local ambient occlusion remains visible inside a sun shadow.
 struct ContactPatch { float4 centerOpacity; float4 axisU; float4 axisV; };
-struct ContactRaster { float4 position [[position]]; float2 uv; float opacity; };
+struct ContactRaster { float4 position [[position]]; float2 uv; float opacity; float3 world; };
 vertex ContactRaster footContactVertex(uint vertexID [[vertex_id]],uint instanceID [[instance_id]],
   const device ContactPatch *patches [[buffer(0)]],constant Uniforms &u [[buffer(2)]]) {
   const float2 corners[6]={float2(-1,-1),float2(1,-1),float2(1,1),float2(-1,-1),float2(1,1),float2(-1,1)};
   ContactPatch p=patches[instanceID];float2 corner=corners[vertexID];
   float3 world=p.centerOpacity.xyz+p.axisU.xyz*corner.x+p.axisV.xyz*corner.y;
-  ContactRaster o;o.position=u.viewProjection*float4(world,1);o.uv=corner;o.opacity=p.centerOpacity.w;return o;
+  ContactRaster o;o.position=u.viewProjection*float4(world,1);o.uv=corner;o.opacity=p.centerOpacity.w;o.world=world;return o;
 }
-fragment float4 footContactFragment(ContactRaster in [[stage_in]]) {
+fragment float4 footContactFragment(ContactRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]]) {
   float radiusSquared=dot(in.uv,in.uv);
   float falloff=(1-smoothstep(0.05,1.0,radiusSquared));
-  return float4(0,0,0,in.opacity*falloff*falloff);
+  return float4(0,0,0,in.opacity*falloff*falloff*smokeTransmission(u.eyeTime.xyz,in.world,smoke));
 }
 
 // World-space transparent effects have their own depth-tested, no-depth-write
@@ -501,7 +553,7 @@ vertex CombatParticleRaster combatParticleVertex(uint vi [[vertex_id]],uint ii [
   o.tint=p.tintAspect.rgb;o.age=p.positionAge.w;o.opacity=p.shape.w;o.kind=p.shape.z;
   o.supportHeight=dot(p.supportPlane,float4(world,1));return o;
 }
-fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]]) {
+fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]]) {
   float radius=length(in.uv);if(radius>1) discard_fragment();
   int kind=int(in.kind+0.5);float mask;float3 color;
   if(kind==2) {
@@ -522,6 +574,8 @@ fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],cons
   // visible flash core remains above it; solid chips and sparks retain depth.
   if(kind<=1 || kind==4) mask*=smoothstep(0.006,0.15,in.supportHeight);
   float alpha=clamp(in.opacity*mask,0.0,1.0);
+  if(kind==2 || kind==4) color*=smokeTransmission(u.eyeTime.xyz,in.world,smoke);
+  else color=smokeComposite(color,u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz);
   return float4(color*alpha,alpha);
 }
 struct CombatDecal { float4 positionOpacity;float4 axisU;float4 axisV;float4 tintKind; };
@@ -534,7 +588,7 @@ vertex CombatDecalRaster combatDecalVertex(uint vi [[vertex_id]],uint ii [[insta
   o.normal=normalize(cross(d.axisU.xyz,d.axisV.xyz));o.tint=d.tintKind.rgb;o.kind=d.tintKind.w;o.opacity=d.positionOpacity.w;o.seed=d.axisU.w;
   o.shadow=u.lightViewProjection*float4(world,1);o.nearShadow=u.nearLightViewProjection*float4(world,1);return o;
 }
-fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]],
   depth2d<float> farShadow [[texture(0)]],depth2d<float> nearShadow [[texture(1)]],sampler comparison [[sampler(0)]]) {
   // Evaluate receiver gradients before any coverage decision; the normal and
   // shadow planes belong to the real hit surface, including slopes and roofs.
@@ -553,7 +607,7 @@ fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant U
   } else { opacity*=0.78;color*=0.82; }
   float nl=max(dot(in.normal,normalize(u.sunDirection.xyz)),0.0);
   float3 lit=color*(float3(0.22,0.24,0.24)*visibility.y+float3(0.9,0.86,0.76)*nl*visibility.x);
-  float alpha=opacity*in.opacity;return float4(aces(lit)*alpha,alpha);
+  float alpha=opacity*in.opacity;return float4(smokeComposite(aces(lit),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
 }
 struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; float4 nearShadow; };
 float4x4 soldierSkinMatrix(SoldierSkinVertex v,const device float4x4 *joints,uint offset) {
@@ -592,7 +646,7 @@ float3 soldierMappedNormal(float3 n,float3 p,float2 uv,float3 map) {
   if(dot(t,t)<1e-10 || dot(b,b)<1e-10) return n;
   return normalize(n*max(map.z,0.2)+normalize(t)*map.x*0.8+normalize(b)*map.y*0.8);
 }
-fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldLighting &lights [[buffer(5)]],
+fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
   constant uint &material [[buffer(3)]],texture2d<float> color [[texture(0)]],
   texture2d<float> normalMap [[texture(1)]],texture2d<float> roughnessMap [[texture(2)]],
   depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
@@ -634,5 +688,5 @@ fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms 
   lit+=worldLights(lights,in.world,n,v,albedo,rough,0,firstSpotMap,secondSpotMap,shadowSampler);
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);
   float fog=1-exp(-fogDistance*fogDistance*0.0000065);lit=mix(lit,u.fogColor.rgb,fog);
-  return float4(aces(lit*1.03),1);
+  return float4(smokeComposite(aces(lit*1.03),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz),1);
 }

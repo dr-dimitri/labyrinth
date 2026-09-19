@@ -45,6 +45,7 @@ enum NativeControlLabels {
             "Waffe wechseln: \(key(.nextWeapon))",
             "Nachladen: \(key(.reload))     Granate: \(key(.grenade))",
             "Geräuschköder: \(key(.decoy)) · begrenzter Vorrat",
+            "Rauchgranate: \(key(.smoke)) · 1,5 s Zündung · kein Explosionsschaden",
             "ESC: Pause     F5: Leistungsanzeige"
         ].joined(separator: "\n")
     }
@@ -67,6 +68,7 @@ enum NativeControlLabels {
         case .interact: return "Interagieren / Klettern"
         case .grenade: return "Granate"
         case .decoy: return "Geräuschköder"
+        case .smoke: return "Rauchgranate"
         case .reload: return "Nachladen"
         case .rifle: return "Sturmgewehr"
         case .sniper: return "Scharfschützengewehr"

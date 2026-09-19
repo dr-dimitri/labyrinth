@@ -29,7 +29,7 @@
       "aborted preparation and physically blocked alternative then fallback exit"
     ],
     "exitGeometry": "North path shorter; permanent bunker blocks both authored guard-post sightlines to eastern service exit, including after destructible cover loss. No all-direction cover promise.",
-    "nativeUI": "Deferred: Mac locked during native UI attempt; not claimed as a human combat playthrough."
+    "nativeUI": "passed: select/start Field Operation from actual native briefing; optional preparation and both exit descriptions in HUD, pause/resume and return to menu; full physical route completion tested separately in Core."
   },
   "budgets": {
     "ringSegments": 64,

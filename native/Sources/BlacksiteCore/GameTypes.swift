@@ -174,6 +174,7 @@ public struct GameEvent: Sendable {
         case deviceActivated, deviceDestroyed, gateBlocked, gateStopped
         case contactReportStarted, contactReportInterrupted, contactReportTransmitted, alarmEscalated
         case extractionSelected
+        case throwSmoke, smokeActivated, smokeDissipated
         case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
@@ -192,15 +193,17 @@ public struct GameEvent: Sendable {
     public let contactReport: ContactReport?
     public let alarmReportID: Int?
     public let extractionID: String?
+    public let smoke: SmokeVolumeState?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
                 id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
-                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil) {
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
         self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device; self.contactReport = contactReport; self.alarmReportID = alarmReportID; self.extractionID = extractionID
+        self.smoke = smoke
     }
 }
 
