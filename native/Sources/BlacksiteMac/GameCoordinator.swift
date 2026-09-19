@@ -11,6 +11,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     let hud: GameHUDView
     var renderer: NativeRenderer?
     var simulation = CombatSimulation()
+    var isAimPresented: Bool { simulation.isAiming && !(renderer?.weaponAimObstructed ?? false) }
     var mode: NativeRenderMode = .menu
     var settings = NativeSettings()
     var ready = false
@@ -68,7 +69,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard ready, let renderer else { return }
         let now = CACurrentMediaTime(), delta = min(0.1, max(0, now - lastFrame)); lastFrame = now
         if mode == .playing {
-            let aimFactor: Float = simulation.isAiming && simulation.activeWeapon == .sniper ? 0.3 : 1
+            let aimFactor: Float = isAimPresented && simulation.activeWeapon == .sniper ? 0.3 : 1
             yaw += Float((keys.contains(123) ? 1 : 0) - (keys.contains(124) ? 1 : 0)) * Float(delta) * 1.65 * aimFactor
             pitch = max(-1.45, min(1.45, pitch + Float((keys.contains(116) ? 1 : 0) - (keys.contains(121) ? 1 : 0)) * Float(delta)))
             var input = GameInput()
@@ -200,7 +201,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     }
     func mouseMoved(_ event: NSEvent) {
         guard mode == .playing, mouseCaptured else { return }
-        let factor: Float = simulation.isAiming ? simulation.activeWeapon == .sniper ? 0.19 : 0.65 : 1
+        let factor: Float = isAimPresented ? simulation.activeWeapon == .sniper ? 0.19 : 0.65 : 1
         yaw -= Float(event.deltaX) * settings.sensitivity * factor
         pitch = max(-1.45, min(1.45, pitch - Float(event.deltaY) * settings.sensitivity * factor))
     }

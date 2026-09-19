@@ -89,6 +89,7 @@ final class NativeRenderer {
     private let textures: [MTLTexture]
     private let shadowTexture: MTLTexture
     private let nearShadowTextures: [Int: MTLTexture]
+    private let weaponShadowTexture: MTLTexture
     private let meshes: [Mesh]
     private let skinnedSoldiers: SkinnedSoldierRenderer
     private let inflight = DispatchSemaphore(value: 3)
@@ -108,6 +109,8 @@ final class NativeRenderer {
     private var visualTime: Float = 0
     private var random = SeededRandom(seed: 98217)
     private var smoothFOV: Float = 76
+    private var weaponAimBlend: Float = 0
+    private var weaponWallBlend: Float = 0
     private var weaponParts: [WeaponKind: WeaponParts] = [:]
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
@@ -133,6 +136,10 @@ final class NativeRenderer {
     private var nearShadowInstanceCount = 0
     private var shotAge: Float = 10
     var shellCount: Int { shells.casings.count }
+    var weaponAimObstructed: Bool { weaponWallBlend>=0.05 }
+    var weaponDiagnostics: [String: Any] {
+        ["weaponAimBlend":weaponAimBlend,"weaponWallBlend":weaponWallBlend,"weaponSelfShadowResolution":512]
+    }
     private var frameAverage: Float = 1 / 60
     private var lastSize: CGSize = .zero
     private var currentScale: CGFloat = 1
@@ -191,6 +198,10 @@ final class NativeRenderer {
             map.label = "Stabilized near shadows \(resolution)"; nearMaps[resolution] = map
         }
         nearShadowTextures = nearMaps
+        let weaponShadowDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:512,height:512,mipmapped:false)
+        weaponShadowDesc.usage=[.renderTarget,.shaderRead];weaponShadowDesc.storageMode = .private
+        guard let weaponShadow=device.makeTexture(descriptor:weaponShadowDesc) else { throw RenderError.unavailable("Waffen-Schattenpuffer konnte nicht angelegt werden.") }
+        weaponShadow.label="512 viewmodel-only self shadows";weaponShadowTexture=weaponShadow
         meshes = try Self.makeMeshes(device: device)
         textures = try Self.loadTextures(device: device, assetRoot: assetRoot)
         guard let characterRoot = assetRoot ?? NativeResources.assetRoot else {
@@ -211,9 +222,14 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero
     }
-    func reset() { particles.removeAll(keepingCapacity: true); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
+    func reset() { particles.removeAll(keepingCapacity: true); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
+        if events.contains(where: { $0.kind == .shot }) {
+            // Events arrive before draw/advanceEffects. A newly approached wall
+            // must affect this shot's visual muzzle and ejection port already.
+            weaponWallBlend=max(weaponWallBlend,weaponClearance(simulation))
+        }
         for event in events {
             switch event.kind {
             case .shot:
@@ -268,7 +284,7 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -338,7 +354,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1
+                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }
@@ -362,6 +378,9 @@ final class NativeRenderer {
         var main: [RenderBatch]
         var shadows: [RenderBatch]
         var nearShadows: [RenderBatch]
+        var weapon: [RenderBatch]
+        var weaponShadows: [RenderBatch]
+        var weaponLightMatrix: simd_float4x4
         var nearVolume: DirectionalShadowVolume
         var uniforms: GPUUniforms
         var visibleCount: Int
@@ -380,8 +399,10 @@ final class NativeRenderer {
         yaw += sin(visualTime * 53) * shake * 0.012; pitch += cos(visualTime * 67) * shake * 0.013 + recoil * 0.012
         let forward = SIMD3<Float>(-sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch))
         cameraEye = eye; cameraForward = forward
-        let aiming = simulation.isAiming && mode != .menu
-        let targetFOV: Float = aiming ? (simulation.activeWeapon == .sniper ? 14.8 : 55) : (simulation.isSprinting ? 83 : 76)
+        let aiming = simulation.isAiming && mode != .menu && !weaponAimObstructed
+        let readyFOV:Float=simulation.isSprinting ? 83:76
+        let aimedFOV:Float=simulation.activeWeapon == .sniper ? 14.8:55
+        let targetFOV: Float = aiming ? aimedFOV : readyFOV
         smoothFOV += (targetFOV - smoothFOV) * min(1, max(deltaTime, 0.001) * 14)
         let view = Self.lookAt(eye: eye, target: eye + forward)
         let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: 450)
@@ -470,11 +491,24 @@ final class NativeRenderer {
             let offset = item.center - eye, distance = simd_length(offset)
             if distance < item.radius + 7 || (distance < 360 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) { worldByMesh[item.mesh].append(item.instance) }
         }
+        var weaponByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
+        var weaponCastersByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
+        let weaponBase=weaponTransform(simulation:simulation,eye:simulation.eyePosition,yaw:p.yaw,pitch:p.pitch)
+        let weaponCenter=weaponBase*SIMD4<Float>(0,-0.10,-0.25,1)
+        let weaponFocus=SIMD3(weaponCenter.x,weaponCenter.y,weaponCenter.z)
+        let weaponLightMatrix=Self.orthographic(left:-1.2,right:1.2,bottom:-1.2,top:1.2,near:0.1,far:7)
+            * Self.lookAt(eye:weaponFocus+sun*3.5,target:weaponFocus)
         if mode != .menu && !(aiming && simulation.activeWeapon == .sniper) {
-            for item in weapon(simulation: simulation, eye: eye, yaw: yaw, pitch: pitch) { worldByMesh[item.mesh].append(item.instance) }
+            // Use the same unshaken pose as the actual shot/ejection event.
+            for item in weapon(simulation: simulation, eye: simulation.eyePosition, yaw: p.yaw, pitch: p.pitch) {
+                weaponByMesh[item.mesh].append(item.instance)
+                // Flash, reticle and transmissive scope glass cannot cast an
+                // opaque shadow across the hand or receiver.
+                if item.instance.material.z<=0 && Int(item.instance.material.w+0.5) != 12 { weaponCastersByMesh[item.mesh].append(item.instance) }
+            }
         }
         var instances: [GPUInstance] = []
-        instances.reserveCapacity(worldByMesh.reduce(0) { $0+$1.count } + shadowByMesh.reduce(0) { $0+$1.count } + nearByMesh.reduce(0) { $0+$1.count })
+        instances.reserveCapacity(worldByMesh.reduce(0) { $0+$1.count } + shadowByMesh.reduce(0) { $0+$1.count } + nearByMesh.reduce(0) { $0+$1.count } + weaponByMesh.reduce(0) { $0+$1.count } + weaponCastersByMesh.reduce(0) { $0+$1.count })
         func batches(_ source: [[GPUInstance]]) -> [RenderBatch] {
             var result: [RenderBatch] = []
             for mesh in source.indices where !source[mesh].isEmpty {
@@ -486,10 +520,10 @@ final class NativeRenderer {
         farShadowInstanceCount = shadowByMesh.reduce(0) { $0+$1.count }
         nearShadowInstanceCount = nearByMesh.reduce(0) { $0+$1.count }
         let shadows = batches(shadowByMesh), nearShadows = batches(nearByMesh)
-        let visible = worldByMesh.reduce(0) { $0 + $1.count }, main = batches(worldByMesh)
+        let visible = worldByMesh.reduce(0) { $0 + $1.count } + weaponByMesh.reduce(0) { $0+$1.count }, main = batches(worldByMesh), weaponBatches=batches(weaponByMesh), weaponShadowBatches=batches(weaponCastersByMesh)
         let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
                                   shadowParameters: SIMD4(1 / Float(shadowResolution), DirectionalShadowVolume.nearWidth, DirectionalShadowVolume.nearDepth, 0.30))
-        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
+        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
                              enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
     }
     private func encode(command: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, samples: Int, slot: Int, scene: PreparedScene) {
@@ -527,6 +561,20 @@ final class NativeRenderer {
             skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot, near: true)
             encoder.endEncoding()
         }
+        if !scene.weapon.isEmpty {
+            let weaponPass=MTLRenderPassDescriptor();weaponPass.depthAttachment.texture=weaponShadowTexture
+            weaponPass.depthAttachment.loadAction = .clear;weaponPass.depthAttachment.storeAction = .store;weaponPass.depthAttachment.clearDepth=1
+            if let encoder=command.makeRenderCommandEncoder(descriptor:weaponPass) {
+                encoder.label="Viewmodel self shadows only";encoder.setRenderPipelineState(shadowPipeline)
+                encoder.setDepthStencilState(depthState);encoder.setCullMode(.none)
+                encoder.setDepthBias(0,slopeScale:0.65,clamp:0.00015)
+                var weaponUniform=uniform;weaponUniform.lightViewProjection=scene.weaponLightMatrix
+                encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
+                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentSamplerState(sampler,index:0)
+                drawBatches(scene.weaponShadows,encoder:encoder,buffer:instanceBuffer)
+                encoder.endEncoding()
+            }
+        }
         guard let encoder = command.makeRenderCommandEncoder(descriptor: descriptor), let pipeline = pipelines[samples], let skyPipeline = skyPipelines[samples] else { return }
         encoder.label = "Atmosphere and instanced world"; encoder.setCullMode(.none)
         encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 2)
@@ -535,8 +583,22 @@ final class NativeRenderer {
         encoder.setRenderPipelineState(pipeline); encoder.setDepthStencilState(depthState)
         for (index, texture) in textures.enumerated() { encoder.setFragmentTexture(texture, index: index) }
         encoder.setFragmentTexture(shadowTexture, index: 10); encoder.setFragmentTexture(nearTexture, index: 24)
+        encoder.setFragmentTexture(scene.weapon.isEmpty ? shadowTexture:weaponShadowTexture,index:31)
+        var weaponLight=matrix_identity_float4x4
+        encoder.setFragmentBytes(&weaponLight,length:MemoryLayout<simd_float4x4>.stride,index:3)
         encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
         drawBatches(scene.main, encoder: encoder, buffer: instanceBuffer)
+        if !scene.weapon.isEmpty {
+            var weaponUniform=uniform;weaponUniform.viewport.z=1
+            encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
+            encoder.setFragmentBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
+            weaponLight=scene.weaponLightMatrix
+            encoder.setFragmentBytes(&weaponLight,length:MemoryLayout<simd_float4x4>.stride,index:3)
+            drawBatches(scene.weapon,encoder:encoder,buffer:instanceBuffer)
+            // Soldier palettes/contacts retain the original world uniform block.
+            encoder.setVertexBuffer(uniformBuffer,offset:0,index:2)
+            encoder.setFragmentBuffer(uniformBuffer,offset:0,index:2)
+        }
         skinnedSoldiers.encodeMain(encoder: encoder, samples: samples, slot: slot)
         skinnedSoldiers.encodeContacts(encoder: encoder, samples: samples, slot: slot)
         encoder.endEncoding()
@@ -762,19 +824,27 @@ final class NativeRenderer {
         var magazine: [RenderItem]
         var leftHand: [RenderItem]
         var rightHand: [RenderItem]
+        var chargingHandle: [RenderItem]
     }
 
-    private func weaponTransform(simulation: CombatSimulation, eye: SIMD3<Float>, yaw: Float, pitch: Float) -> simd_float4x4 {
-        let aiming=simulation.isAiming, sniper=simulation.activeWeapon == .sniper
-        let bob:Float=simulation.isMoving ? sin(visualTime*8)*0.004 : sin(visualTime*1.4)*0.001
+    private func reloadPose(_ simulation: CombatSimulation) -> WeaponReloadPose {
         let remaining=simulation.weapons[simulation.activeWeapon]?.reloadRemaining ?? 0
-        let progress=remaining > 0 ? 1-remaining/simulation.activeWeapon.reloadDuration : 0
-        let reloadTilt=remaining > 0 ? sin(progress * .pi) : 0
+        return WeaponReloadPose(progress: remaining > 0 ? 1-remaining/simulation.activeWeapon.reloadDuration : 0, kind: simulation.activeWeapon)
+    }
+
+    private func weaponTransform(simulation: CombatSimulation, eye: SIMD3<Float>, yaw: Float, pitch: Float, wallAmount: Float? = nil) -> simd_float4x4 {
+        let sniper=simulation.activeWeapon == .sniper, wall=wallAmount ?? weaponWallBlend
+        let aim=weaponAimBlend*(1-wall), presentation=reloadPose(simulation).presentationBlend
+        let bob:Float=(simulation.isMoving ? sin(visualTime*8)*0.004 : sin(visualTime*1.4)*0.001)*(1-aim*0.8)
         let sprintDrop:Float=simulation.isSprinting ? 0.10:0
-        let aimHeight:Float=sniper ? -0.105:-0.095
-        let offset=SIMD3<Float>(aiming ? 0.002:0.19,(aiming ? aimHeight:-0.205)+bob-sprintDrop-reloadTilt*0.035,(aiming ? -0.35:-0.38)+recoil*0.035)
-        let sway:Float=aiming ? 0:sin(visualTime*1.05)*0.004
-        return Self.translation(eye) * Self.rotationY(yaw) * Self.rotationX(pitch) * Self.translation(offset) * Self.rotationX(recoil*0.065-reloadTilt*0.16) * Self.rotationZ((aiming ? 0:-0.075)+sway-reloadTilt*0.32)
+        let aimHeight:Float=sniper ? -0.114:-0.095
+        let offset=SIMD3<Float>(0.19*(1-aim)-presentation*0.045,
+            -0.205+(aimHeight+0.205)*aim+bob-sprintDrop+presentation*0.085-wall*0.07,
+            -0.40+aim*0.20+recoil*0.038-presentation*0.12+wall*0.30)
+        let sway=sin(visualTime*1.05)*0.004*(1-aim)
+        return Self.translation(eye) * Self.rotationY(yaw) * Self.rotationX(pitch) * Self.translation(offset)
+            * Self.rotationX(recoil*(0.065-aim*0.038)+presentation*0.22+wall*1.36)
+            * Self.rotationZ(-0.055*(1-aim)+sway-presentation*0.56+wall*0.12)
     }
     private func weapon(simulation: CombatSimulation, eye: SIMD3<Float>, yaw: Float, pitch: Float) -> [RenderItem] {
         let kind=simulation.activeWeapon
@@ -788,19 +858,32 @@ final class NativeRenderer {
                 appendTransformed(to:&out,mesh:item.mesh,transform:matrix*item.instance.model,color:SIMD3(tint.x,tint.y,tint.z),material:item.instance.material,shadow:false)
             }
         }
+        let reload=reloadPose(simulation), leftPose=base*reload.supportHandTransform
         transformed(parts.fixed,base); transformed(parts.rightHand,base)
-        let remaining=simulation.weapons[kind]?.reloadRemaining ?? 0
-        let progress=remaining > 0 ? 1-remaining/kind.reloadDuration : 0
-        let magTravel:Float=remaining > 0 ? sin(min(1,progress/0.8) * .pi) : 0
-        transformed(parts.magazine,base * Self.translation(SIMD3(0,-magTravel*0.15,magTravel*0.025)))
-        let handReach:Float=remaining > 0 ? sin(progress * .pi):0
-        transformed(parts.leftHand,base * Self.translation(SIMD3(handReach*0.035,-handReach*0.13,handReach*0.21)))
+        transformed(parts.magazine,base*reload.magazineTransform)
+        transformed(parts.leftHand,leftPose)
+        transformed(parts.chargingHandle,base*Self.translation(SIMD3(0,0,reload.slideOffset)))
+        // Hands follow their grip points; the sleeves connect those wrists to
+        // elbows below the camera, instead of moving a rigid arm as one object.
+        let camera=Self.translation(eye)*Self.rotationY(yaw)*Self.rotationX(pitch)
+        func forearm(wrist:SIMD3<Float>,pose:simd_float4x4,elbow:SIMD3<Float>,maximumLength:Float) {
+            let w=pose*SIMD4(wrist,1),e=camera*SIMD4(elbow,1)
+            let end=SIMD3(w.x,w.y,w.z),towardsElbow=SIMD3(e.x,e.y,e.z)-end
+            let length=min(maximumLength,simd_length(towardsElbow))
+            guard length>0.001 else { return }
+            let start=end+simd_normalize(towardsElbow)*length
+            let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:(end-start)/length))
+            appendTransformed(to:&out,mesh:14,transform:Self.translation((start+end)*0.5)*rotation*Self.scale(SIMD3(0.032,length,0.029)),color:SIMD3(0.24,0.27,0.20),material:SIMD4(0.94,0,0,16),shadow:false)
+            appendTransformed(to:&out,mesh:2,transform:Self.translation(end)*rotation*Self.scale(SIMD3(0.023,0.023,0.021)),color:SIMD3(0.08,0.10,0.075),material:SIMD4(0.9,0,0,10),shadow:false)
+        }
+        forearm(wrist:SIMD3(-0.040,-0.054,-0.281),pose:leftPose,elbow:SIMD3(-0.14,-0.57,0.04),maximumLength:0.34)
+        forearm(wrist:SIMD3(0.035,-0.097,0.061),pose:base,elbow:SIMD3(0.32,-0.55,0.05),maximumLength:0.31)
         // The bolt moves independently in the real ejection opening on each shot.
-        let cycling=max(0,1-shotAge/0.095)
-        appendTransformed(to:&out,mesh:9,transform:base * Self.translation(SIMD3(0.027,0.025,-0.115+cycling*0.055)) * Self.scale(SIMD3(0.019,0.025,0.047)),color:SIMD3(0.19,0.21,0.21),material:SIMD4(0.27,0.85,0,9),shadow:false)
+        let cycling=max(0,1-shotAge/0.095),slide=max(cycling*0.055,reload.slideOffset)
+        appendTransformed(to:&out,mesh:9,transform:base * Self.translation(SIMD3(0.027,0.025,-0.115+slide)) * Self.scale(SIMD3(0.019,0.025,0.047)),color:SIMD3(0.19,0.21,0.21),material:SIMD4(0.27,0.85,0,9),shadow:false)
         if kind == .sniper {
-            appendTransformed(to:&out,mesh:2,transform:base * Self.translation(SIMD3(0.058,0.009,-0.028+cycling*0.045)) * Self.rotationZ(.pi/2) * Self.scale(SIMD3(0.006,0.06,0.006)),color:SIMD3(0.15,0.17,0.17),material:SIMD4(0.28,0.85,0,9),shadow:false)
-            appendTransformed(to:&out,mesh:1,transform:base * Self.translation(SIMD3(0.088,0.009,-0.028+cycling*0.045)) * Self.scale(SIMD3(repeating:0.013)),color:SIMD3(0.07,0.085,0.085),material:SIMD4(0.5,0.4,0,9),shadow:false)
+            appendTransformed(to:&out,mesh:2,transform:base * Self.translation(SIMD3(0.058,0.009,-0.028+slide)) * Self.rotationZ(.pi/2) * Self.scale(SIMD3(0.006,0.06,0.006)),color:SIMD3(0.15,0.17,0.17),material:SIMD4(0.28,0.85,0,9),shadow:false)
+            appendTransformed(to:&out,mesh:1,transform:base * Self.translation(SIMD3(0.088,0.009,-0.028+slide)) * Self.scale(SIMD3(repeating:0.013)),color:SIMD3(0.07,0.085,0.085),material:SIMD4(0.5,0.4,0,9),shadow:false)
         }
         if flash > 0 {
             let muzzle:Float=kind == .sniper ? -0.92:-0.72
@@ -810,11 +893,11 @@ final class NativeRenderer {
     }
 
     private func makeWeaponParts(_ kind:WeaponKind) -> WeaponParts {
-        var fixed:[RenderItem]=[],magazine:[RenderItem]=[],left:[RenderItem]=[],right:[RenderItem]=[]
+        var fixed:[RenderItem]=[],magazine:[RenderItem]=[],left:[RenderItem]=[],right:[RenderItem]=[],chargingHandle:[RenderItem]=[]
         let sniper=kind == .sniper
-        let metal=SIMD3<Float>(0.105,0.12,0.125), steel=SIMD3<Float>(0.19,0.205,0.21), dark=SIMD3<Float>(0.035,0.045,0.042)
+        let metal=SIMD3<Float>(0.085,0.095,0.092), steel=SIMD3<Float>(0.19,0.205,0.21), dark=SIMD3<Float>(0.035,0.045,0.042)
         let polymer=SIMD3<Float>(0.24,0.255,0.20), glove=SIMD3<Float>(0.095,0.12,0.095), rubber=SIMD3<Float>(0.042,0.05,0.043)
-        let m=SIMD4<Float>(0.36,0.78,0,9), p=SIMD4<Float>(0.76,0.03,0,10), g=SIMD4<Float>(0.93,0,0,11)
+        let m=SIMD4<Float>(0.54,0.18,0,15), p=SIMD4<Float>(0.76,0.03,0,10), g=SIMD4<Float>(0.93,0,0,16)
         func part(_ group:inout[RenderItem],_ position:SIMD3<Float>,_ size:SIMD3<Float>,_ color:SIMD3<Float>,mesh:Int=9,material:SIMD4<Float>?=nil,rx:Float=0,ry:Float=0,rz:Float=0) {
             appendTransformed(to:&group,mesh:mesh,transform:Self.translation(position)*Self.rotationX(rx)*Self.rotationY(ry)*Self.rotationZ(rz)*Self.scale(size),color:color,material:material ?? m,shadow:false)
         }
@@ -829,7 +912,7 @@ final class NativeRenderer {
         // Hinged dust cover below the port; ejector deflector and charging handle.
         part(&fixed,SIMD3(0.038,-0.006,-0.115),SIMD3(0.006,0.035,0.090),metal,rz:-0.9)
         part(&fixed,SIMD3(0.038,0.013,-0.058),SIMD3(0.018,0.027,0.027),steel,ry:0.32)
-        part(&fixed,SIMD3(0,0.046,0.035),SIMD3(0.094,0.013,0.018),dark)
+        part(&chargingHandle,SIMD3(0,0.046,0.035),SIMD3(0.072,0.010,0.016),dark)
         // Takedown pins, fire selector, trigger guard and an actual curved trigger.
         for z:Float in [-0.18,-0.025] { for side:Float in [-1,1] {
             part(&fixed,SIMD3(side*0.031,-0.014,z),SIMD3(0.004,0.006,0.004),steel,mesh:2,rz:.pi/2)
@@ -903,17 +986,9 @@ final class NativeRenderer {
                 part(&group,SIMD3(center.x+0.022,y+0.024,z-0.003),SIMD3(0.016,0.012,0.011),rubber,material:g,rz:0.4)
             }
             part(&group,center+SIMD3(-0.017,0.021,0.012),SIMD3(0.016,0.017,0.039),glove,material:g,ry:-0.4)
-            let wrist=center+SIMD3<Float>(leftHand ? -0.008:0.009,-0.018,0.046)
-            let elbow=leftHand ? SIMD3<Float>(-0.15,-0.45,0.20):SIMD3<Float>(0.14,-0.46,0.23)
-            let armAxis=wrist-elbow,armLength=simd_length(armAxis)
-            let armRotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:armAxis/armLength))
-            let armPose=Self.translation((wrist+elbow)*0.5)*armRotation
-            appendTransformed(to:&group,mesh:14,transform:armPose*Self.scale(SIMD3(0.038,armLength,0.034)),color:SIMD3(0.22,0.25,0.18),material:g,shadow:false)
-            let cuffPose=Self.translation(wrist)*armRotation
-            appendTransformed(to:&group,mesh:2,transform:cuffPose*Self.scale(SIMD3(0.027,0.025,0.024)),color:polymer,material:g,shadow:false)
         }
         hand(&left,leftHand:true); hand(&right,leftHand:false)
-        return WeaponParts(fixed:fixed,magazine:magazine,leftHand:left,rightHand:right)
+        return WeaponParts(fixed:fixed,magazine:magazine,leftHand:left,rightHand:right,chargingHandle:chargingHandle)
     }
 
     private func spark(at position: SIMD3<Float>, count: Int, explosive: Bool) {
@@ -926,6 +1001,12 @@ final class NativeRenderer {
     }
     func advanceEffects(deltaTime: Float, simulation: CombatSimulation) {
         let dt = min(0.1, max(0, deltaTime))
+        weaponAimBlend += ((simulation.isAiming ? 1:0)-weaponAimBlend)*(1-exp(-dt*18))
+        let target=weaponClearance(simulation)
+        // Safety is immediate on approach; only recovery is smoothed, so a
+        // sprint or sudden turn cannot leave the barrel inside nearby cover.
+        if target>weaponWallBlend { weaponWallBlend=target }
+        else { weaponWallBlend += (target-weaponWallBlend)*(1-exp(-dt*12)) }
         updateEffects(deltaTime: dt, terrain: simulation.terrain)
         shotAge += dt
         shellCollisionCache.removeAll(keepingCapacity: true)
@@ -933,6 +1014,17 @@ final class NativeRenderer {
         shellCollisionCache.append(contentsOf: shellGroundColliders)
         shellImpacts.append(contentsOf: shells.step(deltaTime: dt, obstacles: shellCollisionCache, terrain: simulation.terrain))
         if shellImpacts.count > 128 { shellImpacts.removeFirst(shellImpacts.count - 128) }
+    }
+    private func weaponClearance(_ simulation: CombatSimulation) -> Float {
+        let pose=weaponTransform(simulation:simulation,eye:simulation.eyePosition,yaw:simulation.player.yaw,pitch:simulation.player.pitch,wallAmount:0)
+        let end=pose*SIMD4<Float>(0,0.019,simulation.activeWeapon == .sniper ? -0.924:-0.724,1)
+        let ray=SIMD3(end.x,end.y,end.z)-simulation.eyePosition,length=simd_length(ray)
+        if length>0.001 {
+            let distance=simulation.visualWallDistance(origin:simulation.eyePosition,direction:ray/length,maximumDistance:length+0.12,padding:0.065)
+            let intrusion=max(0,length+0.10-distance)
+            return min(1,intrusion/0.54)
+        }
+        return 0
     }
     func drainShellImpacts() -> [ShellImpact] {
         let impacts = shellImpacts; shellImpacts.removeAll(keepingCapacity: true); return impacts
@@ -1113,6 +1205,10 @@ final class NativeRenderer {
         let skyURL = root.appendingPathComponent("environment/sunrise.jpg")
         guard let source = CGImageSourceCreateWithURL(skyURL as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw RenderError.unavailable("Fotografischer Himmel fehlt: environment/sunrise.jpg") }
         let sky = try loader.newTexture(cgImage: image, options: [.SRGB: true, .generateMipmaps: true, .origin: MTKTextureLoader.Origin.topLeft, .textureStorageMode: MTLStorageMode.private.rawValue]); sky.label = "Kloppenheim 06 photographic pure sky"; result.append(sky)
+        result.append(result[0]) // 24 is replaced by the near depth shadow map.
+        for folder in ["weapon-metal", "weapon-fabric"] {
+            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg",color:file == "color")) }
+        }
         return result
     }
 }

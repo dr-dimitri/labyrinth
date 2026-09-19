@@ -23,6 +23,7 @@ enum NativeWeaponCheck {
         simulation.selectWeapon(weapon)
         if arguments.contains("--prone") { simulation.toggleProne() }
         var input = GameInput()
+        input.yaw = simulation.player.yaw; input.pitch = simulation.player.pitch
         input.aim = arguments.contains("--aim")
         let requestedShots = min(weapon.capacity + 2, max(0, Int(value("--shots") ?? "0") ?? 0))
         var acceptedShots = 0
@@ -44,9 +45,16 @@ enum NativeWeaponCheck {
         guard acceptedShots == expected, renderer.shellCount == expected else {
             throw CheckFailure(message: "Shell event check failed: \(acceptedShots) shots, \(renderer.shellCount) casings, expected \(expected).")
         }
-        if arguments.contains("--reload-preview") {
-            simulation.reload()
-            advance(Int(weapon.reloadDuration * 0.45 * 120))
+        if arguments.contains("--reload-preview") || arguments.contains("--reload-progress") {
+            guard let progress = Float(value("--reload-progress") ?? "0.45"),
+                  progress.isFinite, (0...1).contains(progress) else {
+                throw CheckFailure(message: "--reload-progress requires a finite value between 0 and 1.")
+            }
+            guard simulation.reload() else {
+                throw CheckFailure(message: "Reload preview needs a fired round; use --shots 1 or more.")
+            }
+            // One final tick absorbs Float countdown rounding at the endpoint.
+            advance(Int(ceil(weapon.reloadDuration * progress * 120)) + (progress == 1 ? 1 : 0))
             guard renderer.shellCount == expected, acceptedShots == expected else {
                 throw CheckFailure(message: "Reload unexpectedly ejected a casing.")
             }
@@ -59,6 +67,8 @@ enum NativeWeaponCheck {
                 "shellCount": renderer.shellCount, "shellEventCheck": "pass",
                 "shellImpacts": renderer.drainShellImpacts().count,
                 "ammo": simulation.weapons[weapon]?.ammo ?? -1,
-                "prone": simulation.player.prone, "aiming": simulation.isAiming]
+                "reloadRemaining": simulation.weapons[weapon]?.reloadRemaining ?? 0,
+                "prone": simulation.player.prone, "aiming": simulation.isAiming,
+                "weaponPresentation": renderer.weaponDiagnostics]
     }
 }

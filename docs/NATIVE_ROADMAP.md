@@ -19,8 +19,8 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 3 | #8 Sichere Verstärkungen | Umgesetzt und geprüft |
 | 4 | #10 Richtungsfeedback und räumlicher Sound | Umgesetzt und geprüft |
 | 5 | #1 Nahschatten | Umgesetzt und geprüft |
-| 6 | #2 Ego-Waffen und Hände | In Umsetzung |
-| 7 | #3 Einschläge und Explosionen | Offen |
+| 6 | #2 Ego-Waffen und Hände | Umgesetzt und geprüft |
+| 7 | #3 Einschläge und Explosionen | In Umsetzung |
 | 8 | #5 Texturbudget | Offen |
 | 9 | #4 Schadensstufen und Trümmer | Offen |
 | 10 | #6 Schauplätze und alternative Wege | Offen |
@@ -88,8 +88,9 @@ mit 16 gleichzeitigen Explosionen und einzeln stummgeschalteten Bussen bestanden
 Der System-Audiotest benötigt `BLACKSITE_TEST_SYSTEM_AUDIO=1` und Zugriff auf die
 macOS-AudioUnits; die normalen Tests benötigen keine Audioausgabe.
 Unabhängiges Review abgeschlossen und den dabei gefundenen vertikalen
-Richtungsfehler behoben. Interaktive Bedienprüfung vorerst durch gesperrten Mac
-unterbrochen; vollständiger nativer Paketbuild und automatisierte Tests geprüft.
+Richtungsfehler behoben. Interaktive Bedienprüfung nach Entsperren des Macs bestanden: Mission starten,
+Pause, getrennte Audio-Regler öffnen, unverändert speichern und zum Pausemenü
+zurückkehren. Vollständiger nativer Paketbuild und automatisierte Tests geprüft.
 
 ### #1 – Nahschatten und Bodenkontakt
 
@@ -129,3 +130,44 @@ Figuren und Kontaktschatten auf der sichtbaren Deckung.
 Validierung: unabhängiges Geometriereview, Metal-Containerdachansicht und die
 vollständige Testsuite einschließlich Klettern bestanden. Separater lokaler
 Commit `3d1fa82`.
+
+### #2 – Ego-Waffen, Hände und Eigenbeschattung
+
+AR-4 und M82 verwenden fotografische Metall-/Stoffkarten mit getrennten
+Farb-, Normalen- und Rauheitsdaten. Sechs unveränderte CC0-JPEGs mit dokumentierter
+Herkunft werden offline auf Maße und Prüfsummen geprüft. Nachladen besteht aus
+Greifen, Entnehmen, Einsetzen und Verschlussbetätigung. Magazin und linke Hand
+verwenden gekoppelte Transformationen; die Ärmel bleiben mit den Handgelenken
+verbunden. Die Obergrenzen für die sichtbaren Unterarme sind 34 und 31 cm.
+
+An naher Deckung weicht die Waffe sofort aus und kehrt anschließend weich in
+Schussposition zurück. HUD-Zielfernrohr, Zoom und Zielgeschwindigkeit verwenden
+denselben sichtbaren Zielzustand. Mündung und Hülsenauswurf benutzen die aktuelle
+Waffenpose, auch bei einem Schuss unmittelbar nach einer Drehung zur Wand.
+
+Eine separate 512²-Schattenkarte beschattet Waffen und Hände mit ihrer tatsächlichen
+Geometrie und Pose. Die bisherigen Nah- und Fernschatten der Umgebung wirken
+weiter auf sie; kameragebundene Arme werfen keinen losgelösten Schatten auf das
+Gelände. Ein Vergleich mit ausschließlich deaktivierter Eigenbeschattung änderte
+16.313 Pixel innerhalb der Waffen-/Armregion und keinen Pixel außerhalb.
+
+Validierung: 105 reguläre Tests bestanden, darunter acht neue Prüfungen für
+Nachladeübergänge, Griffkontakt, Verschluss und Wand-/Geländeabstand. 22
+Metal-validierte Ansichten zeigen beide Waffen beim Zielen, Liegen, an Wänden
+und in fünf Nachladephasen; unabhängige Bildprüfung ohne offenen Befund.
+Zusätzlich Dach, Umgebungsschatten und Balanced geprüft. Jede gültige Patrone
+erzeugt weiterhin genau eine Hülse; Nachladen erzeugt keine zusätzliche.
+Reviewbefunde zu Normalmap-Ausrichtung und veralteter Wandpose vor dem
+Hülsenauswurf wurden behoben.
+
+[Vorher](native-roadmap/weapons-before.png),
+[nachher](native-roadmap/weapons-after.png) und
+[Magazinentnahme](native-roadmap/weapon-reload.png).
+Drei abwechselnde Vergleichsläufe je Stufe, Apple M2 Pro, 2560×1600,
+neun Soldaten, je zehn Aufwärm- und 120 abgeschlossene Messframes:
+High CPU-P95 2,283 → 2,368 ms, GPU-P95 6,070 → 6,165 ms;
+Balanced CPU-P95 2,306 → 2,273 ms, GPU-P95 4,667 → 4,874 ms.
+Mediane der Einzelläufe; das High-Zielbudget von zusätzlich höchstens 0,5 ms
+wird eingehalten. GPU-Allokation steigt um 57,61 MiB. Die nächste Texturbudget-
+Aufgabe berücksichtigt auch diese Materialkarten.
+[Messdaten](native-roadmap/weapon-performance.json).

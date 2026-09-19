@@ -186,7 +186,7 @@ final class GameHUDView: NSView {
 
     private func drawHUD(_ c: GameCoordinator) {
         let s = c.simulation, p = s.player, w = bounds.width, h = bounds.height, now = CACurrentMediaTime()
-        let scoped = s.isAiming && s.activeWeapon == .sniper && c.mode == .playing
+        let scoped = c.isAimPresented && s.activeWeapon == .sniper && c.mode == .playing
         if scoped { drawScope() }
         NSGradient(starting: NSColor.black.withAlphaComponent(0.65), ending: .clear)?.draw(in: NSRect(x: 0, y: 0, width: w, height: 160), angle: 90)
         let shadow: [NSColor] = [NSColor.black.withAlphaComponent(0), NSColor.black.withAlphaComponent(0.58)]
@@ -209,7 +209,7 @@ final class GameHUDView: NSView {
             text("\(names[(index + 7) % 8])    ·    \(names[index])    ·    \(names[(index + 1) % 8])", x: w / 2 - 135, y: 38, size: 11, width: 270, alignment: .center, mono: true)
             line(x1: w / 2 - 125, y1: 60, x2: w / 2 + 125, y2: 60, color: muted.withAlphaComponent(0.45))
             text(String(format: "%03d°", heading), x: w / 2 - 50, y: 67, size: 10, color: accent, width: 100, alignment: .center, mono: true)
-            if s.climbProgress == nil { drawCrosshair(aiming: s.isAiming) }
+            if s.climbProgress == nil { drawCrosshair(aiming: c.isAimPresented) }
         }
         if now < c.hitUntil {
             let color = c.lastHitHeadshot ? accent : ink

@@ -25,6 +25,7 @@ MANIFEST_PATH = ASSET_DIR / "texture-sources.json"
 EXTRA_MANIFEST_PATHS = [
     NATIVE_DIR.parent / "docs" / "native-sky-sources.json",
     NATIVE_DIR.parent / "docs" / "native-foliage-sources.json",
+    NATIVE_DIR.parent / "docs" / "native-weapon-material-sources.json",
 ]
 MATERIALS = {
     "forest-earth": "brown_mud_03",
@@ -39,7 +40,7 @@ MAPS = {
     "normal": ("nor_gl", "2k", 2048, "linear"),
     "roughness": ("Rough", "1k", 1024, "linear"),
 }
-AGENT = "Nachtgang-native-local-asset-fetch/1.0 (six CC0 material sets)"
+AGENT = "Nachtgang-native-local-asset-fetch/1.0 (CC0 game material sets)"
 
 
 def download(url, destination):
@@ -212,16 +213,28 @@ def main():
     pinned_extras = []
     for source_manifest in EXTRA_MANIFEST_PATHS:
         if not source_manifest.exists():
-            continue
+            raise FileNotFoundError(f"Required native asset manifest is missing: {source_manifest}")
         source_files = json.loads(source_manifest.read_text())["files"]
+        manifest_records = []
         for source in source_files.values() if isinstance(source_files, dict) else source_files:
             record = dict(source)
             record["path"] = str((NATIVE_DIR.parent / source["path"]).resolve().relative_to(ASSET_DIR.resolve()))
             if "source_url" in source:
                 record["downloadedURL"] = source["source_url"]
+            if "resolution" not in record:
                 record["resolution"] = [source["width"], source["height"]]
+            if "sourceMD5" not in record:
                 record["sourceMD5"] = source.get("upstream_md5")
-            pinned_extras.append(record)
+            manifest_records.append(record)
+        if source_manifest.name == "native-weapon-material-sources.json":
+            expected = {f"textures/{folder}/{channel}.jpg"
+                        for folder in ("weapon-metal", "weapon-fabric")
+                        for channel in ("color", "normal", "roughness")}
+            if len(manifest_records) != 6 or {record["path"] for record in manifest_records} != expected:
+                raise ValueError("Weapon material manifest must pin all six color, normal and roughness JPEGs")
+            if any(not record.get("sourceMD5") or not record.get("sha256") for record in manifest_records):
+                raise ValueError("Weapon materials require official source MD5 and pinned SHA-256 checksums")
+        pinned_extras.extend(manifest_records)
     if args.verify:
         for record in records + pinned_extras:
             verify(ASSET_DIR / record["path"], record)
@@ -234,7 +247,7 @@ def main():
         if args.refresh:
             write_manifest(manifest)
     size = sum(record["bytes"] for record in records + pinned_extras)
-    print(f"Verified {len(records)} original material maps and {len(pinned_extras)} sky/foliage images, "
+    print(f"Verified {len(records)} landscape material maps and {len(pinned_extras)} sky/foliage/weapon images, "
           f"{size / 1_000_000:.2f} MB, all dimensions and hashes match.")
 
 

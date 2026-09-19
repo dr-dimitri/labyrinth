@@ -3,7 +3,7 @@ using namespace metal;
 struct Vertex { float3 position; float3 normal; float2 uv; };
 struct Instance { float4x4 model; float4 normal0; float4 normal1; float4 normal2; float4 tint; float4 material; };
 struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; float4x4 nearLightViewProjection; float4 shadowParameters; };
-struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
+struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float2 detailUV; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
 float3 windPosition(float3 p, float2 uv, float material, float time) {
   if(material>3.5 && material<4.5) {
     // Flex only the tips of individual twigs. No whole-tree billboard rotation.
@@ -21,12 +21,17 @@ vertex Raster worldVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const de
   Vertex v=vertices[vi]; Instance i=instances[ii]; Raster o;
   float4 p=i.model*float4(v.position,1); p.xyz=windPosition(p.xyz,v.uv,i.material.w,u.eyeTime.w);
   o.position=u.viewProjection*p; o.world=p.xyz; o.normal=normalize(float3x3(i.normal0.xyz,i.normal1.xyz,i.normal2.xyz)*v.normal);
+  // Local metres keep photographic finishes fixed to each machined part as the
+  // gun moves. Scale comes from the instance axes, without a larger GPU buffer.
+  float3 metric=v.position*float3(length(i.model[0].xyz),length(i.model[1].xyz),length(i.model[2].xyz));
+  float3 axis=abs(v.normal);
+  o.detailUV=axis.y>axis.x && axis.y>axis.z ? metric.xz : axis.x>axis.z ? metric.zy : metric.xy;
   o.uv=v.uv; o.tint=i.tint; o.material=i.material; o.shadow=u.lightViewProjection*p; o.nearShadow=u.nearLightViewProjection*p; return o;
 }
 vertex Raster shadowVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const device Vertex *vertices [[buffer(0)]],const device Instance *instances [[buffer(1)]],constant Uniforms &u [[buffer(2)]]) {
   Vertex v=vertices[vi]; Instance i=instances[ii]; Raster o;
   float4 p=i.model*float4(v.position,1); p.xyz=windPosition(p.xyz,v.uv,i.material.w,u.eyeTime.w);
-  o.position=u.lightViewProjection*p; o.world=p.xyz; o.uv=v.uv; o.material=i.material; o.tint=i.tint; o.normal=v.normal; o.shadow=o.position; o.nearShadow=o.position; return o;
+  o.position=u.lightViewProjection*p; o.world=p.xyz; o.uv=v.uv; o.detailUV=v.uv; o.material=i.material; o.tint=i.tint; o.normal=v.normal; o.shadow=o.position; o.nearShadow=o.position; return o;
 }
 fragment void shadowFragment(Raster in [[stage_in]],texture2d<float> pineAlpha [[texture(0)]],sampler surface [[sampler(0)]]) {
   if(in.material.w>3.5 && in.material.w<4.5 && pineAlpha.sample(surface,in.uv).r<0.43) discard_fragment();
@@ -36,7 +41,10 @@ float hash(float3 p) { return fract(sin(dot(p,float3(12.9898,78.233,39.425)))*43
 float noise(float2 p) { float2 i=floor(p),f=fract(p); f=f*f*(3-2*f); return mix(mix(hash(float3(i,0)),hash(float3(i+float2(1,0),0)),f.x),mix(hash(float3(i+float2(0,1),0)),hash(float3(i+1,0)),f.x),f.y); }
 float3 perturbNormal(float3 n,float3 position,float2 uv,float3 map,float strength) {
   float3 q1=dfdx(position),q2=dfdy(position); float2 st1=dfdx(uv),st2=dfdy(uv);
-  float3 t=q1*st2.y-q2*st1.y, b=q2*st1.x-q1*st2.x;
+  float jacobian=st1.x*st2.y-st1.y*st2.x;
+  if(abs(jacobian)<1e-12) return n;
+  float direction=jacobian<0 ? -1.0:1.0;
+  float3 t=(q1*st2.y-q2*st1.y)*direction, b=(q2*st1.x-q1*st2.x)*direction;
   float det=dot(t,t); if(det<0.000000001) return n;
   t=normalize(t-n*dot(n,t)); b=normalize(b-n*dot(n,b));
   return normalize(n*max(map.z,0.15)+t*map.x*strength+b*map.y*strength);
@@ -97,7 +105,7 @@ float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant 
   }
   return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
 }
-fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
   texture2d<float> rockColor [[texture(6)]],texture2d<float> rockNormal [[texture(7)]],texture2d<float> rockRough [[texture(8)]],
@@ -106,6 +114,9 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   texture2d<float> groundColor [[texture(14)]],texture2d<float> groundNormal [[texture(15)]],texture2d<float> groundRough [[texture(16)]],
   texture2d<float> asphaltColor [[texture(17)]],texture2d<float> asphaltNormal [[texture(18)]],texture2d<float> asphaltRough [[texture(19)]],
   texture2d<float> pineNormal [[texture(20)]],texture2d<float> pineAlpha [[texture(21)]],texture2d<float> pineRough [[texture(22)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
+  texture2d<float> weaponMetalColor [[texture(25)]],texture2d<float> weaponMetalNormal [[texture(26)]],texture2d<float> weaponMetalRough [[texture(27)]],
+  texture2d<float> weaponClothColor [[texture(28)]],texture2d<float> weaponClothNormal [[texture(29)]],texture2d<float> weaponClothRough [[texture(30)]],
+  depth2d<float> weaponShadowMap [[texture(31)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
@@ -154,6 +165,25 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     albedo=mix(albedo,earthColor.sample(surface,in.world.xz*0.76923).rgb*0.52,grime);
     albedo*=0.91+noise(in.world.xz*0.12)*0.14; rough=max(0.78,rough*asphaltRough.sample(surface,uv).r);
     map=asphaltNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
+  } else if(id==15) {
+    uv=in.detailUV+float2(0.50,0.35);
+    float3 coating=weaponMetalColor.sample(surface,uv).rgb;
+    float value=dot(coating,float3(0.2126,0.7152,0.0722));
+    // Source paint is blue; its photographic wear supplies luminance while the
+    // part tint defines a restrained black/olive firearm coating.
+    albedo*=0.72+value*1.45;
+    rough=clamp(0.30+weaponMetalRough.sample(surface,uv).r*0.44,0.34,0.78);
+    metal=clamp(metal,0.0,0.28);
+    map=weaponMetalNormal.sample(surface,uv).xyz*2-1;
+    n=perturbNormal(n,in.world,uv,map,0.28);
+  } else if(id==16) {
+    uv=in.detailUV*1.6+float2(0.64,0.31);
+    float3 textile=weaponClothColor.sample(surface,uv).rgb;
+    float value=dot(textile,float3(0.2126,0.7152,0.0722));
+    albedo*=0.72+value*1.05;metal=0;
+    rough=clamp(0.76+weaponClothRough.sample(surface,uv).r*0.22,0.80,0.99);
+    map=weaponClothNormal.sample(surface,uv).xyz*2-1;
+    n=perturbNormal(n,in.world,uv,map,0.40);
   } else if(id==14) {
     // Fabric-space camouflage follows the articulated body without swimming.
     float2 clothUV=in.uv*float2(11.0,16.0);
@@ -186,6 +216,17 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   float3 specular=distribution*geometry*fresnel/max(4*nl*nv,0.001);
   float2 shadow=directionalShadows(in.shadow,in.nearShadow,normalize(in.normal),u,shadowMap,nearShadowMap,shadowSampler);
   float visibility=shadow.x;
+  // The draw-uniform branch only runs for the separately batched viewmodel.
+  // Environment cascades remain active; a hand shadow cannot darken the level.
+  if(u.viewport.z>0.5) {
+    float4 selfClip=weaponLightMatrix*float4(in.world,1);
+    float3 selfP=selfClip.xyz/selfClip.w;
+    float2 selfGradient=receiverPlaneGradient(selfP);
+    if(all(abs(selfP.xy)<1) && selfP.z>0 && selfP.z<1) {
+      float selfVisibility=shadowPCF(weaponShadowMap,shadowSampler,selfP,max(0.00003,0.00010*(1-nl)),selfGradient);
+      visibility=min(visibility,selfVisibility);
+    }
+  }
   float3 ambient=mix(float3(0.12,0.115,0.085),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
   float3 irradiance=float3(3.05,2.90,2.52);
   float3 lit=ambient*shadow.y*canopyAO+(albedo*(1-metal)/M_PI_F+specular)*irradiance*nl*visibility;
@@ -193,7 +234,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
     lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
   }
-  if(id>=9 && id<=13) {
+  if((id>=9 && id<=13) || id==15 || id==16) {
     float3 reflected=reflect(-v,n);
     float2 envUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
     float3 environment=photoSky.sample(surface,envUV,level(rough*7.0)).rgb;

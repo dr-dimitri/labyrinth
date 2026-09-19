@@ -72,6 +72,17 @@ for index in 0 1 2 3; do
     fi
 done
 
+# Validate pinned photographic assets before compiling or replacing a good app.
+# This is strictly offline; restoration is an explicit, separate command.
+if ! command -v python3 >/dev/null 2>&1; then
+    printf 'Python 3 is required for offline native asset verification. Install Python 3 before building.\n' >&2
+    exit 1
+fi
+if ! python3 "$SCRIPT_DIR/fetch-assets.py" --verify; then
+    printf 'Native photographic asset verification failed. Restore the pinned files with native/scripts/fetch-assets.py, then build again.\n' >&2
+    exit 1
+fi
+
 # Keep every compiler/package cache inside this checkout, including sandboxed runs.
 export CLANG_MODULE_CACHE_PATH="$BUILD_DIR/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$BUILD_DIR/ModuleCache"
@@ -132,6 +143,7 @@ printf '\n' >> "$RESOURCES/ASSET-CREDITS.txt"
 cat "$SOLDIER_DIR/CREDITS.txt" >> "$RESOURCES/ASSET-CREDITS.txt"
 cp "$REPO_DIR/docs/native-sky-sources.json" "$RESOURCES/native-sky-sources.json"
 cp "$REPO_DIR/docs/native-foliage-sources.json" "$RESOURCES/native-foliage-sources.json"
+cp "$REPO_DIR/docs/native-weapon-material-sources.json" "$RESOURCES/native-weapon-material-sources.json"
 cat >> "$RESOURCES/ASSET-CREDITS.txt" <<'EOF'
 
 PHOTOGRAPHIC SKY
@@ -147,6 +159,17 @@ https://polyhaven.com/a/pine_tree_01
 CC0 1.0 Universal, https://polyhaven.com/license
 Original 4096x4096 twig color/alpha, 2048x2048 OpenGL normal/roughness JPEG maps.
 Image bytes unchanged. Sources, checksums and atlas usage: native-foliage-sources.json.
+
+PHOTOGRAPHIC WEAPON AND FABRIC MATERIALS
+Blue Metal Plate — Rob Tuytel / Poly Haven
+https://polyhaven.com/a/blue_metal_plate
+Denim Fabric — Rob Tuytel / Poly Haven
+https://polyhaven.com/a/denim_fabric
+CC0 1.0 Universal, https://polyhaven.com/license
+Each material uses original 2048x2048 color, 1024x1024 OpenGL normal and
+1024x1024 roughness JPEGs. Original image bytes unchanged; color is sRGB,
+normal and roughness are linear data. Powered by Poly Haven.
+Sources, dimensions, upstream MD5 and SHA-256: native-weapon-material-sources.json.
 EOF
 
 if [[ -f "$REPO_DIR/build/icons/nachtgang.icns" ]]; then

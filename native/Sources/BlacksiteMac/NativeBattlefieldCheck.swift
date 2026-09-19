@@ -10,7 +10,7 @@ enum NativeBattlefieldCheck {
         let metadata: [String: Any]
     }
     private struct InvalidScene: LocalizedError {
-        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, firefight, terrain or hollow." }
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, firefight, terrain or hollow." }
     }
 
     static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
@@ -24,6 +24,12 @@ enum NativeBattlefieldCheck {
         var enemies:[EnemyState]=[]
         var seconds:Double=0
         switch name {
+        case "weapons":
+            player.position = SIMD3(0, 0, 32)
+        case "weapon-wall":
+            // The existing container's front is z=-3.2; the player's collision
+            // capsule fits at this position, while an extended barrel would not.
+            player.position = SIMD3(15, 0, -2.85)
         case "squad":
             player.position=SIMD3(0,0,14); player.pitch = -0.06
             for i in 0..<9 {

@@ -47,6 +47,14 @@ Der fotografische Hintergrund stammt aus [Kloppenheim 06 (Pure Sky)](https://pol
 
 Alle 23 nativen Landschaftsbilder stehen unter [CC0](https://polyhaven.com/license) und belegen zusammen rund 125 MB. Die Original-URLs, Autoren, Maße und SHA256-Prüfsummen stehen in den [Materialquellen](../native/Assets/texture-sources.json), [Kiefernquellen](native-foliage-sources.json) und [Himmelsquellen](native-sky-sources.json). `native/scripts/fetch-assets.py --verify` prüft diese Dateien offline; ohne `--verify` stellt es fehlende Dateien anhand der festgehaltenen Prüfsummen wieder her. Die verwendeten API-Metadaten stammen von Poly Haven — Powered by Poly Haven.
 
+## Native Waffen- und Stoffmaterialien
+
+Die Waffen und die Stoffteile der Egoansicht verwenden [Blue Metal Plate](https://polyhaven.com/a/blue_metal_plate) und [Denim Fabric](https://polyhaven.com/a/denim_fabric) von Rob Tuytel / Poly Haven unter [CC0](https://polyhaven.com/license). Unter `native/Assets/textures/weapon-metal` und `weapon-fabric` liegen jeweils eine originale 2048²-Farbkarte sowie originale 1024²-OpenGL-Normalen- und Rauheitskarten. Die sechs JPEGs werden unverändert übernommen und belegen zusammen rund 7,08 MB. Farbe wird als sRGB gelesen, Normalen und Rauheit als lineare Daten; die Normalenkarten verwenden die OpenGL-Konvention (+Y).
+
+Das separate [Quellenmanifest](native-weapon-material-sources.json) dokumentiert die offiziellen Downloadadressen, Autoren, Maße, Quell-MD5 und SHA-256 jeder Datei. `native/scripts/fetch-assets.py --verify` prüft alle 29 fotografischen Landschafts-, Himmels-, Laub- und Waffenbilder offline auf Dateigröße, Pixelmaße und Prüfsummen. Ohne Option stellt das Skript die festgehaltenen Originale wieder her; `--refresh` aktualisiert nur die sechs Landschaftsmaterialgruppen, die übrigen Quellen bleiben festgeschrieben. Der App-Build führt die Offline-Prüfung vor dem Kompilieren aus und benötigt dafür Python 3. Er übernimmt das Quellenmanifest und die Material-Credits ins App-Paket.
+
+Die beiden neuen CC0-Materialien ändern weder die SWAT-Texturen noch die gesonderten Lizenzbedingungen des folgenden Charaktermodells.
+
 ## Nativer Soldat: SWAT / Mixamo
 
 Die native App verwendet einen texturierten SWAT-Charakter mit menschlichem Gesicht und moderner taktischer Uniform. Die unveränderte [GLB-Datei](https://www.shanebrumback.com/models/glb/swat/swat-character.glb) stammt aus Shane Brumbacks [Tutorial](https://www.shanebrumback.com/tutorials/3d-model-animation-xbox-controller-viewer.html) und [veröffentlichtem Beispielcode](https://gist.github.com/ShaneBrumback/9b0e864813d0ec3f13aa664b397a5dd5). Sie liegt als `native/Assets/characters/soldier/soldier.glb` vor und enthält sieben Clips: Idle, Jump, Walking-Shooting, Walking, Bored, Punching und Running. Nach Wiederherstellung der beim Export verlorenen Kopf-Materialgruppen werden drei Primitive mit zusammen 19.450 Dreiecken und zwei Skeletten mit 7 beziehungsweise 51 Gelenken verwendet. Das Modell ist eine erstellte Spielfigur, kein als fotografischer Scan ausgewiesenes Modell.
@@ -72,6 +80,7 @@ Die folgenden Dateien enthalten genaue Download-URLs, Dateigrößen, SHA-256-Pr�
 - [Steinwächter und seine Texturen](model-creature-sources.json)
 - [Waldmaterialien und gescannte Farne](forest-asset-sources.json)
 - [Wolfsmodell und Originaltexturen](model-forest-creature-sources.json)
+- [Native Waffen- und Stoffmaterialien](native-weapon-material-sources.json)
 - [Nativer SWAT-Soldat, Originaltexturen und Animationen](../native/Assets/characters/soldier/SOURCE.json)
 
 `npm test` prüft unter anderem diese Prüfsummen, Bildabmessungen, GLB-Datenbereiche, Materialkarten und die Skelettgewichte des Steinwächters.
