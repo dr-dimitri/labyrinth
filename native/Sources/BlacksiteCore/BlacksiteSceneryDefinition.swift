@@ -154,3 +154,15 @@ extension MapResourceReferences {
         return MapResourceReferences(texturePaths:MapResourceReferences.blacksite.texturePaths.filter { used.contains($0.key) },soldierAsset:MapResourceReferences.blacksite.soldierAsset)
     }()
 }
+
+/// Shared playable cover patches. The visual foliage and perception query read
+/// these same terrain-relative ellipses; decorative scenery remains unrelated.
+public enum BlacksiteVegetation {
+    public static let zones:[EnvironmentZone] = [
+        EnvironmentZone(id:"west-loading-brush",center:SIMD2(-31,17),radii:SIMD2(1.7,2.7),height:1.2,density:0.7,kind:.brush),
+        EnvironmentZone(id:"west-bypass-grass",center:SIMD2(-32,-21),radii:SIMD2(1.7,2.7),height:0.95,density:0.6,kind:.tallGrass),
+        EnvironmentZone(id:"east-service-brush",center:SIMD2(31,2),radii:SIMD2(1.7,2.7),height:1.2,density:0.7,kind:.brush),
+        EnvironmentZone(id:"east-bypass-grass",center:SIMD2(33,-18),radii:SIMD2(1.7,2.7),height:0.95,density:0.6,kind:.tallGrass),
+        EnvironmentZone(id:"south-slope-grass",center:SIMD2(-11,30),radii:SIMD2(1.7,2.7),height:0.95,density:0.6,kind:.tallGrass)
+    ]
+}

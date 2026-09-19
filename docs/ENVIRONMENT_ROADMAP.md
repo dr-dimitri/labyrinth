@@ -14,7 +14,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | Issue | Inhalt | Status |
 | --- | --- | --- |
 | #16 | Gemeinsame Kartendefinitionen | Umgesetzt, Review/Tests bestanden; Fensterprüfung offen |
-| #17 | Vegetation und Untergrund | Offen |
+| #17 | Vegetation und Untergrund | Umgesetzt, Code-Review/Tests bestanden; Fensterprüfung offen |
 | #18 | Geländeabhängiger Tarnanzug | Offen |
 | #19 | Geräusche und Ablenkung | Offen |
 | #20 | Strom, Licht und Servicetore | Offen |
@@ -71,3 +71,36 @@ RGB-Abweichung unter 0,001 von 255 (24 von 1.024.000 Pixeln über acht Stufen).
 
 Die direkte native Fensterprüfung (Start, Pause, Retry) ist noch offen: Der Mac
 war bei der Prüfung gesperrt. Sie wird vor Veröffentlichung nachgeholt.
+
+### #17 – Vegetation als Sichtschutz
+
+Fünf klar abgegrenzte Gras-/Buschflächen verwenden dieselben elliptischen,
+geländeabhängigen Hüllen für Grafik und Wahrnehmung. Die KI prüft weiterhin
+zuerst Sichtkegel und harte Deckung; durchquertes Blattwerk verlangsamt die
+Erkennung anhand dreier Körperhöhen. Die Geschwindigkeit bleibt mindestens
+ein Viertel des normalen Werts. Bestätigter Kontakt, Kugeln und Explosionen
+werden durch Pflanzen nicht gelöscht oder blockiert. Lokale Umweltproben
+unterscheiden Boden, Blattdichte und tatsächliche Dachauflagen.
+
+Die Grafik baut die Pflanzen beim Kartenladen. High und Balanced verwenden
+identische Pflanzen, Windgrenzen und Blattmasken; Hauptbild sowie Nah-/
+Fernschatten nutzen denselben Ausschnitt. Das Review korrigierte eine
+zonenabhängige Ausdünnung und unsichtbare Mini-Zonen: jetzt feste Flächendichte,
+maximal 96 Pflanzen je Zone, 512 je Karte und 16 Zonen, mindestens 0,6 m
+Breite/Tiefe und 0,25 m Höhe. Ungültige oder leere Geometrie wird abgewiesen.
+Die aktuelle Karte besitzt 160 Pflanzen in fünf zusätzlichen Grafikinstanzen.
+
+Validierung: vollständiger Lauf mit 120 Core- und 91 gemeldeten Mac-Tests
+bestanden; nach den Reviewfixes weitere 17 Core- und zehn Mac-Tests bestanden.
+Acht finale Metal-Szenen prüfen Übersicht, Boden, Liegen, Rand, Containerdach
+und beide Grafikprofile. Das unabhängige Code-Review ist freigegeben.
+Zwei Karten-Rundwechsel halten die GPU-Allokation pro Karte konstant:
+314,98 MiB für Blacksite, 196,38 MiB für das Prüfgelände (Balanced, 1280×800).
+Das sind für Blacksite 6,47 MiB mehr als bei #16.
+
+Der vergleichbare optimierte Kampftest benötigt 8,49 µs pro Schritt gegenüber
+8,64 µs in der Ausgangsmessung; der kleine Unterschied ist kein belegter
+Leistungsgewinn. Ein separater synthetischer Sichtquerytest mit flachem Gelände
+und ohne Hindernisse misst 0,023/0,811/10,371 µs für 0/1/16 überlappende Zonen.
+Er deckt insbesondere noch unbestätigte Sichtkontakte ab, misst aber keine
+gesamten Frames. [Messdaten](native-environment/issue17.json).

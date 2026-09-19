@@ -30,6 +30,7 @@ enum CoreBenchmark {
         let fixedFrequencyHz: Int
         let enemyCount: Int
         let obstacleCount: Int
+        let vegetationZoneCount: Int
         let sampleDurationSeconds: Int
         let measuredSamples: Int
         let deterministic: Bool
@@ -46,7 +47,7 @@ enum CoreBenchmark {
         }
         let game = CombatSimulation(difficulty: .normal, seed: 1745, world: GameMap.obstacles,
                                     startingPlayer: PlayerState(), startingEnemies: enemies, startingWave: 3,
-                                    terrain: .battlefield)
+                                    terrain: .battlefield, map: .blacksite)
         precondition(game.aliveCount == 12)
         precondition(game.enemies.allSatisfy { !game.blocked($0.position, height: 1.9, radius: 0.4) })
         // Alert every soldier once, exercising pursuit and route finding from the start.
@@ -109,6 +110,7 @@ enum CoreBenchmark {
         let report = Report(benchmark: "Blacksite native combat simulation", build: "Swift -O -whole-module-optimization",
                             scenario: "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
                             seed: 1745, fixedFrequencyHz: 120, enemyCount: 12, obstacleCount: GameMap.obstacles.count,
+                            vegetationZoneCount: MapDefinition.blacksite.environment.vegetationZones.count,
                             sampleDurationSeconds: 60, measuredSamples: samples.count, deterministic: deterministic,
                             medianCPUMicrosecondsPerStep: medianCPU * 1_000_000 / 7200,
                             medianCPUSeconds: medianCPU, medianWallSeconds: medianWall,

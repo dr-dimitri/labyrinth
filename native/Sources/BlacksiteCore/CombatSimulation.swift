@@ -142,7 +142,7 @@ public final class CombatSimulation {
     public init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, world: [Obstacle],
                 startingPlayer: PlayerState? = nil, startingEnemies: [EnemyState] = [], startingWave: Int = 0,
                 terrain: TerrainProfile? = nil, mission: MissionKind = .waves, map: MapDefinition? = nil) {
-        let selected = map ?? .blacksite
+        let selected = map ?? MapDefinition.blacksite.withoutVegetation()
         let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
         self.map = selected.withTerrain(terrain)
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
@@ -1085,7 +1085,9 @@ extension CombatSimulation {
             if brain.visualContact {
                 let reaction: Float = (difficulty == .easy ? 0.8 : difficulty == .hard ? 0.4 : 0.6) *
                     (horizontal < 8 ? 0.7 : 1) * (player.prone ? 1.25 : 1)
-                enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction)
+                let recognition = enemy.detectionProgress >= 1 ? 1 : vegetationRecognitionFactor(
+                    from: EnemyPose(enemy).eyePosition, eyeLineIsClear: true)
+                enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction * recognition)
                 if enemy.detectionProgress >= 1 {
                     if enemy.awareness != .engaged {
                         emit(GameEvent(kind: .enemyAlert, position: enemy.position, id: enemy.id))

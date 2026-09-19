@@ -71,21 +71,18 @@ public struct MapSurfaceRegion: Sendable {
         x >= minimum.x && x <= maximum.x && z >= minimum.y && z <= maximum.y
     }
 }
-public struct MapVisibilityVolume: Sendable {
-    public let id: String
-    public let minimum: SIMD3<Float>, maximum: SIMD3<Float>
-    public let density: Float
-    public init(id: String, minimum: SIMD3<Float>, maximum: SIMD3<Float>, density: Float) {
-        self.id = id; self.minimum = minimum; self.maximum = maximum; self.density = density
-    }
-}
 public struct MapEnvironmentDefinition: Sendable {
     public var sunDirection = simd_normalize(SIMD3<Float>(-0.68, 0.24, -0.69))
     public var fogColor = SIMD3<Float>(0.40, 0.49, 0.54)
     public var shadowTarget = SIMD3<Float>(0, 0, 0)
     public var shadowExtent: Float = 65, shadowDistance: Float = 100, shadowDepth: Float = 220, viewDistance: Float = 450
     public var groundRegions: [MapSurfaceRegion] = []
-    public var visibilityVolumes: [MapVisibilityVolume] = []
+    public var vegetationZones: [EnvironmentZone] = []
+    /// Legacy name retained as a view of the same authoritative data.
+    public var visibilityVolumes: [MapVisibilityVolume] {
+        get { vegetationZones }
+        set { vegetationZones = newValue }
+    }
     public init() {}
 }
 public struct MapResourceReferences: Sendable, Equatable {
@@ -167,7 +164,15 @@ public struct MapDefinition: Sendable {
 
     /// Preserve all authored metadata while explicitly overriding a test profile.
     public func withTerrain(_ value: TerrainProfile) -> MapDefinition {
-        // A profile cannot invalidate dimensions, identifiers or source geometry.
+        copying(terrain: value, environment: environment)
+    }
+    /// Isolated legacy worlds have no authored vegetation unless a map was selected.
+    func withoutVegetation() -> MapDefinition {
+        var environment = environment; environment.vegetationZones = []
+        return copying(terrain: terrain, environment: environment)
+    }
+    private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition) -> MapDefinition {
+        // These operations preserve validated dimensions, identifiers and geometry.
         try! MapDefinition(id: id, version: version, displayName: displayName, minimum: minimum, maximum: maximum,
                            terrain: value, obstacles: obstacles, playerStart: playerStart, spawns: spawns,
                            reinforcementEntries: reinforcementEntries, waveStaging: waveStaging,
@@ -266,12 +271,29 @@ public struct MapDefinition: Sendable {
             }
         }
         var volumeIDs = Set<String>()
-        for volume in environment.visibilityVolumes {
+        var totalPlants = 0
+        guard environment.vegetationZones.count <= 16 else {
+            throw MapValidationError("Karte \(id): Höchstens 16 Vegetationszonen sind zulässig.")
+        }
+        for volume in environment.vegetationZones {
             let size = volume.maximum - volume.minimum
             guard !volume.id.isEmpty, volumeIDs.insert(volume.id).inserted,
-                  finite(volume.minimum), finite(volume.maximum), size.x > 0, size.y > 0, size.z > 0,
+                  finite(volume.minimum), finite(volume.maximum),
+                  size.x >= EnvironmentZone.minimumFootprintSpan, size.z >= EnvironmentZone.minimumFootprintSpan,
+                  size.y >= EnvironmentZone.minimumHeight, size.x <= 32, size.z <= 32, size.y <= 6,
+                  volume.minimum.x >= minimum.x, volume.maximum.x <= maximum.x,
+                  volume.minimum.z >= minimum.z, volume.maximum.z <= maximum.z,
+                  (!volume.terrainRelative || volume.minimum.y >= 0),
                   volume.density.isFinite, (0...1).contains(volume.density) else {
-                throw MapValidationError("Karte \(id): Ein Sichtschutzvolumen besitzt ungültige Daten.")
+                throw MapValidationError("Karte \(id): Ein Sichtschutzvolumen besitzt ungültige Daten; Breite/Tiefe müssen mindestens 0,6 m und die Höhe mindestens 0,25 m betragen.")
+            }
+            let plants = volume.requiredPlantCount
+            guard plants <= EnvironmentZone.maximumPlantCount else {
+                throw MapValidationError("Karte \(id): Vegetationszone \(volume.id) benötigt \(plants) Pflanzen; zulässig sind höchstens \(EnvironmentZone.maximumPlantCount) je Zone.")
+            }
+            totalPlants += plants
+            guard totalPlants <= EnvironmentZone.maximumTotalPlantCount else {
+                throw MapValidationError("Karte \(id): Vegetationszonen benötigen insgesamt \(totalPlants) Pflanzen; zulässig sind höchstens \(EnvironmentZone.maximumTotalPlantCount).")
             }
         }
         for box in scenery.boxes {
@@ -353,7 +375,11 @@ public struct MapDefinition: Sendable {
                           Obstacle(id: -10002, kind: .bunker, position: SIMD3(-6.2, 0, 0), size: SIMD3(0.3, 0.08, 85)),
                           Obstacle(id: -10003, kind: .bunker, position: SIMD3(6.2, 0, 0), size: SIMD3(0.3, 0.08, 85))],
         levelProps: Dictionary(uniqueKeysWithValues: LevelProp.allCases.map { ($0.rawValue, $0) }),
-        scenery: MapSceneryDefinition.blacksite, environment: MapEnvironmentDefinition(), resources: .blacksite)
+        scenery: MapSceneryDefinition.blacksite, environment: {
+            var environment = MapEnvironmentDefinition()
+            environment.vegetationZones = BlacksiteVegetation.zones
+            return environment
+        }(), resources: .blacksite)
 
     /// A small elevated, translated fixture catches accidental Blacksite bounds,
     /// zero-height starts, roads and the former 12m terrain-ray ceiling.

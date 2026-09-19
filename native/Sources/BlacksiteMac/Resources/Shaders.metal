@@ -17,6 +17,11 @@ float3 windPosition(float3 p, float2 uv, float material, float time) {
     p.x+=sin(time*1.4+p.x*0.31+p.z*0.24)*0.035*uv.y*uv.y;
     p.z+=cos(time*1.1+p.z*0.27)*0.02*uv.y*uv.y;
   }
+  if(material>27.5 && material<29.5) {
+    float flexibility=material<28.5 ? saturate((0.884-uv.y)/0.794):uv.y;
+    p.x+=sin(time*1.35+p.x*0.71+p.z*0.23)*0.012*flexibility*flexibility;
+    p.z+=cos(time*1.1+p.z*0.63)*0.009*flexibility*flexibility;
+  }
   return p;
 }
 vertex Raster worldVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const device Vertex *vertices [[buffer(0)]],const device Instance *instances [[buffer(1)]],constant Uniforms &u [[buffer(2)]]) {
@@ -35,8 +40,9 @@ vertex Raster shadowVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const d
   float4 p=i.model*float4(v.position,1); p.xyz=windPosition(p.xyz,v.uv,i.material.w,u.eyeTime.w);
   o.position=u.lightViewProjection*p; o.world=p.xyz; o.uv=v.uv; o.detailUV=v.uv; o.material=i.material; o.tint=i.tint; o.normal=v.normal; o.shadow=o.position; o.nearShadow=o.position; return o;
 }
-fragment void shadowFragment(Raster in [[stage_in]],texture2d<float> pineAlpha [[texture(0)]],sampler surface [[sampler(0)]]) {
+fragment void shadowFragment(Raster in [[stage_in]],texture2d<float> pineAlpha [[texture(0)]],texture2d<float> gameplayAlpha [[texture(1)]],sampler surface [[sampler(0)]]) {
   if(in.material.w>3.5 && in.material.w<4.5 && pineAlpha.sample(surface,in.uv).r<0.43) discard_fragment();
+  if(in.material.w>27.5 && in.material.w<28.5 && gameplayAlpha.sample(surface,in.uv).r<0.43) discard_fragment();
 }
 float3 aces(float3 c) { return saturate((c*(2.51*c+0.03))/(c*(2.43*c+0.59)+0.14)); }
 float hash(float3 p) { return fract(sin(dot(p,float3(12.9898,78.233,39.425)))*43758.5453); }
@@ -151,7 +157,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   texture2d<float> pineNormal [[texture(20)]],texture2d<float> pineAlpha [[texture(21)]],texture2d<float> pineRough [[texture(22)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
   texture2d<float> weaponMetalColor [[texture(25)]],texture2d<float> weaponMetalNormal [[texture(26)]],texture2d<float> weaponMetalRough [[texture(27)]],
   texture2d<float> weaponClothColor [[texture(28)]],texture2d<float> weaponClothNormal [[texture(29)]],texture2d<float> weaponClothRough [[texture(30)]],
-  depth2d<float> weaponShadowMap [[texture(31)]],
+  depth2d<float> weaponShadowMap [[texture(31)]],texture2d<float> gameplayAlpha [[texture(32)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
@@ -195,15 +201,25 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float3 rocky=rockColor.sample(surface,in.world.zy*0.42017).rgb*w.x+rockColor.sample(surface,in.world.xz*0.42017).rgb*w.y+rockColor.sample(surface,in.world.xy*0.42017).rgb*w.z;
     albedo*=rocky*(0.8+noise(in.world.xz*0.18)*0.34); rough*=rockRough.sample(surface,uv).r;
     map=rockNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.82);
-  } else if(id==4) {
-    float alpha=pineAlpha.sample(surface,in.uv).r;
-    if(alpha<0.12) discard_fragment();
-    // 4x MSAA turns the sampled mask into stable subpixel needle coverage.
-    coverage=saturate((alpha-0.2)/max(fwidth(alpha),0.16)+0.5);
+  } else if(id==4 || id==28) {
+    float alpha=id==28 ? gameplayAlpha.sample(surface,in.uv).r:pineAlpha.sample(surface,in.uv).r;
+    if(alpha<(id==28 ? 0.43:0.12)) discard_fragment();
+    // Shared gameplay coverage has identical alpha and cutoff in main, near
+    // and far passes. Only decorative distant trees use variable coverage.
+    coverage=id==28 ? 1.0:saturate((alpha-0.2)/max(fwidth(alpha),0.16)+0.5);
     albedo*=pineColor.sample(surface,in.uv).rgb; rough*=pineRough.sample(surface,in.uv).r;
     canopyAO=clamp(metal,0.38,1.0); metal=0; emissive=0;
     if(dot(n,u.eyeTime.xyz-in.world)<0) n=-n;
     map=pineNormal.sample(surface,in.uv).xyz*2-1; n=perturbNormal(n,in.world,in.uv,map,0.28);
+  } else if(id==29) {
+    if(dot(n,u.eyeTime.xyz-in.world)<0) n=-n;
+    float midrib=1-smoothstep(0.04,0.20,abs(in.uv.x-0.5));
+    float fibre=0.85+0.15*sin(in.uv.x*39.0+in.uv.y*5.0);
+    float dry=noise(in.world.xz*1.7+float2(8.3,4.6));
+    float3 rootTone=mix(float3(0.60,0.66,0.53),float3(0.83,0.75,0.54),dry);
+    float3 tipTone=mix(float3(0.94,0.99,0.78),float3(1.12,0.97,0.71),dry);
+    albedo*=mix(rootTone,tipTone,in.uv.y)*fibre;
+    albedo*=1+midrib*0.12;metal=0;rough=0.94;canopyAO=0.88;
   } else if(id==5) {
     uv=float2(in.uv.x*1.65,in.uv.y*max(in.material.z,1.0)); emissive=0;
     albedo*=barkColor.sample(surface,uv).rgb; rough*=barkRough.sample(surface,uv).r;
@@ -344,7 +360,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   float3 ambient=mix(float3(0.12,0.115,0.085),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
   float3 irradiance=float3(3.05,2.90,2.52);
   float3 lit=ambient*shadow.y*canopyAO+(albedo*(1-metal)/M_PI_F+specular)*irradiance*nl*visibility;
-  if(id==4) {
+  if(id==4 || id==28 || id==29) {
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
     lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
   }

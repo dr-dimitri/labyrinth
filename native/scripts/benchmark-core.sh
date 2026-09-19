@@ -4,6 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NATIVE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BENCHMARK_DIR="$NATIVE_DIR/.build/core-benchmark"
+BENCHMARK_SOURCE="$SCRIPT_DIR/benchmark-core.swift"
+if [[ "${1:-}" == --environment ]]; then
+    BENCHMARK_SOURCE="$SCRIPT_DIR/benchmark-environment.swift"
+    BENCHMARK_DIR="$NATIVE_DIR/.build/environment-benchmark"
+elif [[ $# -gt 0 ]]; then
+    printf 'Usage: native/scripts/benchmark-core.sh [--environment]\n' >&2
+    exit 2
+fi
 
 if [[ "$(uname -s)" != Darwin ]]; then
     printf 'The native simulation benchmark requires macOS and the Apple Swift toolchain.\n' >&2
@@ -16,6 +24,6 @@ swiftc -O -whole-module-optimization -swift-version 5 \
     -module-cache-path "$BENCHMARK_DIR/ModuleCache" \
     -module-name BlacksiteCoreBenchmark \
     "$NATIVE_DIR"/Sources/BlacksiteCore/*.swift \
-    "$SCRIPT_DIR/benchmark-core.swift" \
+    "$BENCHMARK_SOURCE" \
     -o "$BENCHMARK_DIR/blacksite-core-benchmark"
 "$BENCHMARK_DIR/blacksite-core-benchmark"

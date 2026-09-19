@@ -96,10 +96,11 @@ struct BlacksiteMain {
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer)
-                let missionCheck = mapCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer) : nil
-                let sceneCheck = mapCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer) : nil
-                var simulation = mapCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
-                if mapCheck == nil && sceneCheck == nil && missionCheck == nil {
+                let environmentCheck = mapCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer) : nil
+                let missionCheck = mapCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer) : nil
+                let sceneCheck = mapCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer) : nil
+                var simulation = mapCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
+                if mapCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -119,6 +120,7 @@ struct BlacksiteMain {
                     result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
                     result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(mapCycles) { _, value in value }
                     let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                     print(String(decoding: json, as: UTF8.self)); return
@@ -133,6 +135,7 @@ struct BlacksiteMain {
                 result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
                 result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
+                result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(mapCycles) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }

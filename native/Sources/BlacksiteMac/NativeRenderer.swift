@@ -114,6 +114,11 @@ final class NativeRenderer {
     private var nearShadowTexture: MTLTexture
     private let weaponShadowTexture: MTLTexture
     private var meshes: [Mesh]
+    private let baseMeshCount: Int
+    private struct VegetationBatch { let id:String;let kind:VegetationKind;let mesh:Int;let plants:Int }
+    private struct VegetationResources { let meshes:[Mesh];let batches:[VegetationBatch];let alpha:MTLTexture? }
+    private var vegetationBatches:[VegetationBatch]=[]
+    private var vegetationAlpha:MTLTexture?
     private var skinnedSoldiers: SkinnedSoldierRenderer?
     private let combatEffects: NativeCombatEffects
     private let inflight = DispatchSemaphore(value: 3)
@@ -165,6 +170,12 @@ final class NativeRenderer {
         diagnostics["mapTextureReferences"]=map.resources.texturePaths.count
         diagnostics["mapSupportSurfaces"]=shellGroundColliders.count
         diagnostics["mapTerrainVertices"]=meshes[7].count
+        diagnostics["gameplayVegetationZones"]=vegetationBatches.count
+        diagnostics["gameplayVegetationPlants"]=vegetationBatches.reduce(0) { $0+$1.plants }
+        diagnostics["gameplayVegetationVertices"]=vegetationBatches.reduce(0) { $0+meshes[$1.mesh].count }
+        diagnostics["gameplayVegetationInstances"]=vegetationBatches.count
+        diagnostics["gameplayVegetationAlphaWidth"]=vegetationAlpha?.width ?? 0
+        diagnostics["gameplayVegetationPlantBudget"]=NativeVegetationGeometry.maximumPlants
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
@@ -256,8 +267,11 @@ final class NativeRenderer {
         weaponShadowDesc.usage=[.renderTarget,.shaderRead];weaponShadowDesc.storageMode = .private
         guard let weaponShadow=device.makeTexture(descriptor:weaponShadowDesc) else { throw RenderError.unavailable("Waffen-Schattenpuffer konnte nicht angelegt werden.") }
         weaponShadow.label="512 viewmodel-only self shadows";weaponShadowTexture=weaponShadow
-        meshes = try Self.makeMeshes(device: device, map: map)
         let root=try Self.resolveTextureRoot(assetRoot:assetRoot);textureRoot=root
+        let baseMeshes=try Self.makeMeshes(device:device,map:map)
+        baseMeshCount=baseMeshes.count
+        let vegetation=try Self.makeVegetation(device:device,root:root,map:map,firstMesh:baseMeshes.count)
+        meshes=baseMeshes+vegetation.meshes;vegetationBatches=vegetation.batches;vegetationAlpha=vegetation.alpha
         textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality,resources:map.resources) }
         if let soldier=map.resources.soldierAsset {
             skinnedSoldiers = try SkinnedSoldierRenderer(device:device,library:library,
@@ -280,7 +294,7 @@ final class NativeRenderer {
             throw RenderError.unavailable("Karte \(next.id): Für einen spielbaren Einsatz fehlt die Soldatenmodell-Ressource.")
         }
         try next.validateGameplay()
-        let replacement = try autoreleasepool { () -> ([MTLTexture], SkinnedSoldierRenderer?, Mesh, MTLBuffer) in
+        let replacement = try autoreleasepool { () -> ([MTLTexture], SkinnedSoldierRenderer?, Mesh, MTLBuffer,VegetationResources) in
             let resourcesChanged = next.resources != map.resources
             let materials = resourcesChanged
                 ? try Self.loadTextures(device: device, root: textureRoot, highQuality: highQuality, resources: next.resources)
@@ -296,10 +310,13 @@ final class NativeRenderer {
             let terrain = try Self.makeMesh(device: device, name: "Active map \(next.id) heightfield",
                                            vertices: NativeMapGeometry.vertices(map: next))
             let appearance = try Self.makeAppearanceBuffer(device: device, map: next)
-            return (materials, character, terrain, appearance)
+            let vegetation=try Self.makeVegetation(device:device,root:textureRoot,map:next,firstMesh:baseMeshCount)
+            return (materials, character, terrain, appearance, vegetation)
         }
         map = next; textures = replacement.0; skinnedSoldiers = replacement.1
+        meshes=Array(meshes.prefix(baseMeshCount))+replacement.4.meshes
         meshes[7] = replacement.2; appearanceBuffer = replacement.3
+        vegetationBatches=replacement.4.batches;vegetationAlpha=replacement.4.alpha
         shellGroundColliders = next.groundedSupportSurfaces
         lightMatrix = Self.makeLightMatrix(map: next)
         // Submitted command buffers retain only the resources they still use.
@@ -537,7 +554,7 @@ final class NativeRenderer {
             result[name]=Double(bytes)/1_048_576
         }
         account("landscape",(Array(0...8)+Array(14...19)).map { textures[$0] })
-        account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] })
+        account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] } + (vegetationAlpha.map { [$0] } ?? []))
         account("sky",[textures[23]])
         account("soldiers",(skinnedSoldiers?.materialTextures ?? []))
         account("weapons",Array(25...30).map { textures[$0] })
@@ -548,7 +565,7 @@ final class NativeRenderer {
     }
     var textureDimensions:[String:[Int]] {
         var seen=Set<ObjectIdentifier>(),result:[String:[Int]]=[:]
-        for resource in textures+(skinnedSoldiers?.materialTextures ?? []) where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
+        for resource in textures+(skinnedSoldiers?.materialTextures ?? [])+(vegetationAlpha.map { [$0] } ?? []) where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
             result[resource.label ?? "unlabelled"]=[resource.width,resource.height]
         }
         return result
@@ -738,7 +755,7 @@ final class NativeRenderer {
         let shadowPass = MTLRenderPassDescriptor(); shadowPass.depthAttachment.texture = shadowTexture; shadowPass.depthAttachment.loadAction = .clear; shadowPass.depthAttachment.storeAction = .store; shadowPass.depthAttachment.clearDepth = 1
         if let encoder = command.makeRenderCommandEncoder(descriptor: shadowPass) {
             encoder.label = "Sun shadow map"; encoder.setRenderPipelineState(shadowPipeline); encoder.setDepthStencilState(depthState); encoder.setCullMode(.none); encoder.setDepthBias(0.001, slopeScale: 1.5, clamp: 0.01)
-            encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
+            encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.shadows, encoder: encoder, buffer: instanceBuffer)
             skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot)
             encoder.endEncoding()
@@ -753,7 +770,7 @@ final class NativeRenderer {
             // setVertexBytes owns a copy; never overwrite uniforms used by the far pass.
             var nearUniform = uniform; nearUniform.lightViewProjection = uniform.nearLightViewProjection
             encoder.setVertexBytes(&nearUniform, length: MemoryLayout<GPUUniforms>.stride, index: 2)
-            encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
+            encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.nearShadows, encoder: encoder, buffer: instanceBuffer)
             skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot, near: true)
             encoder.endEncoding()
@@ -767,7 +784,7 @@ final class NativeRenderer {
                 encoder.setDepthBias(0,slopeScale:0.65,clamp:0.00015)
                 var weaponUniform=uniform;weaponUniform.lightViewProjection=scene.weaponLightMatrix
                 encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
-                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentSamplerState(sampler,index:0)
+                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1);encoder.setFragmentSamplerState(sampler,index:0)
                 drawBatches(scene.weaponShadows,encoder:encoder,buffer:instanceBuffer)
                 encoder.endEncoding()
             }
@@ -782,6 +799,7 @@ final class NativeRenderer {
         for (index, texture) in textures.enumerated() { encoder.setFragmentTexture(texture, index: index) }
         encoder.setFragmentTexture(shadowTexture, index: 10); encoder.setFragmentTexture(nearTexture, index: 24)
         encoder.setFragmentTexture(scene.weapon.isEmpty ? shadowTexture:weaponShadowTexture,index:31)
+        encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:32)
         var weaponLight=matrix_identity_float4x4
         encoder.setFragmentBytes(&weaponLight,length:MemoryLayout<simd_float4x4>.stride,index:3)
         encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
@@ -866,6 +884,12 @@ final class NativeRenderer {
             for index in start..<items.count { items[index].levelAddition=true }
         }
         staticLevelDetailCount=items.filter(\.levelAddition).count
+        for batch in vegetationBatches {
+            let brush=batch.kind == .brush
+            appendItem(to:&items,mesh:batch.mesh,position:.zero,scale:SIMD3(repeating:1),
+                color:brush ? SIMD3(0.62,0.72,0.46):SIMD3(0.17,0.195,0.105),
+                material:SIMD4(0.95,0.82,0,brush ? 28:29),shadow:true)
+        }
         scenery=items
     }
 
@@ -1550,16 +1574,7 @@ final class NativeRenderer {
             return GPUVertex(position: p, normal: simd_normalize(SIMD3(cos(a), 0.11, sin(a))), uv: SIMD2(u, t))
         }
         for y in 0..<8 { for x in 0..<12 { for uv in corners { trunk.append(trunkVertex((Float(x) + uv.x) / 12, (Float(y) + uv.y) / 8)) } } }
-        // Atlas UV polygon lies entirely inside the black alpha island around
-        // the photographed twig. A full rectangle would expose opaque cone UVs.
-        let outline: [SIMD2<Float>] = [SIMD2(30,100),SIMD2(850,100),SIMD2(990,500),SIMD2(920,1300),SIMD2(855,1540),SIMD2(650,1810),SIMD2(390,1825),SIMD2(360,1800),SIMD2(250,1740),SIMD2(190,1680),SIMD2(155,1500),SIMD2(119,1310),SIMD2(30,1000)]
-        func twigVertex(_ pixel: SIMD2<Float>) -> GPUVertex {
-            let t = (1810 - pixel.y) / 1625, x = (pixel.x - 550) / 1625
-            let z = sin(t * .pi) * 0.055 + x * x * 0.16
-            return GPUVertex(position: SIMD3(x,t,z), normal: simd_normalize(SIMD3(-x*0.25,-cos(t * .pi)*0.1,1)), uv: pixel / SIMD2(1024,2048))
-        }
-        var twig: [GPUVertex] = []
-        for i in outline.indices { twig.append(contentsOf: [twigVertex(SIMD2(540,950)),twigVertex(outline[i]),twigVertex(outline[(i+1)%outline.count])]) }
+        let twig=NativeVegetationGeometry.photographicTwigVertices()
         let terrain=NativeMapGeometry.vertices(map:map)
         var rock: [GPUVertex] = []
         func rockPoint(_ u: Float, _ v: Float) -> SIMD3<Float> {
@@ -1589,6 +1604,32 @@ final class NativeRenderer {
         for vertex in vertices { low=simd_min(low,vertex.position);high=simd_max(high,vertex.position) }
         buffer.label=name
         return Mesh(vertices:buffer,count:vertices.count,boundsCenter:(low+high)*0.5,halfExtents:(high-low)*0.5)
+    }
+
+    private static func makeVegetation(device:MTLDevice,root:URL,map:MapDefinition,firstMesh:Int)throws->VegetationResources {
+        let zones=NativeVegetationGeometry.meshes(map:map)
+        var buffers:[Mesh]=[],batches:[VegetationBatch]=[]
+        for zone in zones {
+            guard !zone.vertices.isEmpty else {
+                throw RenderError.unavailable("Karte \(map.id): Vegetationszone \(zone.id) erzeugt keine sichtbaren Pflanzen. Bitte Ausdehnung und Pflanzenhöhe prüfen.")
+            }
+            let index=firstMesh+buffers.count
+            buffers.append(try makeMesh(device:device,name:"Gameplay foliage \(zone.id)",vertices:zone.vertices))
+            batches.append(VegetationBatch(id:zone.id,kind:zone.kind,mesh:index,plants:zone.plantCount))
+        }
+        var alpha:MTLTexture?
+        if zones.contains(where:{ $0.kind == .brush }) {
+            guard let path=map.resources.texturePaths[21],map.resources.texturePaths[9] != nil else {
+                throw RenderError.unavailable("Karte \(map.id): Buschzonen benötigen eine fotografische Blattfarbe und Alphamaske.")
+            }
+            let crop=map.resources.textureCrops[21].map { NativeTextureCrop(normalizedX:Double($0.x),normalizedY:Double($0.y),width:Double($0.z),height:Double($0.w)) }
+            // Gameplay coverage is a fixed profile in BOTH quality modes. The
+            // colour/normal maps may use the usual profile without changing holes.
+            alpha=try autoreleasepool { try NativeTextureLoader(device:device,highQuality:false).load(
+                url:root.appendingPathComponent(map.resources.assetDirectory).appendingPathComponent(path),srgb:false,origin:.topLeft,crop:crop) }
+            alpha?.label="Gameplay foliage fixed coverage"
+        }
+        return VegetationResources(meshes:buffers,batches:batches,alpha:alpha)
     }
 
     private static func resolveTextureRoot(assetRoot:URL?)throws->URL {
