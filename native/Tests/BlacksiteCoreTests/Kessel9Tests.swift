@@ -210,11 +210,16 @@ struct Kessel9Tests {
     }
 
     @Test func invalidCouplingsAreRejectedBeforeSimulationStarts() throws {
-        for gates in [[2951],[2951,2951],[2952,2951],[2951,9999]] {
+        for gates in [[2951],[2951,2951],[2951,9999]] {
             var environment = map.environment
             environment.devices[0] = .init(id: 2950,kind: .maintenanceSwitch,ownerObstacleID: 2930,
                 interactionPoints: [Kessel9Definition.switchPoint],linkedGateIDs: gates)
             #expect(throws: MapValidationError.self) { try altered(environment) }
         }
+        var sameState = map.environment
+        let gate = sameState.devices[2]
+        sameState.devices[2] = .init(id: gate.id,kind: gate.kind,ownerObstacleID: gate.ownerObstacleID,
+            interactionPoints: gate.interactionPoints,openOffset: gate.openOffset,controllerID: gate.controllerID)
+        #expect(throws: MapValidationError.self) { try altered(sameState) }
     }
 }

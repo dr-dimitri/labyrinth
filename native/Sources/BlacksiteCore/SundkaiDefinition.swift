@@ -93,7 +93,7 @@ public enum SundkaiDefinition {
             OperationStageDefinition(id: "data",title: "Versanddaten sichern",kind: .collectData,
                 targets: [.init(id: "shipping-data",title: "Versanddaten",position: dataSite)],interactionDuration: 0.8)
         ])
-        return try MapDefinition(id: "sundkai",displayName: "Sundkai",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,12,40),
+        return try MapDefinition(id: "sundkai",version: 2,displayName: "Sundkai",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,12,40),
             terrain: terrain,obstacles: obstacles,playerStart: PlayerState(position: start),
             spawns: [SIMD3(-32,0,-35),SIMD3(4,0,-35),SIMD3(32,0,-30),SIMD3(32,0,-5),SIMD3(32,0,20),
                      SIMD3(32,0,35),SIMD3(-32,0,35),SIMD3(-32,0,4),SIMD3(-32,0,-18)],

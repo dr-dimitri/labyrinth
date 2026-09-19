@@ -6,6 +6,29 @@ import BlacksiteCore
 @MainActor
 @Suite(.serialized)
 struct NativeBriefingTests {
+    @Test func briefingPreservesSeedAndShowsTheResolvedWorldBeforeStarting() throws {
+        for map in PublishedMapRegistry.maps {
+            for seed: UInt64 in 0..<3 {
+                let draft = NativeBriefingDraft(map: map, mission: .operation, difficulty: .normal,
+                                               camouflage: .mineral, seed: seed)
+                let view = NativeBriefingView(draft: draft, maps: [map])
+                let expected = try RunVariantCatalog.resolve(map: map, seed: seed)
+                var started: NativeBriefingDraft?
+                view.onApply = { if $1 { started = $0 } }
+                view.patternChoice.selectItem(at: 1); view.updatePreview()
+                view.startButton.performClick(nil)
+                #expect(started?.seed == seed && started?.resolvedVariant?.id == expected.id)
+                let labels = view.subviews.compactMap { $0 as? NSTextField }
+                let text = labels.map(\.stringValue).joined(separator: " ")
+                for condition in expected.conditions { #expect(text.contains(condition)) }
+                for label in labels where label.stringValue.count > 60 {
+                    let height = (label.stringValue as NSString).boundingRect(with: NSSize(width: label.bounds.width, height: 1000),
+                        options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: label.font!]).height
+                    #expect(height <= label.bounds.height, "Variant clipped: \(label.stringValue)")
+                }
+            }
+        }
+    }
     @Test func harborBriefingExplainsMandatoryRelayOrderAndShowsKnownWater() throws {
         let map = MapDefinition.sundkai
         let game = CombatSimulation(map: map, mission: .operation)

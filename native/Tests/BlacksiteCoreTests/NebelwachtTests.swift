@@ -46,7 +46,7 @@ struct NebelwachtTests {
 
     @Test func authoredMapHasRealFoundationsIndependentResourcesAndNineReachableGuards() throws {
         try map.validateGameplay()
-        #expect(map.id == "nebelwacht" && map.version == 1 && map.spawns.count == 9)
+        #expect(map.id == "nebelwacht" && map.version == 2 && map.spawns.count == 9)
         let returnSpray = try #require(map.environment.smokeEmitters.first { $0.id == 2761 })
         #expect(returnSpray.position == NebelwachtDefinition.supplyExit)
         #expect(returnSpray.warningIndicatorPosition == SIMD3<Float>(4.9,0,-35))

@@ -34,7 +34,7 @@ struct MapDefinitionTests {
     @Test func migratedBlacksitePreservesItsAuthoredContractAndValidates() throws {
         let map = MapDefinition.blacksite
         try map.validateGameplay()
-        #expect(map.id == "blacksite" && map.version == 1)
+        #expect(map.id == "blacksite" && map.version == 2)
         #expect(map.obstacles.count == 33 && map.minimum == GameMap.minimum && map.maximum == GameMap.maximum)
         #expect(map.extraction == GameMap.extraction && map.dataSite == GameMap.dataSite && map.radioSite == GameMap.radioSite)
         #expect(map.environment.shadowExtent == 65 && map.environment.shadowTarget == .zero)

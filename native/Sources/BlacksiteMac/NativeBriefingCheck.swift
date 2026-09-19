@@ -17,9 +17,18 @@ enum NativeBriefingCheck {
         if id == "sundkai" { return .sundkai }
         throw NativeRunConfigurationError.unavailableMap(id)
     }
-    static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral), map: MapDefinition = .blacksite) throws -> [String: Any] {
+    static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral), map: MapDefinition = .blacksite, seed: UInt64 = 1745) throws -> [String: Any] {
         let view = NativeBriefingView(draft: NativeBriefingDraft(map: map,
-            mission: .operation, difficulty: .normal, camouflage: loadout.camouflage, operatorClass: loadout.operatorClass), maps: [map])
+            mission: .operation, difficulty: .normal, camouflage: loadout.camouflage, operatorClass: loadout.operatorClass, seed: seed), maps: [map])
+        var result = try snapshot(view: view, output: output)
+        result.merge(["operatorClass": loadout.operatorClass.rawValue, "mapID": view.draft.map.id, "mission": view.draft.mission.rawValue,
+                      "seed": String(seed), "variant": view.draft.resolvedVariant?.id ?? "unavailable",
+                      "conditions": view.draft.resolvedVariant?.conditions ?? [],
+                      "accessibilitySummary": view.mapView.accessibilitySummary,
+                      "scope": "static AppKit briefing layout; no window interaction"]) { _, new in new }
+        return result
+    }
+    static func snapshot(view: NSView, output: URL) throws -> [String: Any] {
         view.appearance = NSAppearance(named: .darkAqua)
         view.layoutSubtreeIfNeeded()
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds),
@@ -40,9 +49,6 @@ enum NativeBriefingCheck {
                 userInfo: [NSLocalizedDescriptionKey: "Das Briefing-Bild konnte nicht als PNG gespeichert werden."])
         }
         try png.write(to: output, options: .atomic)
-        return ["width": bitmap.pixelsWide, "height": bitmap.pixelsHigh,
-                "operatorClass": loadout.operatorClass.rawValue, "mapID": view.draft.map.id, "mission": view.draft.mission.rawValue,
-                "accessibilitySummary": view.mapView.accessibilitySummary,
-                "scope": "static AppKit briefing layout; no window interaction"]
+        return ["width": bitmap.pixelsWide, "height": bitmap.pixelsHigh]
     }
 }

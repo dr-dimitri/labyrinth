@@ -79,7 +79,7 @@ public enum Kessel9Definition {
             .init(id: "radio",title: "Unteren Verteiler halten",kind: .radioTransfer,
                 targets: [.init(id: "lower-relay",title: "Unterer Funkverteiler",position: radioSite)],interactionDuration: 1,holdDuration: 8)
         ])
-        return try MapDefinition(id: "kessel9",displayName: "Kessel-9",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,16,40),
+        return try MapDefinition(id: "kessel9",version: 2,displayName: "Kessel-9",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,16,40),
             terrain: terrain,obstacles: obstacles,playerStart: PlayerState(position: start),
             spawns: [SIMD3(-29,0,-35),SIMD3(-6,0,-35),SIMD3(29,0,-35),SIMD3(-29,0,15),SIMD3(29,0,-15),
                      SIMD3(-29,0,34),SIMD3(29,0,34),SIMD3(-12,0,-15),SIMD3(8,0,-5)],

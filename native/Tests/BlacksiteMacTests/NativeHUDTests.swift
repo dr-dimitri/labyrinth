@@ -10,7 +10,7 @@ struct NativeHUDTests {
     private let modes: [(NativeRenderMode, Set<String>)] = [
         (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "EINSATZBRIEFING", "WELLEN", "DATEN BERGEN", "FUNK SICHERN", "FELDOPERATION"]),
         (.playing, ["Ⅱ  ESC"]),
-        (.paused, ["FORTSETZEN", "EINSTELLUNGEN", "ZURÜCK ZUM HAUPTMENÜ"]),
+        (.paused, ["FORTSETZEN", "EINSTELLUNGEN", "EINSATZ ABBRECHEN"]),
         (.result, ["ERNEUT ANTRETEN", "ZURÜCK ZUM HAUPTMENÜ"]),
     ]
 
@@ -31,6 +31,7 @@ struct NativeHUDTests {
                 #expect(Set(buttons.map(\.title)) == titles)
                 for button in buttons {
                     #expect(hud.bounds.contains(button.frame))
+                    #expect(button.accessibilityLabel() == button.title)
                     for other in buttons where other !== button { #expect(!button.frame.intersects(other.frame)) }
                     // The HUD is flipped but its parent is not. Calculate the
                     // displayed centre independently of HUD.hitTest's conversion.

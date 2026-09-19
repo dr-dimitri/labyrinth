@@ -129,6 +129,9 @@ public struct MapDefinition: Sendable {
     public let obstacles: [Obstacle]
     public let playerStart: PlayerState
     public let spawns: [SIMD3<Float>], reinforcementEntries: [SIMD3<Float>], waveStaging: [SIMD3<Float>]
+    /// Optional authored deployment goals for objective missions. Empty retains
+    /// the base map's objective-centred approach; variants supply checked goals.
+    public let patrolAnchors: [SIMD3<Float>]
     let spawnCandidates: [SIMD3<Float>]
     public let extraction: SIMD3<Float>, dataSite: SIMD3<Float>, radioSite: SIMD3<Float>, serviceApproach: SIMD3<Float>
     public let extractionRadius: Float
@@ -146,7 +149,7 @@ public struct MapDefinition: Sendable {
     public init(id: String, version: Int = 1, displayName: String,
                 minimum: SIMD3<Float>, maximum: SIMD3<Float>, terrain: TerrainProfile,
                 obstacles: [Obstacle] = [], playerStart: PlayerState,
-                spawns: [SIMD3<Float>] = [], reinforcementEntries: [SIMD3<Float>], waveStaging: [SIMD3<Float>],
+                spawns: [SIMD3<Float>] = [], reinforcementEntries: [SIMD3<Float>], waveStaging: [SIMD3<Float>], patrolAnchors: [SIMD3<Float>] = [],
                 extraction: SIMD3<Float>, extractionRadius: Float = 3.5, dataSite: SIMD3<Float>, radioSite: SIMD3<Float>,
                 serviceApproach: SIMD3<Float>? = nil, roads: [MapSurfaceRegion] = [], supportSurfaces: [Obstacle] = [],
                 levelProps: [Int: LevelProp] = [:], scenery: MapSceneryDefinition? = nil,
@@ -157,7 +160,7 @@ public struct MapDefinition: Sendable {
         self.playerStart = playerStart; self.spawns = spawns; self.reinforcementEntries = reinforcementEntries
         var seenEntries = Set<SIMD3<Float>>()
         spawnCandidates = (spawns + reinforcementEntries).filter { seenEntries.insert($0).inserted }
-        self.waveStaging = waveStaging; self.extraction = extraction; self.extractionRadius = extractionRadius
+        self.waveStaging = waveStaging; self.patrolAnchors = patrolAnchors; self.extraction = extraction; self.extractionRadius = extractionRadius
         self.dataSite = dataSite; self.radioSite = radioSite; self.serviceApproach = serviceApproach ?? playerStart.position
         self.roads = roads; self.supportSurfaces = supportSurfaces; self.levelProps = levelProps
         let center = (minimum + maximum) * 0.5
@@ -191,7 +194,7 @@ public struct MapDefinition: Sendable {
         // These operations preserve validated dimensions, identifiers and geometry.
         try! MapDefinition(id: id, version: version, displayName: displayName, minimum: minimum, maximum: maximum,
                            terrain: value, obstacles: obstacles, playerStart: playerStart, spawns: spawns,
-                           reinforcementEntries: reinforcementEntries, waveStaging: waveStaging,
+                           reinforcementEntries: reinforcementEntries, waveStaging: waveStaging, patrolAnchors: patrolAnchors,
                            extraction: extraction, extractionRadius: extractionRadius, dataSite: dataSite, radioSite: radioSite,
                            serviceApproach: serviceApproach, roads: roads, supportSurfaces: supportSurfaces,
                            levelProps: levelProps, scenery: scenery, environment: environment, resources: resources, operation: operation, breaches: breaches ?? self.breaches)
@@ -242,6 +245,11 @@ public struct MapDefinition: Sendable {
                 }
             }
         }
+        for anchor in patrolAnchors {
+            guard abs(anchor.y) <= 0.05, simulation.hasReachableRoute(from: start, to: grounded(anchor)) else {
+                throw MapValidationError("Karte \(id): Variantenpatrouille muss vom Start am Boden erreichbar sein.")
+            }
+        }
         for exit in operation?.extractions ?? [] {
             guard simulation.hasReachableRoute(from: grounded(dataSite), to: grounded(exit.position)) else {
                 throw MapValidationError("Karte \(id): Operationsausgang \(exit.title) ist vom Pflichtziel nicht am Boden erreichbar.")
@@ -283,15 +291,15 @@ public struct MapDefinition: Sendable {
               extractionRadius.isFinite, extractionRadius > 0, extractionRadius < min(size.x, size.z) * 0.5 else {
             throw MapValidationError("Karte \(id): Spielerstart oder Missionsanker liegen außerhalb der Kartengrenzen.")
         }
-        guard !reinforcementEntries.isEmpty, !waveStaging.isEmpty,
-              (spawns + reinforcementEntries + waveStaging).allSatisfy(inside) else {
+        guard !reinforcementEntries.isEmpty, !waveStaging.isEmpty, patrolAnchors.count <= 6,
+              (spawns + reinforcementEntries + waveStaging + patrolAnchors).allSatisfy(inside) else {
             throw MapValidationError("Karte \(id): Eintritts- und Sammelpunkte müssen vorhanden und innerhalb der Grenzen sein.")
         }
         var ids = Set<Int>()
         for obstacle in obstacles + supportSurfaces {
             guard ids.insert(obstacle.id).inserted else { throw MapValidationError("Karte \(id): Objekt-ID \(obstacle.id) ist doppelt vergeben.") }
             guard finite(obstacle.position), finite(obstacle.size), obstacle.size.x > 0, obstacle.size.y > 0, obstacle.size.z > 0,
-                  !obstacle.health.isNaN, obstacle.health > 0 else { throw MapValidationError("Karte \(id): Objekt \(obstacle.id) besitzt ungültige Maße oder Trefferpunkte.") }
+                  !obstacle.health.isNaN, obstacle.health > 0 || (obstacle.destroyed && obstacle.health == 0) else { throw MapValidationError("Karte \(id): Objekt \(obstacle.id) besitzt ungültige Maße oder Trefferpunkte.") }
         }
         guard breaches.count <= 16, Set(breaches.map(\.ownerObstacleID)).count == breaches.count else {
             throw MapValidationError("Karte \(id): Höchstens 16 Zugänge mit eindeutigen Besitzer-IDs sind zulässig.")
@@ -359,10 +367,12 @@ public struct MapDefinition: Sendable {
             if device.kind == .maintenanceSwitch {
                 guard device.linkedGateIDs.count == 2, Set(device.linkedGateIDs).count == 2,
                       device.controllerID == nil, device.generatorID == nil, !device.initiallyOpen,
-                      device.linkedGateIDs.enumerated().allSatisfy({ offset, id in
+                      device.linkedGateIDs.allSatisfy({ id in
                           environment.devices.contains { $0.id == id && $0.kind == .serviceGate &&
-                              $0.controllerID == device.id && $0.initiallyOpen == (offset == 1) }
-                      }) else { throw MapValidationError("Karte \(id): Wartungsschalter benötigt zwei gegensinnig gestartete, eindeutig zugeordnete Schotts.") }
+                              $0.controllerID == device.id }
+                      }),
+                      Set(environment.devices.filter { device.linkedGateIDs.contains($0.id) }.map(\.initiallyOpen)).count == 2
+                else { throw MapValidationError("Karte \(id): Wartungsschalter benötigt zwei gegensinnig gestartete, eindeutig zugeordnete Schotts.") }
             } else if !device.linkedGateIDs.isEmpty {
                 throw MapValidationError("Karte \(id): Nur Wartungsschalter dürfen gekoppelte Schotts besitzen.")
             }
@@ -374,6 +384,9 @@ public struct MapDefinition: Sendable {
             }
             if device.initiallyOpen && device.kind != .serviceGate {
                 throw MapValidationError("Karte \(id): Nur Schotts können offen starten.")
+            }
+            if !device.initiallyEnabled && device.kind != .generator {
+                throw MapValidationError("Karte \(id): Nur Generatoren können ausgeschaltet starten.")
             }
             if device.kind == .serviceGate {
                 // Current gate is a vertical lift: thin footprint cannot be mantled,
@@ -617,7 +630,7 @@ public struct MapDefinition: Sendable {
     public static let nebelwacht: MapDefinition = try! NebelwachtDefinition.make()
 
     public static let blacksite: MapDefinition = try! MapDefinition(
-        id: "blacksite", displayName: "Blacksite", minimum: BlacksiteMapData.minimum, maximum: BlacksiteMapData.maximum,
+        id: "blacksite", version: 2, displayName: "Blacksite", minimum: BlacksiteMapData.minimum, maximum: BlacksiteMapData.maximum,
         terrain: .battlefield, obstacles: BlacksiteMapData.obstacles + BlacksiteBreach.obstacles, playerStart: PlayerState(), spawns: BlacksiteMapData.spawns,
         reinforcementEntries: BlacksiteMapData.reinforcementEntries, waveStaging: [SIMD3(-6, 0, 10), SIMD3(6, 0, 10)],
         extraction: BlacksiteMapData.extraction, dataSite: BlacksiteMapData.dataSite, radioSite: BlacksiteMapData.radioSite,

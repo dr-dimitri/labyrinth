@@ -80,16 +80,21 @@ struct BlacksiteMain {
     @MainActor static func main() {
         let args = CommandLine.arguments
         let app = NSApplication.shared
-        if args.contains("--briefing-check") {
+        if args.contains("--briefing-check") || args.contains("--report-check") {
             app.setActivationPolicy(.prohibited)
             do {
                 let output: String
                 if let index = args.firstIndex(of: "--output"), index + 1 < args.count { output = args[index + 1] }
-                else { output = FileManager.default.currentDirectoryPath + "/native-briefing.png" }
-                let result = try NativeBriefingCheck.makePNG(output: URL(fileURLWithPath: output), loadout: NativeLoadoutCheck.loadout(arguments: args), map: NativeBriefingCheck.selectedMap(arguments: args))
+                else { output = FileManager.default.currentDirectoryPath + (args.contains("--report-check") ? "/native-report.png" : "/native-briefing.png") }
+                let seed = try NativeRunSeed.from(arguments: args)
+                let map = try NativeBriefingCheck.selectedMap(arguments: args)
+                let loadout = try NativeLoadoutCheck.loadout(arguments: args)
+                let result = try args.contains("--report-check")
+                    ? NativeRunReportCheck.makePNG(output: URL(fileURLWithPath: output), map: map, seed: seed, loadout: loadout)
+                    : NativeBriefingCheck.makePNG(output: URL(fileURLWithPath: output), loadout: loadout, map: map, seed: seed)
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                 print(String(decoding: data, as: UTF8.self))
-            } catch { fputs("Briefing check failed: \(error.localizedDescription)\n", stderr); exit(1) }
+            } catch { fputs("Native layout check failed: \(error.localizedDescription)\n", stderr); exit(1) }
             return
         }
         if args.contains("--smoke-test") || args.contains("--graphics-benchmark") {

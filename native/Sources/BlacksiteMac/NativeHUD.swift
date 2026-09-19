@@ -81,6 +81,7 @@ final class GameHUDView: NSView {
     private var leaveButton: NativeButton!
     private var retryButton: NativeButton!
     private var pauseButton: NativeButton!
+    private let reportView = NativeRunReportView(frame: .zero)
     private var missionButtons: [(MissionKind, NativeButton)] = []
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -98,6 +99,7 @@ final class GameHUDView: NSView {
         retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.retryMatch() }
         pauseButton = NativeButton("Ⅱ  ESC") { [weak self] in self?.coordinator?.pause() }
         for button in [startButton, settingsButton, helpButton, loadoutButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
+        addSubview(reportView); reportView.isHidden = true
         for mission in MissionKind.allCases {
             let button = NativeButton(NativeMissionPresentation.name(mission)) { [weak self] in self?.coordinator?.selectMission(mission) }
             button.selectionStyle = true; button.setButtonType(.radio)
@@ -113,6 +115,11 @@ final class GameHUDView: NSView {
         needsLayout = true; needsDisplay = true
         if let c = coordinator {
             let s = c.simulation
+            if c.mode == .result, let report = c.runReport {
+                reportView.update(report)
+                setAccessibilityValue(report.accessibilityText)
+                return
+            }
             let hints = NativeHUDControlHints(settings:c.settings)
             updateMissionSelection(c.settings.selectedMission,interactionLabel:hints.interactionLabel, map: c.selectedMap)
             if c.mode == .menu {
@@ -159,7 +166,7 @@ final class GameHUDView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
-        for button in subviews where !button.isHidden {
+        for button in subviews where button is NativeButton && !button.isHidden {
             if button.frame.contains(local) { return button }
         }
         return nil
@@ -175,6 +182,12 @@ final class GameHUDView: NSView {
     // does not exercise this path. Keep each control stable between mode changes.
     func layoutButtons(mode: NativeRenderMode, ready: Bool) {
         let w = bounds.width, h = bounds.height, x = w * 0.07
+        reportView.isHidden = mode != .result || !ready
+        reportView.frame = NSRect(x: w / 2 - 360, y: h / 2 - 248, width: 720, height: 352)
+        let leaveTitle = mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
+        if leaveButton.title != leaveTitle {
+            leaveButton.title = leaveTitle; leaveButton.setAccessibilityLabel(leaveTitle)
+        }
         func update(_ button: NativeButton, visible: Bool, frame: NSRect? = nil) {
             let hidden = !ready || !visible
             if button.isHidden != hidden { button.isHidden = hidden }
@@ -195,13 +208,13 @@ final class GameHUDView: NSView {
         update(resumeButton, visible: mode == .paused,
                frame: NSRect(x: w / 2 - 175, y: h / 2 + 38, width: 350, height: 52))
         update(retryButton, visible: mode == .result,
-               frame: NSRect(x: w / 2 - 175, y: h / 2 + 94, width: 350, height: 52))
+               frame: NSRect(x: w / 2 - 175, y: h / 2 + 117, width: 350, height: 52))
         update(settingsButton, visible: mode == .menu || mode == .paused,
                frame: mode == .paused
                    ? NSRect(x: w / 2 - 175, y: h / 2 + 104, width: 350, height: 43)
                    : NSRect(x: w - 235, y: 42, width: 190, height: 36))
         update(leaveButton, visible: mode == .paused || mode == .result,
-               frame: NSRect(x: w / 2 - 175, y: h / 2 + 161, width: 350, height: 43))
+               frame: NSRect(x: w / 2 - 175, y: h / 2 + (mode == .result ? 180 : 161), width: 350, height: 43))
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -468,6 +481,7 @@ final class GameHUDView: NSView {
 
     private func drawOverlay(_ c: GameCoordinator) {
         fill(bounds, NSColor(hex: 0x0b1912, alpha: 0.88))
+        if c.mode == .result { return }
         let x = bounds.midX - 175, y = bounds.midY - 190, won = c.simulation.state == .won
         text(c.mode == .paused ? "VERBINDUNG GEHALTEN" : won ? (c.simulation.missionKind == .secureRadio ? "FUNKSTATION GESICHERT" : "EXTRAKTION ERFOLGREICH") : "SIGNAL VERLOREN", x: x, y: y, size: 10, color: accent, tracking: 2, mono: true)
         text(c.mode == .paused ? "EINSATZ\nPAUSIERT." : won ? "MISSION\nERFÜLLT." : "EINSATZ\nGESCHEITERT.", x: x, y: y + 31, size: 44, weight: .heavy, width: 440)

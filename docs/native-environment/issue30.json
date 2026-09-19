@@ -2588,7 +2588,7 @@
       "opened",
       "briefing"
     ],
-    "release": "ARM64 optimized build and signature passed. Final grenade diagnostic fixture has an additional passing test and will enter the next release build; no game-rule change.",
+    "release": "ARM64 optimized build and signature passed. Final grenade diagnostic fixture is included in the #31 release and its actual three-explosion aftermath image passed visual review.",
     "limitations": "Ruins benchmark explicitly starts with destroyed panes. Final aftermath fixture uses three ordinary throws from a safe valid starting distance; original too-close fixture bounced back and killed the player, so its failed image is not acceptance evidence."
   }
 }

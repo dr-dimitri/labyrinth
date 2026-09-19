@@ -1022,7 +1022,11 @@ final class NativeRenderer {
         var weaponLight=matrix_identity_float4x4
         encoder.setFragmentBytes(&weaponLight,length:MemoryLayout<simd_float4x4>.stride,index:3)
         encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
-        drawBatches(scene.main, encoder: encoder, buffer: instanceBuffer)
+        // Opaque terrain fills depth before the many alpha-tested forest cards.
+        // Hidden foliage then fails depth without shading behind entire hills;
+        // geometry, LOD, shadows and later transparent passes stay identical.
+        drawBatches(scene.main.filter { $0.mesh == 7 }, encoder: encoder, buffer: instanceBuffer)
+        drawBatches(scene.main.filter { $0.mesh != 7 }, encoder: encoder, buffer: instanceBuffer)
         if !scene.weapon.isEmpty {
             var weaponUniform=uniform;weaponUniform.viewport.z=1
             encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)

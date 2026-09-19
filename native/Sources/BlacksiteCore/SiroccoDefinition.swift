@@ -102,7 +102,7 @@ public enum SiroccoDefinition {
             OperationStageDefinition(id: "radio",title: "Funktransfer halten",kind: .radioTransfer,
                 targets: [.init(id: "salt-radio",title: "Salzfunk",position: radioSite,ownerObstacleID: 3050)],interactionDuration: 0.8,holdDuration: 12)
         ])
-        return try MapDefinition(id: "sirocco",displayName: "Sirocco",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,12,40),
+        return try MapDefinition(id: "sirocco",version: 2,displayName: "Sirocco",minimum: SIMD3(-36,-2,-40),maximum: SIMD3(36,12,40),
             terrain: terrain,obstacles: obstacles,playerStart: PlayerState(position: start),
             spawns: [SIMD3(-30,0,-30),SIMD3(5,0,-32),SIMD3(31,0,-30),SIMD3(-29,0,0),SIMD3(31,0,-6),
                      SIMD3(-29,0,27),SIMD3(31,0,27),SIMD3(-3,0,15.5),SIMD3(9,0,-17)],

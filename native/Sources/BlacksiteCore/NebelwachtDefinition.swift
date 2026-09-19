@@ -65,7 +65,7 @@ public enum NebelwachtDefinition {
                     "Länger über den westlichen Felsweg. Die Felsblöcke decken abschnittsweise gegen die Trasse; der Ausgang ist nicht rundum geschützt.",
                     position: westExit, radius: 2.5, holdDuration: 3, routeKind: .sheltered)
             ])
-        return try MapDefinition(id: "nebelwacht", version: 1, displayName: "Nebelwacht",
+        return try MapDefinition(id: "nebelwacht", version: 2, displayName: "Nebelwacht",
             minimum: SIMD3(-36,-2,-40), maximum: SIMD3(36,16,40), terrain: terrain,
             obstacles: obstacles, playerStart: PlayerState(position: start),
             spawns: [SIMD3(-32,0,-35), SIMD3(5,0,-35), SIMD3(32,0,-17), SIMD3(-33,0,3),

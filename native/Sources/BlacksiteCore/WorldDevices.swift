@@ -20,12 +20,15 @@ public struct WorldInteractableDefinition: Sendable {
     public let linkedGateIDs: [Int]
     public let controllerID: Int?
     public let initiallyOpen: Bool
+    /// Generator start condition. It is not a completed player interaction.
+    public let initiallyEnabled: Bool
     public init(id: Int, kind: WorldDeviceKind, ownerObstacleID: Int, interactionPoints: [SIMD3<Float>],
                 generatorID: Int? = nil, noiseEmitterIDs: [Int] = [], lightIDs: [Int] = [], openOffset: SIMD3<Float> = .zero,
-                linkedGateIDs: [Int] = [], controllerID: Int? = nil, initiallyOpen: Bool = false) {
+                linkedGateIDs: [Int] = [], controllerID: Int? = nil, initiallyOpen: Bool = false, initiallyEnabled: Bool = true) {
         self.id = id; self.kind = kind; self.ownerObstacleID = ownerObstacleID; self.interactionPoints = interactionPoints
         self.generatorID = generatorID; self.noiseEmitterIDs = noiseEmitterIDs; self.lightIDs = lightIDs; self.openOffset = openOffset
         self.linkedGateIDs = linkedGateIDs; self.controllerID = controllerID; self.initiallyOpen = initiallyOpen
+        self.initiallyEnabled = initiallyEnabled
     }
 }
 public struct WorldInteractableState: Sendable {

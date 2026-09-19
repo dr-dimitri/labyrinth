@@ -23,12 +23,12 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #25 | Briefing und Tarnungsfeedback | Umgesetzt, Review, gezielte Tests, AppKit-Bild und native Bedienprüfung bestanden |
 | #21 | Rauch, Dampf und Gischt | Umgesetzt, Reviews, Tests, GPU-Abgleich, Bilder und native Eingaben bestanden |
 | #22 | Durchbrechbare Zugänge | Umgesetzt, Reviews, Tests, reale Routen, Audio und Bilder bestanden |
-| #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Eingaben vorgemerkt |
-| #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik- und Speicherprüfung bestanden; native Eingaben vorgemerkt |
+| #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Klassenprüfung in #31 ergänzt |
+| #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik-/Speicherprüfung bestanden; native Eingaben in #31 ergänzt |
 | #28 | Sundkai | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik-/Speicherprüfung und native Start-/Eingabeprüfung bestanden |
 | #29 | Kessel-9 | Umgesetzt, Review, Tests, Release, Grafik-/Speicherprüfung und native Bedienprüfung bestanden |
 | #30 | Sirocco | Umgesetzt, Review, Tests, Release, Grafik-/Speicherprüfung und native Bedienprüfung bestanden |
-| #31 | Varianten und Einsatzbericht | Offen |
+| #31 | Varianten und Einsatzbericht | Umgesetzt, unabhängige Reviews, 464 Tests, Release, Grafik-/Bedienprüfung bestanden; Messschwankung dokumentiert |
 
 ## Ausgangsprüfung
 
@@ -483,3 +483,53 @@ GPU-P95 bei 2560×1600: 10,29 ms Hoch / 9,53 ms Ausgewogen; offene Scheiben
 9,69 ms Ausgewogen. Allokationen: 737,23 / 214,13 MiB. Zwei Kartenrundwechsel
 halten die Allokationen konstant. Alle Werte unterschreiten die vorher
 gesetzten Budgets; keine Gesamtbildraten-Aussage. [Prüfdaten](native-environment/issue30.json).
+
+### #31 – Einsatzvarianten, Bericht und Abschluss
+
+Alle fünf Karten erhalten in Definitionsversion 2 je drei feste Varianten mit
+unterschiedlichen Datenankern und tatsächlichen Patrouillenzielen. Strom, Tore,
+Schotts, Glasfelder und Gischtphase bilden geprüfte Kombinationen. Das Briefing
+zeigt die tatsächlich gewählte Lage; der gesamte 64-Bit-Seed bleibt beim
+Klassenwechsel und Retry erhalten. Ein neuer Einsatz wechselt die Variante.
+
+Der Bericht unterscheidet Erfolg, Niederlage und Abbruch, nennt Alarmmeldungen,
+Geräteaktionen, genutzten Ausgang und tatsächlichen Verbrauch. Nachschub und
+vorbereitete Startzustände verfälschen die Zähler nicht. Die Momentaufnahme
+erfolgt nach dem vollständigen Ereignisblock, auch bei einem tödlichen eigenen
+Fassschuss. Der Bericht bleibt lokal für die laufende App-Sitzung.
+
+248 Core- und 216 Mac-Tests bestanden. 30 vollständige Bewegungs-/Interaktionswege
+decken alle 15 Varianten, beide Ausgänge und alle Klassen ab; zwölf echte
+Alarmfälle prüfen den Stromzustand und endliche Verstärkungen. Replays über
+alle Varianten vergleichen sämtliche Ereignispayloads, Figurenzustände
+und Statistik. Die physikalischen Routen isolieren ausdrücklich den Kampf.
+Unabhängige Core-/Mac-/Routen-/Bildreviews sind abgeschlossen.
+
+In der nativen App wurden Sirocco-Start, Granate, Pause, Abbruchbericht, derselbe
+Retry-Seed mit vollem Vorrat und ein neuer Seed mit anderer Variante geprüft.
+Nebelwacht wurde mit allen drei Klassen gestartet; Rauch, Köder und eine zu weit
+entfernte Pionierladung bestätigen Verbrauch und erlaubte Eingaben. Die zuletzt
+gespeicherte Sirocco-/Sturm-Auswahl wurde wiederhergestellt. Dies sind native
+Bedienprüfungen, keine Behauptung vollständiger menschlicher Kampfdurchläufe.
+
+Der optimierte ARM64-Release, Signatur und 43 Assetprüfungen bestehen. Alle fünf
+Briefings, Berichte, echtes Sirocco-Granatenbild sowie finale Wasser-/Glasbilder
+wurden geprüft. Der Core benötigt in derselben Sirocco-Referenz 9,93 statt
+9,89 µs/Schritt; GPU-P95 Ausgewogen dort 9,71 statt 9,53 ms. Kartenrundwechsel
+halten die Allokation stabil.
+
+Die neue Blacksite-Startmessung zeigte vermeidbaren Aufwand hinter dem Terrain.
+Der undurchsichtige Hauptpass zeichnet deshalb den Boden vor dem Blattwerk;
+Geometrie, Detailstufen, Schatten und transparente Passes bleiben gleich. Das
+1280×800-Vergleichsbild ist pixelidentisch. Bei 2560×1600 sinkt der Median von
+drei GPU-P95-Läufen von 18,19 auf 14,53 ms. Die drei finalen Werte sind 14,53,
+17,88 und 9,28 ms: Eine Wiederholung überschreitet weiterhin das 16,7-ms-Ziel.
+Ausgewogen erreicht 7,28 und 13,04 ms, Speicher bleibt 1214,91 / 343,53 MiB.
+Diese schwankenden Teilsystemmessungen garantieren keine gesamte Bildrate.
+Nach der Rendereränderung bestanden nochmals alle 216 Mac-Tests.
+[Prüfdaten](native-environment/issue31.json).
+
+Auf ausdrücklichen Nutzerwunsch endet die Arbeit nach diesem Issue. Der gesamte
+geprüfte Branch wird gepusht und über einen Merge-Commit nach `main` integriert;
+die einzelnen Issue-Commits bleiben erhalten. Vorhandene lokale Browser- und
+Electron-Arbeiten sind nicht Teil dieser Veröffentlichung.

@@ -15,6 +15,24 @@ enum NativeMapCheck {
         var errorDescription: String? { message }
     }
     static func prepare(arguments: [String], renderer: NativeRenderer, loadout: LoadoutDefinition = .init()) throws -> Result? {
+        if let i = arguments.firstIndex(of: "--scene"), i+1 < arguments.count, arguments[i+1] == "run-variant" {
+            let base = try NativeBriefingCheck.selectedMap(arguments: arguments)
+            let seed = try NativeRunSeed.from(arguments: arguments)
+            let config = ActiveRunConfiguration(map: base, seed: seed, mission: .operation, difficulty: .normal, loadout: loadout)
+            let game = try config.makeSimulation()
+            try renderer.setMap(game.map)
+            for _ in 0..<120 {
+                game.step(deltaTime: 1.0/120, input: GameInput())
+                renderer.handle(events: game.drainEvents(), simulation: game)
+                renderer.advanceEffects(deltaTime: 1.0/120, simulation: game)
+            }
+            let variant = try RunVariantCatalog.resolve(map: base, seed: seed)
+            return Result(simulation: game, metadata: ["scene": "run-variant", "variant": variant.id,
+                "seed": String(seed), "conditions": variant.conditions, "mapID": game.map.id,
+                "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+                "devices": game.devices.map { ["id": $0.id, "enabled": $0.enabled, "open": $0.gateProgress] },
+                "openedPanes": game.breaches.filter(\.isOpen).count])
+        }
         guard let index=arguments.firstIndex(of:"--scene"),index+1<arguments.count,
               arguments[index+1]=="map-test" else { return nil }
         if arguments.contains("--map-cycles") {
@@ -45,8 +63,8 @@ enum NativeMapCheck {
         guard index+1<arguments.count,let cycles=Int(arguments[index+1]),(1...10).contains(cycles) else {
             throw CheckFailure(message:"--map-cycles accepts 1 to 10 complete map round trips.")
         }
-        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,["map-test", "fjord-overview", "sundkai-overview", "kessel-overview", "sirocco-overview"].contains(arguments[scene+1]) else {
-            throw CheckFailure(message:"--map-cycles requires --scene map-test, fjord-overview or sundkai-overview; map changes deliberately clear other fixture effects.")
+        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,["map-test", "fjord-overview", "sundkai-overview", "kessel-overview", "sirocco-overview", "run-variant"].contains(arguments[scene+1]) else {
+            throw CheckFailure(message:"--map-cycles requires an overview, run-variant or map-test scene; map changes deliberately clear other fixture effects.")
         }
         let initial=simulation.map
         var measurements:[[String:Any]]=[]

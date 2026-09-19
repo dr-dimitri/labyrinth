@@ -1,6 +1,6 @@
 {
   "issue": 29,
-  "status": "Implemented and independently reviewed; full tests, release build, native start/pause/input and GPU checks passed. Final briefing marker/event-fixture corrections passed targeted tests; included in next release packaging.",
+  "status": "Implemented and independently reviewed; full tests, release build, native start/pause/input and GPU checks passed. Final briefing marker/event-fixture corrections are included in the #30/#31 release packaging and the briefing image passed review.",
   "budgets": {
     "referenceCommit": "1033fb1",
     "device": "Apple M2 Pro",

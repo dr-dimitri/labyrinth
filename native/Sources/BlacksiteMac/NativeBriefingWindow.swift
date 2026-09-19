@@ -8,12 +8,14 @@ struct NativeBriefingDraft {
     var difficulty: Difficulty
     var camouflage: CamouflagePattern
     var operatorClass: OperatorClass = .assault
+    var seed: UInt64 = 1745
     var loadout: LoadoutDefinition { .init(operatorClass: operatorClass, camouflage: camouflage) }
+    var resolvedVariant: ResolvedRunVariant? { try? RunVariantCatalog.resolve(map: map, seed: seed) }
 }
 
 @MainActor
 final class NativeBriefingView: NSView {
-    static let size = NSSize(width: 860, height: 590)
+    static let size = NSSize(width: 940, height: 590)
     let mapChoice = NSPopUpButton(), missionChoice = NSPopUpButton()
     let difficultyChoice = NSPopUpButton(), patternChoice = NSPopUpButton(), classChoice = NSPopUpButton()
     let cancelButton = NSButton(title: "Abbrechen", target: nil, action: nil)
@@ -24,6 +26,8 @@ final class NativeBriefingView: NSView {
     private let rules = NSTextField(wrappingLabelWithString: "")
     private let inventory = NSTextField(wrappingLabelWithString: "")
     private let terrainAdvice = NSTextField(wrappingLabelWithString: "")
+    private let conditions = NSTextField(wrappingLabelWithString: "")
+    private let seed: UInt64
     private let maps: [MapDefinition]
     private var missions: [MissionKind] = []
     private let interactionLabel: String
@@ -36,12 +40,13 @@ final class NativeBriefingView: NSView {
             mission: missions[max(0, missionChoice.indexOfSelectedItem)],
             difficulty: Difficulty.allCases[max(0, difficultyChoice.indexOfSelectedItem)],
             camouflage: CamouflagePattern.allCases[max(0, patternChoice.indexOfSelectedItem)],
-            operatorClass: OperatorClass.allCases[max(0, classChoice.indexOfSelectedItem)])
+            operatorClass: OperatorClass.allCases[max(0, classChoice.indexOfSelectedItem)], seed: seed)
     }
 
     init(draft: NativeBriefingDraft, maps: [MapDefinition] = PublishedMapRegistry.maps,
          interactionLabel: String = "E", gadgetLabel: String = "B") {
         self.maps = maps.isEmpty ? [draft.map] : maps
+        self.seed = draft.seed
         self.interactionLabel = interactionLabel; self.gadgetLabel = gadgetLabel
         mapView = NativeBriefingMapView(map: draft.map, mission: draft.mission)
         super.init(frame: NSRect(origin: .zero, size: Self.size))
@@ -63,12 +68,14 @@ final class NativeBriefingView: NSView {
         inventory.font = .systemFont(ofSize: 12, weight: .medium); inventory.frame = NSRect(x: 24, y: 350, width: 400, height: 55)
         terrainAdvice.font = .systemFont(ofSize: 12); terrainAdvice.textColor = .secondaryLabelColor
         terrainAdvice.frame = NSRect(x: 24, y: 417, width: 400, height: 118)
-        for label in [rules, inventory, terrainAdvice, classAdvice] { addSubview(label) }
-        mapView.frame = NSRect(x: 448, y: 62, width: 388, height: 322); addSubview(mapView)
-        classAdvice.font = .systemFont(ofSize: 12); classAdvice.frame = NSRect(x: 448, y: 401, width: 388, height: 128)
+        for label in [rules, inventory, terrainAdvice, conditions, classAdvice] { addSubview(label) }
+        mapView.frame = NSRect(x: 448, y: 62, width: 468, height: 290); addSubview(mapView)
+        conditions.font = .systemFont(ofSize: 11); conditions.frame = NSRect(x: 448, y: 365, width: 468, height: 87)
+        conditions.setAccessibilityLabel("Lage vor Einsatzbeginn")
+        classAdvice.font = .systemFont(ofSize: 12); classAdvice.frame = NSRect(x: 448, y: 462, width: 468, height: 80)
         for (index, button) in [cancelButton, applyButton, startButton].enumerated() {
             button.bezelStyle = .rounded; button.target = self
-            button.frame = NSRect(x: 384 + index * 152, y: 550, width: 148, height: 30); addSubview(button)
+            button.frame = NSRect(x: 464 + index * 152, y: 550, width: 148, height: 30); addSubview(button)
         }
         cancelButton.action = #selector(cancel); cancelButton.keyEquivalent = "\u{1b}"
         applyButton.action = #selector(apply)
@@ -100,11 +107,16 @@ final class NativeBriefingView: NSView {
     @objc private func start() { onApply?(draft, true) }
     func updatePreview() {
         let choice = draft
-        rules.stringValue = NativeMissionPresentation.rules(choice.mission, interactionLabel: interactionLabel, map: choice.map)
+        let variant = choice.resolvedVariant, map = variant?.map ?? choice.map
+        rules.stringValue = NativeMissionPresentation.rules(choice.mission, interactionLabel: interactionLabel, map: map)
         inventory.stringValue = NativeClassPresentation.inventory(choice.loadout)
-        classAdvice.stringValue = NativeClassPresentation.name(choice.operatorClass).uppercased() + "\n\n" + NativeClassPresentation.description(choice.operatorClass, gadgetKey: gadgetLabel)
-        terrainAdvice.stringValue = NativeCamouflagePresentation.description(choice.camouflage) + "\n\n" + Self.terrainHint(choice.map)
-        mapView.update(map: choice.map, mission: choice.mission)
+        classAdvice.stringValue = NativeClassPresentation.name(choice.operatorClass).uppercased() + " · " + NativeClassPresentation.description(choice.operatorClass, gadgetKey: gadgetLabel)
+        terrainAdvice.stringValue = NativeCamouflagePresentation.description(choice.camouflage) + "\n\n" + Self.terrainHint(map)
+        conditions.stringValue = ["LAGE · " + (variant?.title ?? "Standard"),
+            variant?.conditions.joined(separator: " · ") ?? "Unveränderte Ausgangslage.",
+            "Version \(map.version) · Seed \(choice.seed)"].joined(separator: "\n")
+        startButton.isEnabled = variant != nil
+        mapView.update(map: map, mission: choice.mission)
     }
     static func terrainHint(_ map: MapDefinition) -> String {
         var facts: [String] = []

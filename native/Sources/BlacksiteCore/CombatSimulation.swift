@@ -37,6 +37,7 @@ public final class CombatSimulation {
     public private(set) var grenadeCount = 4
     public private(set) var kills = 0
     public private(set) var score = 0
+    public private(set) var runStatistics = RunStatistics()
     public private(set) var wave: Int
     public private(set) var elapsed: Double = 0
     public private(set) var state: MatchState = .active
@@ -269,7 +270,11 @@ public final class CombatSimulation {
             guard let owner = obstacles.first(where: { $0.id == definition.ownerObstacleID }) else { return nil }
             var state = WorldInteractableState(id: definition.id, kind: definition.kind, ownerObstacleID: definition.ownerObstacleID,
                 interactionPoints: definition.interactionPoints.map { self.map.grounded($0) }, closedPosition: owner.position)
-            if definition.kind == .maintenanceSwitch { state.enabled = false }
+            if definition.kind == .generator { state.enabled = definition.initiallyEnabled; state.powered = definition.initiallyEnabled }
+            if definition.kind == .maintenanceSwitch {
+                let openA = definition.linkedGateIDs.first.flatMap { id in selected.environment.devices.first { $0.id == id } }?.initiallyOpen ?? false
+                state.enabled = openA; state.gateProgress = openA ? 1 : 0; state.targetOpen = openA
+            }
             if definition.initiallyOpen { state.gateProgress = 1; state.targetOpen = true }
             return state
         }
@@ -307,6 +312,9 @@ public final class CombatSimulation {
                                          patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
             nextID = max(nextID, enemy.id + 1)
         }
+        // Authored initial outages/openings are briefing conditions, not
+        // actions the player performed during this run.
+        runStatistics = RunStatistics()
     }
 
     private func groundedPoint(_ p: SIMD3<Float>) -> SIMD3<Float> { SIMD3(p.x, terrain.height(x: p.x, z: p.z), p.z) }
@@ -318,6 +326,7 @@ public final class CombatSimulation {
     }
 
     private func emit(_ event: GameEvent) {
+        runStatistics.record(event, map: map)
         // A paused renderer must not let undrained effects grow without bound.
         if events.count >= 1024 { events.removeFirst(256) }
         events.append(event)
@@ -931,6 +940,8 @@ public final class CombatSimulation {
                 staging = hasReachableRoute(from: position, to: post) ? post : groundedPoint(map.waveStaging[offset % map.waveStaging.count])
             } else if missionKind == .waves {
                 staging = groundedPoint(map.waveStaging[offset % map.waveStaging.count])
+            } else if !map.patrolAnchors.isEmpty {
+                staging = groundedPoint(map.patrolAnchors[offset % map.patrolAnchors.count])
             } else {
                 // Authored objectives are public tactical destinations. Arrivals
                 // do not acquire knowledge of an unseen player's live position.

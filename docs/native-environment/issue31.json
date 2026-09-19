@@ -1,0 +1,1114 @@
+{
+  "issue": 31,
+  "status": "Implemented and independently reviewed; all 248 Core and 216 Mac tests pass. Final release/signature, image and native input verification complete.",
+  "contracts": {
+    "maps": 5,
+    "authoredVariantsPerMap": 3,
+    "mapDefinitionVersion": 2,
+    "identity": "map ID/version + full UInt64 seed + mission + difficulty + loadout",
+    "runReports": "Actual event snapshots, no inventory subtraction, no credit for authored starting conditions, success/failure/aborted; only current app session."
+  },
+  "validation": {
+    "coreTests": 248,
+    "macTests": 216,
+    "physicalOperations": 30,
+    "physicalOperationScope": "15 authored variants × both exits, roles rotate across variants. Ordinary movement, interactions and real jump over authored low Blacksite barrier. Combat explicitly isolated; not a human combat playthrough.",
+    "alarmScenarios": 12,
+    "replay": "All 15 variants, 2520 ticks each, complete event payloads, actors and statistics match; first announced Nebelwacht spray emissions observed.",
+    "nativeUI": "Sirocco briefing -> start -> frag -> pause -> aborted report -> retry with same 7051387074093499524 seed and restored equipment -> new operation with distinct 13517580290323641430 seed/variant. Nebelwacht starts with all three classes; ordinary assault smoke and recon decoy decrement and appear in reports; invalid engineer placement leaves charge untouched. Prior Sirocco/Sturm selection restored.",
+    "review": "Independent Core, Mac lifecycle, route, CLI and six-image reviews completed. Fixed final batch capture, accessibility abort label, truthful stage-free report, seed validation and CLI equipment handling.",
+    "images": "All five variant briefings, two reports, real Sirocco grenade aftermath, final Sundkai water and clear/open Sirocco pane; no clipping or stale geometry.",
+    "release": "Optimized arm64 macOS app; 43 asset dimensions/hashes checked and code signature validated."
+  },
+  "budgets": {
+    "device": "Apple M2 Pro",
+    "width": 2560,
+    "height": 1600,
+    "coreMedianMicroseconds": 25,
+    "highGpuP95Milliseconds": 16.7,
+    "balancedGpuP95Milliseconds": 14,
+    "highGPUAllocatedMiB": 1250,
+    "balancedGPUAllocatedMiB": 360,
+    "qualification": "Subsystem measurements, not whole-game FPS. High Blacksite repetitions remain variable; all results including over-budget samples retained below."
+  },
+  "core": {
+    "authoredSpraySources": 0,
+    "authoredWaterZones": 0,
+    "benchmark": "Native authored-map combat",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 9,
+    "mapID": "sirocco",
+    "mapVersion": 2,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 9.925555555555551,
+    "medianCPUSeconds": 0.07146399999999997,
+    "medianWallSeconds": 0.07167004168150015,
+    "obstacleCount": 40,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "acceptedGrenades": 9,
+        "checksum": 11615.491581916809,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07189299999999998,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 9,
+        "minimumLivingEnemies": 8,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07209150001290254,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 11615.491581916809,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07144499999999998,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 9,
+        "minimumLivingEnemies": 8,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07167004168150015,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 11615.491581916809,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07124399999999997,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 9,
+        "minimumLivingEnemies": 8,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07144116668496281,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 11615.491581916809,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07146399999999997,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 9,
+        "minimumLivingEnemies": 8,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07162070833146572,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 11615.491581916809,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07151400000000002,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 9,
+        "minimumLivingEnemies": 8,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07170637501985766,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      }
+    ],
+    "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds, water contacts and optical events expose differing environment workloads; this is CPU simulation cost, not GPU frame time.",
+    "scriptedGrenades": true,
+    "seed": 1745,
+    "sprayEnabled": true,
+    "waterEnabled": true
+  },
+  "variantGraphicsBeforeDepthOptimization": {
+    "blacksite": {
+      "high": {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 3.4655114584893454,
+        "cpuP95Ms": 4.363458341686055,
+        "gpuAverageMs": 10.989081944717327,
+        "gpuP95Ms": 17.073499999241903,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      "balanced": {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 3.1874819467096436,
+        "cpuP95Ms": 4.181583324680105,
+        "gpuAverageMs": 10.380227430869127,
+        "gpuP95Ms": 13.621458347188309,
+        "gpuAllocatedMB": 343.53125,
+        "drawCalls": 79,
+        "visibleInstances": 15639,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    },
+    "nebelwacht": {
+      "high": {
+        "scene": "run-variant",
+        "variant": "nebelwacht-2",
+        "mapID": "nebelwacht",
+        "mapVersion": 2,
+        "seed": "0",
+        "conditions": [
+          "Daten: Felszugang. Wachwege: Nordzugang / Radom.",
+          "Funk und Maschine aus; Felsboden unverändert.",
+          "Erste Gischt nach 10.8 / 16.8 s; danach alle 24 s, mit Vorwarnung."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 1.2501423620657686,
+        "cpuP95Ms": 2.3424999963026494,
+        "gpuAverageMs": 5.766828471920841,
+        "gpuP95Ms": 10.49012498697266,
+        "gpuAllocatedMB": 847.078125,
+        "drawCalls": 45,
+        "visibleInstances": 1063,
+        "nearShadowInstances": 30,
+        "farShadowInstances": 283,
+        "skinnedSoldiers": 2,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": false,
+            "id": 2750,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      "balanced": {
+        "scene": "run-variant",
+        "variant": "nebelwacht-2",
+        "mapID": "nebelwacht",
+        "mapVersion": 2,
+        "seed": "0",
+        "conditions": [
+          "Daten: Felszugang. Wachwege: Nordzugang / Radom.",
+          "Funk und Maschine aus; Felsboden unverändert.",
+          "Erste Gischt nach 10.8 / 16.8 s; danach alle 24 s, mit Vorwarnung."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 1.1391420125922498,
+        "cpuP95Ms": 1.9177083449903876,
+        "gpuAverageMs": 4.588283680156262,
+        "gpuP95Ms": 8.533124986570328,
+        "gpuAllocatedMB": 242.078125,
+        "drawCalls": 45,
+        "visibleInstances": 1063,
+        "nearShadowInstances": 30,
+        "farShadowInstances": 283,
+        "skinnedSoldiers": 2,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": false,
+            "id": 2750,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    },
+    "sundkai": {
+      "high": {
+        "scene": "run-variant",
+        "variant": "sundkai-2",
+        "mapID": "sundkai",
+        "mapVersion": 2,
+        "seed": "0",
+        "conditions": [
+          "Daten: Lagerweg Nord. Wachwege: Lagerzugang / Norddamm.",
+          "Funk und Maschine aus; Operation braucht beide Hafenrelais.",
+          "Watbecken unverändert; trockene Wege und Ausgänge bleiben frei."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 2.2383024295171103,
+        "cpuP95Ms": 2.9508750012610108,
+        "gpuAverageMs": 8.256793749266459,
+        "gpuP95Ms": 13.495833321940154,
+        "gpuAllocatedMB": 1077.6875,
+        "drawCalls": 60,
+        "visibleInstances": 3469,
+        "nearShadowInstances": 181,
+        "farShadowInstances": 1654,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 0,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": false,
+            "id": 2850,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      "balanced": {
+        "scene": "run-variant",
+        "variant": "sundkai-2",
+        "mapID": "sundkai",
+        "mapVersion": 2,
+        "seed": "0",
+        "conditions": [
+          "Daten: Lagerweg Nord. Wachwege: Lagerzugang / Norddamm.",
+          "Funk und Maschine aus; Operation braucht beide Hafenrelais.",
+          "Watbecken unverändert; trockene Wege und Ausgänge bleiben frei."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 2.1461187512613833,
+        "cpuP95Ms": 2.725458354689181,
+        "gpuAverageMs": 6.501388193525297,
+        "gpuP95Ms": 10.79145833500661,
+        "gpuAllocatedMB": 301.28125,
+        "drawCalls": 60,
+        "visibleInstances": 3245,
+        "nearShadowInstances": 181,
+        "farShadowInstances": 1654,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 0,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": false,
+            "id": 2850,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    },
+    "kessel9": {
+      "high": {
+        "scene": "run-variant",
+        "variant": "kessel9-3",
+        "mapID": "kessel9",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westwartung. Wachwege: Westkanal / Kabelweg.",
+          "Westschott offen, Ostschott zu; Kabelrampe immer frei.",
+          "Funk und Maschine an; trockener Boden unverändert."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 1.9650972208182793,
+        "cpuP95Ms": 2.3823749797884375,
+        "gpuAverageMs": 6.264473608219608,
+        "gpuP95Ms": 10.803333309013397,
+        "gpuAllocatedMB": 1170.640625,
+        "drawCalls": 43,
+        "visibleInstances": 1603,
+        "nearShadowInstances": 157,
+        "farShadowInstances": 491,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 2950,
+            "open": 1
+          },
+          {
+            "enabled": true,
+            "id": 2951,
+            "open": 1
+          },
+          {
+            "enabled": true,
+            "id": 2952,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 2953,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      "balanced": {
+        "scene": "run-variant",
+        "variant": "kessel9-3",
+        "mapID": "kessel9",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westwartung. Wachwege: Westkanal / Kabelweg.",
+          "Westschott offen, Ostschott zu; Kabelrampe immer frei.",
+          "Funk und Maschine an; trockener Boden unverändert."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 1.7891121533466503,
+        "cpuP95Ms": 2.6768750103656203,
+        "gpuAverageMs": 5.771181942691328,
+        "gpuP95Ms": 10.125166678335518,
+        "gpuAllocatedMB": 321.9375,
+        "drawCalls": 43,
+        "visibleInstances": 1603,
+        "nearShadowInstances": 157,
+        "farShadowInstances": 491,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 2950,
+            "open": 1
+          },
+          {
+            "enabled": true,
+            "id": 2951,
+            "open": 1
+          },
+          {
+            "enabled": true,
+            "id": 2952,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 2953,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    },
+    "sirocco": {
+      "high": {
+        "scene": "run-variant",
+        "variant": "sirocco-3",
+        "mapID": "sirocco",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Salzstation Ost. Wachwege: Salzrampe / Glasgang.",
+          "Zwei gegenüberliegende Querfelder offen; übriges Glas intakt.",
+          "Trockener Salzboden unverändert; Funkstation bleibt erreichbar."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 1.2571111095894594,
+        "cpuP95Ms": 1.903208321891725,
+        "gpuAverageMs": 5.168494789783533,
+        "gpuP95Ms": 8.65999999223277,
+        "gpuAllocatedMB": 737.234375,
+        "drawCalls": 41,
+        "visibleInstances": 1472,
+        "nearShadowInstances": 77,
+        "farShadowInstances": 420,
+        "skinnedSoldiers": 2,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [],
+        "openedPanes": 2
+      },
+      "balanced": {
+        "scene": "run-variant",
+        "variant": "sirocco-3",
+        "mapID": "sirocco",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Salzstation Ost. Wachwege: Salzrampe / Glasgang.",
+          "Zwei gegenüberliegende Querfelder offen; übriges Glas intakt.",
+          "Trockener Salzboden unverändert; Funkstation bleibt erreichbar."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 0.9687815974757541,
+        "cpuP95Ms": 1.8198333273176104,
+        "gpuAverageMs": 4.148394097137498,
+        "gpuP95Ms": 6.664999993517995,
+        "gpuAllocatedMB": 214.125,
+        "drawCalls": 41,
+        "visibleInstances": 1472,
+        "nearShadowInstances": 77,
+        "farShadowInstances": 420,
+        "skinnedSoldiers": 2,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [],
+        "openedPanes": 2
+      }
+    }
+  },
+  "depthOptimization": {
+    "change": "Opaque terrain before foliage; identical geometry, material/LOD/shadow/transparent passes. Early depth rejection avoids shading leaves hidden by terrain.",
+    "highBefore": [
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 3.4655114584893454,
+        "cpuP95Ms": 4.363458341686055,
+        "gpuAverageMs": 10.989081944717327,
+        "gpuP95Ms": 17.073499999241903,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 3.7206104168338547,
+        "cpuP95Ms": 5.201833322644234,
+        "gpuAverageMs": 13.05448645822859,
+        "gpuP95Ms": 18.19229166721925,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 3.289731943853743,
+        "cpuP95Ms": 5.198583327000961,
+        "gpuAverageMs": 11.399747916584602,
+        "gpuP95Ms": 18.618041678564623,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    ],
+    "highAfter": [
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 2.150151735744051,
+        "cpuP95Ms": 4.2407083383295685,
+        "gpuAverageMs": 7.460709723090986,
+        "gpuP95Ms": 14.532333356328309,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 3.794259374505297,
+        "cpuP95Ms": 4.612666671164334,
+        "gpuAverageMs": 12.344463541861236,
+        "gpuP95Ms": 17.883833323139697,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "high",
+        "samples": 4,
+        "cpuAverageMs": 1.7867034749845818,
+        "cpuP95Ms": 2.2175416816025972,
+        "gpuAverageMs": 6.426842707151081,
+        "gpuP95Ms": 9.280124999349937,
+        "gpuAllocatedMB": 1214.90625,
+        "drawCalls": 79,
+        "visibleInstances": 19934,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    ],
+    "medianP95Before": 18.19229166721925,
+    "medianP95After": 14.532333356328309,
+    "balancedAfter": [
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 1.6244434021549143,
+        "cpuP95Ms": 2.1180833282414824,
+        "gpuAverageMs": 5.3170611104481695,
+        "gpuP95Ms": 7.274833333212882,
+        "gpuAllocatedMB": 343.53125,
+        "drawCalls": 79,
+        "visibleInstances": 15639,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      },
+      {
+        "scene": "run-variant",
+        "variant": "blacksite-3",
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "seed": "1",
+        "conditions": [
+          "Daten: Westquerung. Wachwege: Querung / Ostweg.",
+          "Strom/Funk an; Servicetor zu; Maschinen und Dampf aktiv.",
+          "Boden und Vegetation unverändert; Tarnung bleibt ortsabhängig."
+        ],
+        "fixtureScope": "One second of ordinary operation input, not a complete combat playthrough",
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "warmupFrames": 10,
+        "textureQuality": "balanced",
+        "samples": 1,
+        "cpuAverageMs": 2.164051737296783,
+        "cpuP95Ms": 4.175458336248994,
+        "gpuAverageMs": 6.6119326390132,
+        "gpuP95Ms": 13.039875018876046,
+        "gpuAllocatedMB": 343.53125,
+        "drawCalls": 79,
+        "visibleInstances": 15639,
+        "nearShadowInstances": 1727,
+        "farShadowInstances": 6555,
+        "skinnedSoldiers": 4,
+        "missionPropInstances": 16,
+        "operationMarkerIDs": [],
+        "devices": [
+          {
+            "enabled": true,
+            "id": 1001,
+            "open": 0
+          },
+          {
+            "enabled": true,
+            "id": 1002,
+            "open": 0
+          }
+        ],
+        "openedPanes": 0
+      }
+    ],
+    "pixelComparison": {
+      "size": [
+        1280,
+        800
+      ],
+      "changedPixels": 0,
+      "totalPixels": 1024000,
+      "differenceBounds": null
+    },
+    "qualification": "High P95 after: 14.532, 17.884, 9.280 ms. Median improves from 18.192 to 14.532 ms; one repeat remains over the 16.7 ms target. This is no guarantee of sustained frame rate or every sample meeting the ceiling."
+  },
+  "sameSceneSiroccoReference": {
+    "beforeP95Milliseconds": 9.52975,
+    "after": {
+      "scene": "sirocco-overview",
+      "mapID": "sirocco",
+      "mapVersion": 2,
+      "seed": 1745,
+      "fixtureScope": "short real firing/grenade view with normal guards; not a complete mission playthrough",
+      "device": "Apple M2 Pro",
+      "width": 2560,
+      "height": 1600,
+      "frames": 120,
+      "warmupFrames": 10,
+      "textureQuality": "balanced",
+      "samples": 1,
+      "cpuAverageMs": 2.752106248954078,
+      "cpuP95Ms": 3.1263333512470126,
+      "gpuAverageMs": 5.6383555551292375,
+      "gpuP95Ms": 9.713375009596348,
+      "gpuAllocatedMB": 214.125,
+      "drawCalls": 54,
+      "visibleInstances": 1594,
+      "nearShadowInstances": 118,
+      "farShadowInstances": 678,
+      "skinnedSoldiers": 9,
+      "missionPropInstances": 0,
+      "operationMarkerIDs": [],
+      "openedPanes": 0
+    }
+  },
+  "mapCycles": {
+    "count": 2,
+    "measurements": [
+      {
+        "cpuAverageMs": 1.4835000038146973,
+        "cpuP95Ms": 1.4835000038146973,
+        "device": "Apple M2 Pro",
+        "drawCalls": 62,
+        "farShadowInstances": 6376,
+        "frames": 1,
+        "gpuAllocatedMB": 320.15625,
+        "gpuAverageMs": 3.9853333437349647,
+        "gpuP95Ms": 3.9853333437349647,
+        "height": 800,
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "missionPropInstances": 0,
+        "nearShadowInstances": 1671,
+        "operationMarkerIDs": [],
+        "samples": 1,
+        "skinnedSoldiers": 0,
+        "textureQuality": "balanced",
+        "transition": 1,
+        "visibleInstances": 15513,
+        "warmupFrames": 10,
+        "width": 1280
+      },
+      {
+        "cpuAverageMs": 0.20954167121089995,
+        "cpuP95Ms": 0.20954167121089995,
+        "device": "Apple M2 Pro",
+        "drawCalls": 27,
+        "farShadowInstances": 312,
+        "frames": 1,
+        "gpuAllocatedMB": 298.4375,
+        "gpuAverageMs": 1.4708750240970403,
+        "gpuP95Ms": 1.4708750240970403,
+        "height": 800,
+        "mapID": "kessel9",
+        "mapVersion": 2,
+        "missionPropInstances": 0,
+        "nearShadowInstances": 142,
+        "operationMarkerIDs": [],
+        "samples": 1,
+        "skinnedSoldiers": 0,
+        "textureQuality": "balanced",
+        "transition": 2,
+        "visibleInstances": 1351,
+        "warmupFrames": 10,
+        "width": 1280
+      },
+      {
+        "cpuAverageMs": 1.2088333314750344,
+        "cpuP95Ms": 1.2088333314750344,
+        "device": "Apple M2 Pro",
+        "drawCalls": 62,
+        "farShadowInstances": 6376,
+        "frames": 1,
+        "gpuAllocatedMB": 320.15625,
+        "gpuAverageMs": 3.8247083430178463,
+        "gpuP95Ms": 3.8247083430178463,
+        "height": 800,
+        "mapID": "blacksite",
+        "mapVersion": 2,
+        "missionPropInstances": 0,
+        "nearShadowInstances": 1671,
+        "operationMarkerIDs": [],
+        "samples": 1,
+        "skinnedSoldiers": 0,
+        "textureQuality": "balanced",
+        "transition": 3,
+        "visibleInstances": 15513,
+        "warmupFrames": 10,
+        "width": 1280
+      },
+      {
+        "cpuAverageMs": 0.1268333289772272,
+        "cpuP95Ms": 0.1268333289772272,
+        "device": "Apple M2 Pro",
+        "drawCalls": 27,
+        "farShadowInstances": 312,
+        "frames": 1,
+        "gpuAllocatedMB": 298.4375,
+        "gpuAverageMs": 1.5812083147466183,
+        "gpuP95Ms": 1.5812083147466183,
+        "height": 800,
+        "mapID": "kessel9",
+        "mapVersion": 2,
+        "missionPropInstances": 0,
+        "nearShadowInstances": 142,
+        "operationMarkerIDs": [],
+        "samples": 1,
+        "skinnedSoldiers": 0,
+        "textureQuality": "balanced",
+        "transition": 4,
+        "visibleInstances": 1351,
+        "warmupFrames": 10,
+        "width": 1280
+      }
+    ]
+  },
+  "reports": {
+    "report": {
+      "height": 704,
+      "report": "EINSATZ ABGEBROCHEN. Sirocco · Westliche Salzstation. FELDOPERATION · Operator · Sturm · Normale Einsatzkleidung. 00:00 Einsatzzeit · 0 Gegner ausgeschaltet · 0 Funkmeldungen · 0 Rufe. Vorbereitung: 0 Generatoren abgeschaltet · 0 Tore geöffnet · 0 Schalter betätigt. 0 Geräte zerstört · Keine Extraktion abgeschlossen. Verbrauch: 1 AR-4-Schuss · 0 M82-Schuss · 1 Splittergranaten. 1 Rauchgranaten · 0 Köder · 0 Durchbruchladungen · 0 Markierungen. Version 2 · Seed 18446744073709551615. Erneut antreten startet dieselbe Lage mit vollem Startvorrat.",
+      "scope": "Actual ordinary inputs followed by an aborted report; static layout, no complete combat mission.",
+      "width": 1440
+    },
+    "recon-report": {
+      "height": 704,
+      "report": "EINSATZ ABGEBROCHEN. Sirocco · Östliche Salzstation. FELDOPERATION · Operator · Aufklärer · Mineral · Erde / Schutt. 00:00 Einsatzzeit · 0 Gegner ausgeschaltet · 0 Funkmeldungen · 0 Rufe. Vorbereitung: 0 Generatoren abgeschaltet · 0 Tore geöffnet · 0 Schalter betätigt. 0 Geräte zerstört · Keine Extraktion abgeschlossen. Verbrauch: 1 AR-4-Schuss · 0 M82-Schuss · 1 Splittergranaten. 0 Rauchgranaten · 0 Köder · 0 Durchbruchladungen · 0 Markierungen. Version 2 · Seed 1. Erneut antreten startet dieselbe Lage mit vollem Startvorrat.",
+      "scope": "Actual ordinary inputs followed by an aborted report; static layout, no complete combat mission.",
+      "width": 1440
+    }
+  }
+}

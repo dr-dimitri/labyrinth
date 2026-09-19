@@ -1,6 +1,25 @@
 import Foundation
 import BlacksiteCore
 
+enum NativeRunSeed {
+    static func from(arguments: [String]) throws -> UInt64 {
+        guard let index = arguments.firstIndex(of: "--seed") else { return 1745 }
+        guard index + 1 < arguments.count, let seed = UInt64(arguments[index + 1]) else {
+            throw NSError(domain: "Blacksite.RunSeed", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "--seed benötigt eine vorzeichenlose 64-Bit-Ganzzahl."])
+        }
+        return seed
+    }
+    /// A new operation gets a different authored variant as well as a new seed.
+    static func next(after previous: UInt64?, candidate: UInt64 = UInt64.random(in: 1...UInt64.max)) -> UInt64 {
+        var next = candidate
+        if let previous {
+            while next % 3 == previous % 3 { next &+= 1 }
+        }
+        return next
+    }
+}
+
 /// Only released, playable maps appear in native menus. Diagnostic maps remain
 /// available to their explicit CLI/test callers, never through saved settings.
 enum PublishedMapRegistry {
@@ -64,7 +83,7 @@ struct ActiveRunConfiguration: Equatable, Sendable {
         guard map.supportsMission(mission) else {
             throw NativeRunConfigurationError.unsupportedMission(mapID: mapID, mission: mission)
         }
-        return map
+        return try RunVariantCatalog.resolve(map: map, seed: seed).map
     }
 
     func makeSimulation() throws -> CombatSimulation {
