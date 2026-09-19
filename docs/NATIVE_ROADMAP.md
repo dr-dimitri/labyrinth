@@ -21,8 +21,8 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 5 | #1 Nahschatten | Umgesetzt und geprüft |
 | 6 | #2 Ego-Waffen und Hände | Umgesetzt und geprüft |
 | 7 | #3 Einschläge und Explosionen | Umgesetzt und geprüft |
-| 8 | #5 Texturbudget | In Umsetzung |
-| 9 | #4 Schadensstufen und Trümmer | Offen |
+| 8 | #5 Texturbudget | Umgesetzt und geprüft |
+| 9 | #4 Schadensstufen und Trümmer | In Umsetzung |
 | 10 | #6 Schauplätze und alternative Wege | Offen |
 | 11 | #9 Missionsvarianten | Offen |
 | 12 | #11 Steuerung und Zielkomfort | Offen |
@@ -207,3 +207,67 @@ Die GPU-Allokation steigt um 0,047 MiB. Der Vergleichsbuild enthält ausschließ
 die neuen CLI-Prüfeingaben neben dem vorherigen Renderer, damit beide Versionen
 dieselben Explosionen erhalten. Mediane aus je zehn Aufwärm- und 120 vollständig
 abgeschlossenen Messframes; [Messdaten](native-roadmap/effect-performance.json).
+
+### #5 – Texturbudget und sicherer Qualitätswechsel
+
+Ausgewogen dekodiert Fotos vor dem GPU-Upload mit halbierten Seitenlängen;
+Hoch behält sämtliche Originalpixel. Der Pine-Ausschnitt erfolgt anschließend
+mit denselben relativen Koordinaten. Farbbilder verwenden sRGB, Normalen-,
+Rauheits- und Maskendaten lineare Formate. Einkanalbilder bleiben kompakt.
+
+| Texturtyp | Hoch, maximale Größe | Ausgewogen, maximale Größe |
+| --- | --- | --- |
+| Landschaft, Farbe / Normale / Rauheit | 4096² / 2048² / 1024² | 2048² / 1024² / 512² |
+| Himmel | 8192×4096 | 4096×2048 |
+| Pine, Farbe und Maske nach Ausschnitt | 1024×2048 | 512×1024 |
+| Pine, Normale und Rauheit nach Ausschnitt | 512×1024 | 256×512 |
+| Soldaten | 2048² | 1024² |
+| Waffen, Farbe / Normale / Rauheit | 2048² / 1024² / 1024² | 1024² / 512² / 512² |
+| Fern- / Nah- / Waffenschatten | 2048² / 2048² / 512² | 2048² / 1024² / 512² |
+
+Richtbudgets für die geprüfte Szene auf Apple M2 Pro: fotografische Texturen
+höchstens 1024 MiB in Hoch beziehungsweise 256 MiB in Ausgewogen;
+gesamte GPU-Allokation bei 2560×1600 höchstens 1280 beziehungsweise 384 MiB.
+Der Benchmark meldet echte, nach Ursprungsressource deduplizierte Allokationen
+für Landschaft, Vegetation, Himmel, Soldaten, Waffen, Schatten und Renderziele.
+Texturansichten und Alias-Slots werden nicht doppelt gezählt. Treiber-Gesamtwerte
+enthalten zusätzlich beispielsweise Geometrie- und Instanzpuffer.
+
+Start lädt unmittelbar das gespeicherte Profil. Ein Wechsel bereitet alle
+Materialien und genau eine aktive Nahschattenkarte vollständig vor, bevor er
+den bisherigen Satz ersetzt. Fehler lassen Ressourcen und Einstellungen
+unverändert. Es gibt keinen dauerhaften zweiten Textursatz; bereits abgeschickte
+GPU-Frames behalten ihre Ressourcen bis zum Abschluss.
+
+Die Bildprüfung fand im verkleinerten macOS-Bildformat einen tatsächlichen
+Kanal-/Alpha-Fehler sowie eine ignorierte sRGB-Uploadoption. Der Loader korrigiert
+das betroffene RGBX-Layout und erzeugt Mipmaps erst über dem endgültigen
+sRGB- beziehungsweise linearen Format. Ein zusätzlicher echter GPU-Readbacktest
+schlug beim alten Lader reproduzierbar fehl und besteht nach der Korrektur:
+36 aufeinanderfolgende Uploads prüfen RGB, deckendes Alpha, beide Bildursprünge,
+URL-/eingebettete Quellen und die letzte Mipmap-Stufe. Aktivierung:
+`BLACKSITE_TEST_METAL_TEXTURES=1 native/scripts/test.sh --filter NativeTextureUploadTests`.
+
+Validierung: 124 reguläre Tests sowie der gesonderte GPU-Test bestanden.
+Unabhängiges Code- und Bildreview abgeschlossen; acht Metal-validierte Ansichten.
+Alle vier Hoch-Bilder sind [pixelidentisch](native-roadmap/textures-high-comparison.json)
+zum vorherigen Build. Ausgewogen: [vorher](native-roadmap/textures-balanced-before.png),
+[nachher](native-roadmap/textures-balanced-after.png),
+[Soldatengesicht](native-roadmap/textures-balanced-soldier.png).
+
+Identische Squad-Szene mit neun Soldaten, 2560×1600: Ausgewogen sinkt von
+1096,30 auf 332,02 MiB GPU-Allokation (**−69,71 %**, Ziel mindestens −25 %).
+Hoch sinkt durch die entfernte ungenutzte Nahschattenkarte von 1207,42 auf
+1203,39 MiB. Drei vollständige Hin-/Rückwechsel mit abgeschlossenen Frames
+ergaben für jede Stufe exakt denselben Wert, ohne Speicherwachstum oder
+Metal-Validierungsfehler. [Wechselmessung](native-roadmap/texture-quality-cycles.json),
+reproduzierbar mit `--graphics-benchmark --scene squad --width 2560 --height 1600 --quality-cycles 3`.
+
+Zeitmessungen streuten unter Hintergrundlast deutlich. Ein erster Vergleich mit
+drei Paaren und ein Kontrolllauf mit fünf Paaren liefern daher **keinen belastbaren
+Bildratengewinn**. Im Kontrolllauf: High CPU-P95 2,838 → 2,943 ms,
+GPU-P95 14,397 → 12,299 ms; Balanced CPU-P95 2,645 → 2,742 ms,
+GPU-P95 13,175 → 11,991 ms. Je zehn Aufwärm- und 120 abgeschlossene Messframes;
+Mediane der Einzelläufe. Der reproduzierbare Vorteil ist die Speicherreduktion.
+[Erste Messung](native-roadmap/texture-performance.json),
+[Kontrollmessung](native-roadmap/texture-performance-confirmation.json).

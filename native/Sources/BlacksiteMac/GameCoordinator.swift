@@ -51,8 +51,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     private func initializeGraphics() {
         do {
-            renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot)
-            renderer?.setQuality(settings.highQuality)
+            renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: settings.highQuality)
             ready = true; lastFrame = CACurrentMediaTime(); hud.refresh()
         } catch {
             loadingMessage = "Die Grafik konnte nicht gestartet werden."
@@ -277,12 +276,22 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         let effects = NSSlider(value: Double(settings.effectsVolume), minValue: 0, maxValue: 1, target: nil, action: nil); effects.frame = NSRect(x: 255, y: 105, width: 205, height: 28); effects.setAccessibilityLabel("Effektlautstärke"); content.addSubview(effects)
         let done = NativeButton("EINSTELLUNGEN SPEICHERN", primary: true) { [weak self, weak panel] in
             guard let self, let panel else { return }
+            let highQuality = quality.indexOfSelectedItem == 1
+            do {
+                try self.renderer?.setQuality(highQuality)
+            } catch {
+                let alert = NSAlert(); alert.alertStyle = .warning
+                alert.messageText = "Grafikqualität konnte nicht gewechselt werden"
+                alert.informativeText = "Die bisherigen Einstellungen bleiben erhalten.\n\n" + error.localizedDescription
+                alert.addButton(withTitle: "OK"); alert.beginSheetModal(for: panel)
+                return
+            }
             self.settings.difficulty = [Difficulty.easy, .normal, .hard][difficulty.indexOfSelectedItem]
-            self.settings.highQuality = quality.indexOfSelectedItem == 1
+            self.settings.highQuality = highQuality
             self.settings.fps = frameRate.indexOfSelectedItem == 1 ? 120 : 60
             self.settings.musicVolume = Float(music.doubleValue); self.settings.effectsVolume = Float(effects.doubleValue)
             self.settings.sensitivity = Float(sensitivity.doubleValue)
-            self.settings.save(); self.renderer?.setQuality(self.settings.highQuality)
+            self.settings.save()
             self.audio.setVolumes(music: self.settings.musicVolume, effects: self.settings.effectsVolume)
             self.window.endSheet(panel); self.sheet = nil; self.hud.refresh(); self.view.setNeedsDisplay(self.view.bounds)
         }

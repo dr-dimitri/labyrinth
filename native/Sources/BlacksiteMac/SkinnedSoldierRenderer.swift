@@ -14,7 +14,7 @@ final class SkinnedSoldierRenderer {
         let indexCount:Int
         let material:Int
     }
-    private struct Material {
+    fileprivate struct Material {
         let color:MTLTexture
         let normal:MTLTexture
         let roughness:MTLTexture
@@ -24,6 +24,9 @@ final class SkinnedSoldierRenderer {
         case invalid(String)
         var errorDescription:String? { if case .invalid(let message)=self { return message }; return nil }
     }
+    struct MaterialSet { fileprivate let materials:[Material] }
+    private let device:MTLDevice
+    private let assetURL:URL
     private let asset:SoldierAsset
     private let primitives:[Primitive]
     private let palettes:[MTLBuffer]
@@ -33,7 +36,7 @@ final class SkinnedSoldierRenderer {
     private let contactDepth:MTLDepthStencilState
     private let contactBuffers:[MTLBuffer]
     private var contactCounts=[Int](repeating:0,count:3)
-    private let materials:[Material]
+    private var materials:[Material]
     private var counts=[Int](repeating:0,count:3)
     private var nearRanges = [[Range<Int>]](repeating: [], count: 3)
     private var nearDrawRangeCount = 0
@@ -46,7 +49,10 @@ final class SkinnedSoldierRenderer {
     var triangleCount:Int { soldierCount*primitives.reduce(0) { $0+$1.indexCount/3 } }
     var baseColorSize:SIMD2<Int> { materials.reduce(SIMD2(0,0)) { SIMD2(max($0.x,$1.color.width),max($0.y,$1.color.height)) } }
 
-    init(device:MTLDevice,library:MTLLibrary,assetURL:URL) throws {
+    var materialTextures:[MTLTexture] { materials.flatMap { [$0.color,$0.normal,$0.roughness] } }
+
+    init(device:MTLDevice,library:MTLLibrary,assetURL:URL,highQuality:Bool = true) throws {
+        self.device=device;self.assetURL=assetURL
         guard MemoryLayout<SoldierVertex>.stride==64 else {
             throw Failure.invalid("Soldaten-Vertexlayout stimmt nicht mit dem Metal-Shader überein.")
         }
@@ -72,47 +78,7 @@ final class SkinnedSoldierRenderer {
             }
             buffer.label="Soldier world joint palettes frame \(slot)";return buffer
         }
-        let loader=MTKTextureLoader(device:device),directory=assetURL.deletingLastPathComponent()
-        var textureCache:[String:MTLTexture]=[:]
-        func texture(_ stem:String,embedded:Data?,srgb:Bool,materialIndex:Int) throws -> MTLTexture? {
-            let external=["png","jpg"].map { directory.appendingPathComponent("\(stem).\($0)") }
-                .first { FileManager.default.fileExists(atPath:$0.path) }
-            let key=external?.path ?? "embedded:\(materialIndex):\(stem)"
-            if let cached=textureCache[key] { return cached }
-            let options:[MTKTextureLoader.Option:Any]=[.SRGB:srgb,.generateMipmaps:true,
-                // Original 2K source PNGs have the opposite vertical convention
-                // to the JPEGs embedded by the GLB exporter. Flip only at upload.
-                .origin:external == nil ? MTKTextureLoader.Origin.topLeft:MTKTextureLoader.Origin.bottomLeft,
-                .textureStorageMode:MTLStorageMode.private.rawValue,
-                .textureUsage:MTLTextureUsage.shaderRead.rawValue]
-            do {
-                let result:MTLTexture
-                if let external { result=try loader.newTexture(URL:external,options:options) }
-                else if let embedded { result=try loader.newTexture(data:embedded,options:options) }
-                else { return nil }
-                result.label="Soldier \(stem)";textureCache[key]=result;return result
-            } catch { throw Failure.invalid("Soldatentextur \(stem) konnte nicht geladen werden: \(error.localizedDescription)") }
-        }
-        func solid(_ bytes:[UInt8],format:MTLPixelFormat,label:String)throws->MTLTexture {
-            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:1,height:1,mipmapped:false)
-            descriptor.usage = .shaderRead;descriptor.storageMode = .shared
-            guard let result=device.makeTexture(descriptor:descriptor) else { throw Failure.invalid("Soldatenmaterial konnte nicht angelegt werden.") }
-            bytes.withUnsafeBytes { result.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:bytes.count) }
-            result.label=label;return result
-        }
-        let flatNormal=try solid([128,128,255,255],format:.rgba8Unorm,label:"Soldier flat normal fallback")
-        let matteRoughness=try solid([224],format:.r8Unorm,label:"Soldier matte cloth roughness")
-        materials=try loaded.materials.enumerated().map { index,material in
-            let name=material.name.lowercased()
-            let kind:UInt32=name.contains("visor") ? 2:name.contains("head") ? 1:0
-            let stem=kind==1 ? "head":kind==2 ? "visor":"body"
-            guard let color=try texture("\(stem)-color",embedded:material.baseColorData,srgb:true,materialIndex:index) else {
-                throw Failure.invalid("Farbtextur des Soldatenmaterials \(material.name) fehlt.")
-            }
-            let normal=try texture("\(stem)-normal",embedded:material.normalData,srgb:false,materialIndex:index) ?? flatNormal
-            let roughness=try texture("\(stem)-roughness",embedded:nil,srgb:false,materialIndex:index) ?? matteRoughness
-            return Material(color:color,normal:normal,roughness:roughness,kind:kind)
-        }
+        materials=try autoreleasepool { try Self.loadMaterials(device:device,asset:loaded,assetURL:assetURL,highQuality:highQuality) }
         guard let vertex=library.makeFunction(name:"soldierVertex"),let fragment=library.makeFunction(name:"soldierFragment"),
               let shadowVertex=library.makeFunction(name:"soldierShadowVertex"),let shadowFragment=library.makeFunction(name:"soldierShadowFragment") else {
             throw Failure.invalid("Metal-Shader für animierte Soldaten fehlen im Programmpaket.")
@@ -153,6 +119,52 @@ final class SkinnedSoldierRenderer {
         contactBuffers=try (0..<3).map { slot in
             guard let buffer=device.makeBuffer(length:128*MemoryLayout<FootContactPatch>.stride,options:.storageModeShared) else { throw Failure.invalid("Kontaktpuffer konnte nicht angelegt werden.") }
             buffer.label="Sole contacts frame \(slot)";return buffer
+        }
+    }
+
+    /// Build a complete replacement without changing palettes, geometry or the
+    /// currently installed material set. The parent commits only after all other
+    /// quality-dependent resources have also loaded successfully.
+    func prepareMaterials(highQuality:Bool)throws->MaterialSet {
+        try autoreleasepool { MaterialSet(materials:try Self.loadMaterials(device:device,asset:asset,assetURL:assetURL,highQuality:highQuality)) }
+    }
+    func installMaterials(_ replacement:MaterialSet) { materials=replacement.materials }
+
+    private static func loadMaterials(device:MTLDevice,asset:SoldierAsset,assetURL:URL,highQuality:Bool)throws->[Material] {
+        let loader=NativeTextureLoader(device:device,highQuality:highQuality),directory=assetURL.deletingLastPathComponent()
+        var textureCache:[String:MTLTexture]=[:]
+        func texture(_ stem:String,embedded:Data?,srgb:Bool,materialIndex:Int) throws -> MTLTexture? {
+            let external=["png","jpg"].map { directory.appendingPathComponent("\(stem).\($0)") }
+                .first { FileManager.default.fileExists(atPath:$0.path) }
+            let key=external?.path ?? "embedded:\(materialIndex):\(stem)"
+            if let cached=textureCache[key] { return cached }
+            do {
+                let result:MTLTexture
+                if let external { result=try loader.load(url:external,srgb:srgb,origin:.bottomLeft) }
+                else if let embedded { result=try loader.load(data:embedded,srgb:srgb,origin:.topLeft) }
+                else { return nil }
+                result.label="Soldier \(stem)";textureCache[key]=result;return result
+            } catch { throw Failure.invalid("Soldatentextur \(stem) konnte nicht geladen werden: \(error.localizedDescription)") }
+        }
+        func solid(_ bytes:[UInt8],format:MTLPixelFormat,label:String)throws->MTLTexture {
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:format,width:1,height:1,mipmapped:false)
+            descriptor.usage = .shaderRead;descriptor.storageMode = .shared
+            guard let result=device.makeTexture(descriptor:descriptor) else { throw Failure.invalid("Soldatenmaterial konnte nicht angelegt werden.") }
+            bytes.withUnsafeBytes { result.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:bytes.count) }
+            result.label=label;return result
+        }
+        let flatNormal=try solid([128,128,255,255],format:.rgba8Unorm,label:"Soldier flat normal fallback")
+        let matteRoughness=try solid([224],format:.r8Unorm,label:"Soldier matte cloth roughness")
+        return try asset.materials.enumerated().map { index,material in
+            let name=material.name.lowercased()
+            let kind:UInt32=name.contains("visor") ? 2:name.contains("head") ? 1:0
+            let stem=kind==1 ? "head":kind==2 ? "visor":"body"
+            guard let color=try texture("\(stem)-color",embedded:material.baseColorData,srgb:true,materialIndex:index) else {
+                throw Failure.invalid("Farbtextur des Soldatenmaterials \(material.name) fehlt.")
+            }
+            let normal=try texture("\(stem)-normal",embedded:material.normalData,srgb:false,materialIndex:index) ?? flatNormal
+            let roughness=try texture("\(stem)-roughness",embedded:nil,srgb:false,materialIndex:index) ?? matteRoughness
+            return Material(color:color,normal:normal,roughness:roughness,kind:kind)
         }
     }
 

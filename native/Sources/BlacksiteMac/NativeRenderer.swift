@@ -76,9 +76,10 @@ final class NativeRenderer {
     private let skyDepthState: MTLDepthStencilState
     private let sampler: MTLSamplerState
     private let shadowSampler: MTLSamplerState
-    private let textures: [MTLTexture]
+    private var textures: [MTLTexture]
+    private let textureRoot: URL
     private let shadowTexture: MTLTexture
-    private let nearShadowTextures: [Int: MTLTexture]
+    private var nearShadowTexture: MTLTexture
     private let weaponShadowTexture: MTLTexture
     private let meshes: [Mesh]
     private let skinnedSoldiers: SkinnedSoldierRenderer
@@ -88,6 +89,7 @@ final class NativeRenderer {
     private let uniformBuffers: [MTLBuffer]
     private var frame = 0
     private var highQuality = true
+    private var renderTargetBytes = 0
     private let instanceCapacity = 48_000
     private var scenery: [RenderItem] = []
     private var forest: [ForestTree] = []
@@ -114,6 +116,9 @@ final class NativeRenderer {
          "footContactPatches": skinnedSoldiers.footContactCount,
          "farShadowInstances": farShadowInstanceCount, "nearShadowInstances": nearShadowInstanceCount]
         diagnostics.merge(combatEffects.diagnostics) { _,new in new }
+        diagnostics["textureMemoryMB"]=textureMemoryMB
+        diagnostics["textureDimensions"]=textureDimensions
+        diagnostics["textureQuality"]=highQuality ? "high":"balanced"
         return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
@@ -142,9 +147,10 @@ final class NativeRenderer {
     private let fog = SIMD3<Float>(0.40, 0.49, 0.54)
     private var lightMatrix = matrix_identity_float4x4
 
-    init(view: MTKView, assetRoot: URL?) throws {
+    init(view: MTKView, assetRoot: URL?, highQuality: Bool = true) throws {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { throw RenderError.unavailable("Metal wird auf diesem Mac nicht unterstützt.") }
         self.device = device; self.queue = queue; deviceName = device.name
+        self.highQuality=highQuality;currentScale=highQuality ? 1:0.82
         guard MemoryLayout<GPUUniforms>.stride == 336,
               MemoryLayout<GPUUniforms>.offset(of: \.nearLightViewProjection) == 256,
               MemoryLayout<GPUUniforms>.offset(of: \.shadowParameters) == 320 else {
@@ -183,37 +189,42 @@ final class NativeRenderer {
         shadowSampler = device.makeSamplerState(descriptor: ss)!
         let shadowDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 2048, height: 2048, mipmapped: false); shadowDesc.storageMode = .private; shadowDesc.usage = [.renderTarget, .shaderRead]
         guard let shadow = device.makeTexture(descriptor: shadowDesc) else { throw RenderError.unavailable("Schattenpuffer konnte nicht angelegt werden.") }; shadowTexture = shadow; shadow.label = "2048 directional shadow atlas"
-        var nearMaps: [Int: MTLTexture] = [:]
-        for resolution in [1024, 2048] {
-            shadowDesc.width = resolution; shadowDesc.height = resolution
-            guard let map = device.makeTexture(descriptor: shadowDesc) else { throw RenderError.unavailable("Nahschattenpuffer konnte nicht angelegt werden.") }
-            map.label = "Stabilized near shadows \(resolution)"; nearMaps[resolution] = map
-        }
-        nearShadowTextures = nearMaps
+        nearShadowTexture=try Self.makeNearShadow(device:device,highQuality:highQuality)
         let weaponShadowDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:512,height:512,mipmapped:false)
         weaponShadowDesc.usage=[.renderTarget,.shaderRead];weaponShadowDesc.storageMode = .private
         guard let weaponShadow=device.makeTexture(descriptor:weaponShadowDesc) else { throw RenderError.unavailable("Waffen-Schattenpuffer konnte nicht angelegt werden.") }
         weaponShadow.label="512 viewmodel-only self shadows";weaponShadowTexture=weaponShadow
         meshes = try Self.makeMeshes(device: device)
-        textures = try Self.loadTextures(device: device, assetRoot: assetRoot)
-        guard let characterRoot = assetRoot ?? NativeResources.assetRoot else {
-            throw RenderError.unavailable("Die Soldatenressourcen fehlen im Programmpaket.")
-        }
+        let root=try Self.resolveTextureRoot(assetRoot:assetRoot);textureRoot=root
+        textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality) }
         skinnedSoldiers = try SkinnedSoldierRenderer(device: device, library: library,
-            assetURL: characterRoot.appendingPathComponent("characters/soldier/soldier.glb"))
+            assetURL: root.appendingPathComponent("characters/soldier/soldier.glb"),highQuality:highQuality)
         combatEffects = try NativeCombatEffects(device:device,library:library)
         buffers = try (0..<3).map { index in guard let b = device.makeBuffer(length: 48_000 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Instanzpuffer konnte nicht angelegt werden.") }; b.label = "Instances frame \(index)"; return b }
         uniformBuffers = (0..<3).map { _ in device.makeBuffer(length: MemoryLayout<GPUUniforms>.stride, options: .storageModeShared)! }
-        metalView = view; view.device = device; view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float; view.sampleCount = main[4] == nil ? 1 : 4; view.framebufferOnly = true
+        metalView = view; view.device = device; view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float; view.sampleCount = highQuality && main[4] != nil ? 4:1; view.framebufferOnly = true
         view.clearColor = MTLClearColor(red: 0.25, green: 0.35, blue: 0.42, alpha: 1)
         lightMatrix = Self.orthographic(left: -65, right: 65, bottom: -65, top: 65, near: 1, far: 220) * Self.lookAt(eye: sun * 100, target: .zero)
         buildScenery()
     }
 
-    func setQuality(_ high: Bool) {
+    func setQuality(_ high: Bool) throws {
+        guard high != highQuality else { return }
+        // Prepare all profile resources before changing any live binding. A
+        // failed file/decode/upload leaves the old profile fully operational.
+        let replacement=try autoreleasepool { () -> ([MTLTexture],SkinnedSoldierRenderer.MaterialSet,MTLTexture) in
+            let world=try Self.loadTextures(device:device,root:textureRoot,highQuality:high)
+            let soldiers=try skinnedSoldiers.prepareMaterials(highQuality:high)
+            let near=try Self.makeNearShadow(device:device,highQuality:high)
+            return (world,soldiers,near)
+        }
+        // This synchronous MainActor transaction cannot interleave with draw.
+        // Submitted command buffers retain old resources until their GPU work
+        // completes; there is no permanent second profile or shadow-map cache.
+        textures=replacement.0;skinnedSoldiers.installMaterials(replacement.1);nearShadowTexture=replacement.2
         highQuality = high; currentScale = high ? 1 : 0.82
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
-        lastSize = .zero
+        lastSize = .zero;renderTargetBytes=0
     }
     func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
 
@@ -367,7 +378,48 @@ final class NativeRenderer {
         return ["device": deviceName, "backend": "Metal", "width": width, "height": height, "frames": count, "warmupFrames": 10,
                 "samples": samples, "cpuAverageMs": mean(cpu), "cpuP95Ms": p95(cpu), "gpuAverageMs": mean(gpu), "gpuP95Ms": p95(gpu),
                 "serialFrameAverageMs": mean(wall), "gpuAllocatedMB": Double(device.currentAllocatedSize)/1_048_576,
-                "visibleInstances": visible, "drawCalls": draws, "forestTrees": forest.count, "skyTextureWidth": textures[23].width, "nearShadowResolution": highQuality ? 2048 : 1024]
+                "visibleInstances": visible, "drawCalls": draws, "forestTrees": forest.count, "skyTextureWidth": textures[23].width, "nearShadowResolution": nearShadowTexture.width,
+                "textureQuality":highQuality ? "high":"balanced","textureMemoryMB":textureMemoryMB,"textureDimensions":textureDimensions,
+                "renderTargetAccounting":"current render pass attachments"]
+    }
+
+    /// Views share allocation with their parent texture (or backing buffer).
+    /// Count that allocation once even when the view reports zero allocatedSize.
+    private static func allocationResource(_ texture:MTLTexture)->MTLResource {
+        var root=texture
+        while let parent=root.parent { root=parent }
+        if let buffer=root.buffer { return buffer }
+        return root
+    }
+
+    /// Active application-owned textures, deduplicated by allocation identity.
+    /// The driver total also includes buffers and any retained in-flight frames.
+    var textureMemoryMB:[String:Double] {
+        var seen=Set<ObjectIdentifier>(),result:[String:Double]=[:]
+        func account(_ name:String,_ resources:[MTLTexture]) {
+            var bytes=0
+            for texture in resources {
+                let resource=Self.allocationResource(texture)
+                if seen.insert(ObjectIdentifier(resource as AnyObject)).inserted { bytes+=resource.allocatedSize }
+            }
+            result[name]=Double(bytes)/1_048_576
+        }
+        account("landscape",(Array(0...8)+Array(14...19)).map { textures[$0] })
+        account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] })
+        account("sky",[textures[23]])
+        account("soldiers",skinnedSoldiers.materialTextures)
+        account("weapons",Array(25...30).map { textures[$0] })
+        account("shadows",[shadowTexture,nearShadowTexture,weaponShadowTexture])
+        result["renderTargets"]=Double(renderTargetBytes)/1_048_576
+        result["total"]=result.values.reduce(0,+)
+        return result
+    }
+    var textureDimensions:[String:[Int]] {
+        var seen=Set<ObjectIdentifier>(),result:[String:[Int]]=[:]
+        for resource in textures+skinnedSoldiers.materialTextures where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
+            result[resource.label ?? "unlabelled"]=[resource.width,resource.height]
+        }
+        return result
     }
 
     private func resize(_ view: MTKView) {
@@ -528,6 +580,11 @@ final class NativeRenderer {
                              enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
     }
     private func encode(command: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, samples: Int, slot: Int, scene: PreparedScene) {
+        var targetIDs=Set<ObjectIdentifier>();renderTargetBytes=0
+        for target in [descriptor.colorAttachments[0].texture,descriptor.colorAttachments[0].resolveTexture,descriptor.depthAttachment.texture,descriptor.stencilAttachment.texture].compactMap({ $0 }) {
+            let resource=Self.allocationResource(target)
+            if targetIDs.insert(ObjectIdentifier(resource as AnyObject)).inserted { renderTargetBytes+=resource.allocatedSize }
+        }
         // The frame semaphore has granted ownership of this slot before any
         // joint upload. Main and shadow passes share the exact same pose.
         skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
@@ -549,7 +606,7 @@ final class NativeRenderer {
             skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot)
             encoder.endEncoding()
         }
-        let nearTexture = nearShadowTextures[highQuality ? 2048 : 1024]!
+        let nearTexture = nearShadowTexture
         let nearPass = MTLRenderPassDescriptor(); nearPass.depthAttachment.texture = nearTexture
         nearPass.depthAttachment.loadAction = .clear; nearPass.depthAttachment.storeAction = .store; nearPass.depthAttachment.clearDepth = 1
         if let encoder = command.makeRenderCommandEncoder(descriptor: nearPass) {
@@ -1166,20 +1223,31 @@ final class NativeRenderer {
         }
     }
 
-    private static func loadTextures(device: MTLDevice, assetRoot: URL?) throws -> [MTLTexture] {
-        let loader = MTKTextureLoader(device: device)
-        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        let candidates = [assetRoot, Bundle.main.resourceURL?.appendingPathComponent("Assets"), cwd.appendingPathComponent("native/Assets"), cwd.appendingPathComponent("Assets")].compactMap { $0 }
-        guard let root = candidates.first(where: { FileManager.default.fileExists(atPath: $0.appendingPathComponent("textures/pine/alpha.jpg").path) }) else { throw RenderError.unavailable("Fotografische Landschaftstexturen fehlen. Bitte native/scripts/build-app.sh ausführen.") }
-        func load(_ path: String, color: Bool) throws -> MTLTexture {
-            do {
-                let options: [MTKTextureLoader.Option: Any] = [.SRGB: color, .generateMipmaps: true, .origin: MTKTextureLoader.Origin.topLeft, .textureUsage: MTLTextureUsage.shaderRead.rawValue, .textureStorageMode: MTLStorageMode.private.rawValue]
-                let texture: MTLTexture
-                if path.hasPrefix("textures/pine/"), let source = CGImageSourceCreateWithURL(root.appendingPathComponent(path) as CFURL, nil), let atlas = CGImageSourceCreateImageAtIndex(source, 0, nil), let island = atlas.cropping(to: CGRect(x: 0, y: 0, width: atlas.width / 4, height: atlas.height / 2)) {
-                    texture = try loader.newTexture(cgImage: island, options: options)
-                } else { texture = try loader.newTexture(URL: root.appendingPathComponent(path), options: options) }
-                texture.label = path; return texture
-            } catch { throw RenderError.unavailable("Textur \(path) konnte nicht geladen werden: \(error.localizedDescription)") }
+    private static func resolveTextureRoot(assetRoot:URL?)throws->URL {
+        let cwd=URL(fileURLWithPath:FileManager.default.currentDirectoryPath)
+        let candidates=[assetRoot,Bundle.main.resourceURL?.appendingPathComponent("Assets"),cwd.appendingPathComponent("native/Assets"),cwd.appendingPathComponent("Assets")].compactMap { $0 }
+        guard let root=candidates.first(where: { FileManager.default.fileExists(atPath:$0.appendingPathComponent("textures/pine/alpha.jpg").path) }) else {
+            throw RenderError.unavailable("Fotografische Landschaftstexturen fehlen. Bitte native/scripts/build-app.sh ausführen.")
+        }
+        return root
+    }
+    private static func makeNearShadow(device:MTLDevice,highQuality:Bool)throws->MTLTexture {
+        let resolution=highQuality ? 2048:1024
+        let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:resolution,height:resolution,mipmapped:false)
+        descriptor.storageMode = .private;descriptor.usage=[.renderTarget,.shaderRead]
+        guard let result=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Nahschattenpuffer konnte nicht angelegt werden.") }
+        result.label="Active stabilized near shadows \(resolution)";return result
+    }
+    private static func loadTextures(device:MTLDevice,root:URL,highQuality:Bool)throws->[MTLTexture] {
+        let loader=NativeTextureLoader(device:device,highQuality:highQuality)
+        func load(_ path:String,color:Bool)throws->MTLTexture {
+            try autoreleasepool {
+                do {
+                    let crop:NativeTextureCrop?=path.hasPrefix("textures/pine/") ? .pineAtlasIsland:nil
+                    let texture=try loader.load(url:root.appendingPathComponent(path),srgb:color,origin:.topLeft,crop:crop)
+                    texture.label=path;return texture
+                } catch { throw RenderError.unavailable("Textur \(path) konnte nicht geladen werden: \(error.localizedDescription)") }
+            }
         }
         var result: [MTLTexture] = []
         for folder in ["forest-earth", "floor", "forest-rock"] {
@@ -1191,11 +1259,9 @@ final class NativeRenderer {
             for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg", color: file == "color")) }
         }
         for file in ["normal", "alpha", "roughness"] { result.append(try load("textures/pine/\(file).jpg", color: false)) }
-        // The 8K photographic panorama is retained at source resolution; the
-        // unused pine atlas islands above are excluded from GPU memory instead.
-        let skyURL = root.appendingPathComponent("environment/sunrise.jpg")
-        guard let source = CGImageSourceCreateWithURL(skyURL as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw RenderError.unavailable("Fotografischer Himmel fehlt: environment/sunrise.jpg") }
-        let sky = try loader.newTexture(cgImage: image, options: [.SRGB: true, .generateMipmaps: true, .origin: MTKTextureLoader.Origin.topLeft, .textureStorageMode: MTLStorageMode.private.rawValue]); sky.label = "Kloppenheim 06 photographic pure sky"; result.append(sky)
+        // High retains original sky pixels; Balanced decodes at half dimensions
+        // before creating any Metal texture, just like every other photo map.
+        result.append(try load("environment/sunrise.jpg",color:true)) // 23
         result.append(result[0]) // 24 is replaced by the near depth shadow map.
         for folder in ["weapon-metal", "weapon-fabric"] {
             for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg",color:file == "color")) }
