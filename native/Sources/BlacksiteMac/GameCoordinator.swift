@@ -22,6 +22,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var lastHitHeadshot = false
     var combatFeedback = CombatFeedback()
     let noisePresentation = NativeNoisePresentation()
+    let alarmPresentation = NativeAlarmPresentation()
     var showPerformance = false
     var performanceText = ""
     private var inputState = NativeInputState()
@@ -105,7 +106,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         simulation = CombatSimulation(map: selectedMap, difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission,
                                       loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
         yaw = simulation.player.yaw; pitch = simulation.player.pitch
-        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0
         if settings.selectedMission == .waves {
             banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
@@ -125,7 +126,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard ready, mode == .menu, window.attachedSheet == nil, prepareMap(map) else { return }
         selectedMap = map
         simulation = CombatSimulation(map: map)
-        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0
         clearInput(); hud.refresh()
     }
@@ -147,7 +148,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
-        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); audio.reset()
+        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0; setMode(.menu)
     }
 
@@ -169,6 +170,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     private func process(_ events: [GameEvent]) {
         let now = CACurrentMediaTime()
+        let alarmNotice = alarmPresentation.consume(events, simulation: simulation)
+        let alarmArrival = alarmPresentation.arrivalNotice(events, simulation: simulation)
         var arrivalSectors = Set<Int>(), arrivals = 0
         for event in events {
             switch event.kind {
@@ -182,6 +185,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                 killText = "\(event.headshot ? "KOPFTREFFER" : "ZIEL AUSGESCHALTET")  +\(Int(event.amount)) XP"
             case .waveStarted: banner("FEINDLICHE VERSTÄRKUNG", String(format: "WELLE %02d", event.count), "\(Int(event.amount)) Kontakte angekündigt")
             case .reinforcementsArrived:
+                guard event.alarmReportID == nil else { continue }
                 let offset = event.position - event.endPosition
                 let angle = atan2(offset.x, -offset.z)
                 let sector = (Int((angle / (.pi / 4)).rounded()) + 8) % 8
@@ -205,6 +209,10 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             let directions = arrivalSectors.sorted().map { names[$0] }.joined(separator: " / ")
             toast("\(arrivals) NEUE KONTAKTE · \(directions)", duration: 3.5)
         }
+        // Keep the one-off heard warning when an objective changes in the same
+        // fixed step. The current objective remains visible in the normal HUD.
+        if let notice = alarmNotice { banner(notice.label, notice.title, notice.detail, duration: 5) }
+        if let notice = alarmArrival { toast(notice, duration: 4) }
     }
 
     private func banner(_ label: String, _ title: String, _ detail: String, duration: Double = 3) {

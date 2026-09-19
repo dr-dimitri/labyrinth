@@ -159,6 +159,7 @@ final class NativeRenderer {
     private var displayedCamouflagePattern: CamouflagePattern = .none
     private var camouflageClothingInstances = 0
     private var decoyPulseTimes:[Int:Double]=[:]
+    private var alarmReporterVisualCount=0,alarmPropInstances=0
     private var noiseEmitterVisualCount=0
     private var noiseDecoyVisualCount=0
     private var noisePropInstances=0
@@ -192,6 +193,8 @@ final class NativeRenderer {
         diagnostics["noiseEmitterVisuals"]=noiseEmitterVisualCount
         diagnostics["noiseDecoyVisuals"]=noiseDecoyVisualCount
         diagnostics["noisePropInstances"]=noisePropInstances
+        diagnostics["alarmReporterVisuals"]=alarmReporterVisualCount
+        diagnostics["alarmPropInstances"]=alarmPropInstances
         diagnostics["spotlightPowers"]=spotLightPowers
         diagnostics["spotShadowInstances"]=spotShadowInstanceCounts
         diagnostics["spotShadowResolution"]=SpotShadowVolume.resolution
@@ -397,7 +400,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
@@ -669,6 +672,7 @@ final class NativeRenderer {
         assert(activeLevelItemCount<=96,"Authored level details exceeded the fixed instance budget.")
         appendCoverDebris(to:&all,simulation:simulation)
         appendAcousticProps(to:&all,simulation:simulation)
+        appendAlarmProps(to:&all,simulation:simulation)
         appendDeviceProps(to:&all,simulation:simulation)
         if skinnedSoldiers != nil { for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) } }
         for grenade in simulation.grenades {
@@ -1144,6 +1148,12 @@ final class NativeRenderer {
                 appendItem(to:&items,position:p+SIMD3(0,0.18,side*(s.z*0.5+0.002)),scale:SIMD3(s.x-0.12,0.12,0.004),color:SIMD3(0.69,0.47,0.13),material:SIMD4(0.95,0,0,0),shadow:false)
             }
         }
+        if let alarm=map.environment.alarm,
+           map.environment.devices.first(where:{ $0.id==alarm.radioDeviceID })?.ownerObstacleID==obstacle.id {
+            for part in NativeAlarmGeometry.module(position:map.grounded(alarm.radioPosition)) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
         return items
     }
 
@@ -1311,6 +1321,27 @@ final class NativeRenderer {
         }
         noisePropInstances=items.count-start
         assert(noisePropInstances<=NoiseEmitterState.maximumCount*4+NoiseDecoyState.maximumCount*4)
+    }
+
+    private func appendAlarmProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        let start=items.count;alarmReporterVisualCount=0
+        guard let alarm=map.environment.alarm else { alarmPropInstances=0;return }
+        if let device=simulation.devices.first(where:{ $0.id==alarm.radioDeviceID }),!device.destroyed,
+           simulation.obstacles.contains(where:{ $0.id==device.ownerObstacleID && !$0.destroyed }) {
+            let part=NativeAlarmGeometry.moduleIndicator(position:map.grounded(alarm.radioPosition),powered:simulation.alarmStatus.radioPowered)
+            appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+        }
+        for enemy in simulation.enemies.lazy.filter({ $0.health>0 }).prefix(NativeAlarmGeometry.maximumReporters) {
+            let pending=simulation.pendingContactReports.first { $0.enemyID==enemy.id }
+            let justSent=simulation.contactReports.contains { $0.enemyID==enemy.id && simulation.elapsed-$0.transmittedAt>=0 && simulation.elapsed-$0.transmittedAt<0.35 }
+            if pending != nil { alarmReporterVisualCount+=1 }
+            for part in NativeAlarmGeometry.reporter(enemy:enemy,progress:pending?.progress,
+                radio:pending.map { $0.radioAtStart && !$0.radioCancelled } ?? false,transmitted:justSent) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
+        alarmPropInstances=items.count-start
+        assert(alarmPropInstances<=NativeAlarmGeometry.maximumReporters*NativeAlarmGeometry.reporterPartCount+1)
     }
 
     private func appendDeviceProps(to items:inout[RenderItem],simulation:CombatSimulation) {

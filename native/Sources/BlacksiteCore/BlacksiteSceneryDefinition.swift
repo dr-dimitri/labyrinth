@@ -197,3 +197,10 @@ public enum BlacksiteDevices {
         WorldSpotlightDefinition(id:8002,position:SIMD3(9.32,5.2,-17),direction:simd_normalize(SIMD3(-1,-0.9,0.25)))
     ]
 }
+
+/// The small relay is attached to the existing generator's front panel. Its
+/// authored position is also the radio-service origin used by the simulation.
+public enum BlacksiteAlarm {
+    public static let definition=MapAlarmDefinition(radioDeviceID:1001,radioPosition:SIMD3(27,1.18,2.625),
+        returnGuardPosts:[SIMD3(-7.8,0,-19),SIMD3(7.8,0,-19)])
+}

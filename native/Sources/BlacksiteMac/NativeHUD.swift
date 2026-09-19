@@ -134,11 +134,13 @@ final class GameHUDView: NSView {
             let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
             let contextDevice = s.deviceContextAvailable ? s.deviceInteractionStatus : nil
             let controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus) +
-                (contextDevice.map { ". " + NativeDevicePresentation($0, interactionLabel: hints.interactionLabel).accessibilityText } ?? "") +
+                (contextDevice.map { ". " + NativeDevicePresentation($0, interactionLabel: hints.interactionLabel,
+                    suppliesRadio: s.map.environment.alarm?.radioDeviceID == $0.id).accessibilityText } ?? "") +
                 ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
                 (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
+                (c.alarmPresentation.accessibilityText.isEmpty ? "" : ". " + c.alarmPresentation.accessibilityText) +
                 (c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : "")
-            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten, \(s.noiseDecoyCount) Geräuschköder. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
+            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten, \(s.noiseDecoyCount) Geräuschköder. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
         }
     }
 
@@ -254,7 +256,7 @@ final class GameHUDView: NSView {
             searching = searching || enemy.awareness == .searching
         }
         if detection > 0 { return "VERDACHT · \(Int(detection * 100)) %" }
-        if investigating { return "FEINDE PRÜFEN EIN GERÄUSCH" }
+        if investigating { return "FEINDE UNTERSUCHEN EINEN HINWEIS" }
         if searching { return "KEIN SICHTKONTAKT · FEINDE SUCHEN" }
         return simulation.isHidden ? "KEIN SICHTKONTAKT BESTÄTIGT" : "SEKTOR BEOBACHTEN"
     }
@@ -273,8 +275,6 @@ final class GameHUDView: NSView {
         let detail: String
         if s.missionStatus.phase != .waves {
             detail = objective.detail
-        } else if s.pendingReinforcements > 0 {
-            detail = "\(s.pendingReinforcements) Verstärkungen im Anmarsch"
         } else { detail = s.intermission > 0 ? "Verstärkung in \(Int(ceil(s.intermission))) s" : "\(s.kills) Abschüsse  ·  \(timeString(s.elapsed))" }
         text("●  " + detail, x: 32, y: 90, size: 10, color: muted, width: 410, mono: true)
         if objective.showsProgress {
@@ -285,7 +285,7 @@ final class GameHUDView: NSView {
         }
         text(s.missionKind == .waves ? "ANGRIFFSWELLE" : "AUFTRAG", x: w - 210, y: 42, size: 8, color: muted, tracking: 2, width: 175, alignment: .right, mono: true)
         text(s.missionKind == .waves ? String(format: "%02d", max(1, s.wave)) + " / 03" : NativeMissionPresentation.name(s.missionKind), x: w - 245, y: 61, size: s.missionKind == .waves ? 30 : 18, width: 210, alignment: .right, mono: true)
-        text("\(s.remainingEnemies) FEINDE  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
+        text("\(s.kills) BESTÄTIGT  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
         if !scoped {
             let heading = Int(((-p.yaw * 180 / .pi).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360))
             let names = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"], index = (Int(Float(heading) / 45 + 0.5)) % 8
@@ -337,7 +337,8 @@ final class GameHUDView: NSView {
             panelText(action, detail: objective.interactionDetail, y: h * 0.65)
             fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(objective.fraction), height: 2), accent)
         } else if s.deviceContextAvailable, let status = s.deviceInteractionStatus, s.climbProgress == nil && !scoped {
-            let device = NativeDevicePresentation(status, interactionLabel: hints.interactionLabel)
+            let device = NativeDevicePresentation(status, interactionLabel: hints.interactionLabel,
+                suppliesRadio: s.map.environment.alarm?.radioDeviceID == status.id)
             panelText(device.title, detail: device.detail, y: h * 0.65)
             if device.showsProgress {
                 fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(device.fraction), height: 2), accent)

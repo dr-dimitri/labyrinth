@@ -8,7 +8,7 @@ struct NativeDevicePresentation {
     let fraction: Float
     let showsProgress: Bool
 
-    init(_ status: DeviceInteractionStatus, interactionLabel: String = "E") {
+    init(_ status: DeviceInteractionStatus, interactionLabel: String = "E", suppliesRadio: Bool = false) {
         let binding = interactionLabel.trimmingCharacters(in: .whitespacesAndNewlines)
         let isBound = !binding.isEmpty && binding != NativeControlLabels.unboundLabel
         let operating = status.isMoving || status.blockedByActor
@@ -17,7 +17,7 @@ struct NativeDevicePresentation {
         showsProgress = !status.destroyed && (operating || status.interactionAvailable)
         if status.destroyed {
             title = status.kind == .generator ? "GENERATOR ZERSTÖRT" : "SERVICETOR OFFEN"
-            detail = status.kind == .generator ? "Licht und Maschinenlärm aus · Tor von Hand bedienen" : "Durchgang frei · Reguläre Wege bleiben nutzbar"
+            detail = status.kind == .generator ? (suppliesRadio ? "Licht, Funk und Maschinenlärm aus · Tor von Hand bedienen" : "Licht und Maschinenlärm aus · Tor von Hand bedienen") : "Durchgang frei · Reguläre Wege bleiben nutzbar"
             return
         }
         if status.blockedByActor {
@@ -35,10 +35,10 @@ struct NativeDevicePresentation {
         switch status.action {
         case .enableGenerator:
             action = "GENERATOR EINSCHALTEN"
-            consequence = "STROM AUS · Licht und Maschinenlärm kehren zurück"
+            consequence = suppliesRadio ? "STROM AUS · Licht, Funk und Maschinenlärm kehren zurück" : "STROM AUS · Licht und Maschinenlärm kehren zurück"
         case .disableGenerator:
             action = "GENERATOR ABSCHALTEN"
-            consequence = "STROM AN · Licht und Geräuschdeckung entfallen"
+            consequence = suppliesRadio ? "STROM AN · Licht, Funk und Geräuschdeckung entfallen" : "STROM AN · Licht und Geräuschdeckung entfallen"
         case .openGate:
             action = "SERVICETOR ÖFFNEN"
             consequence = "TOR ZU · Öffnet Durchgang und Sichtlinie"

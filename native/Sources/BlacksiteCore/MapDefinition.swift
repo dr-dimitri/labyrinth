@@ -81,6 +81,7 @@ public struct MapEnvironmentDefinition: Sendable {
     public var groundRegions: [MapSurfaceRegion] = []
     public var vegetationZones: [EnvironmentZone] = []
     public var noiseEmitters: [NoiseEmitterDefinition] = []
+    public var alarm: MapAlarmDefinition?
     public var devices: [WorldInteractableDefinition] = []
     public var spotlights: [WorldSpotlightDefinition] = []
     /// Legacy name retained as a view of the same authoritative data.
@@ -173,7 +174,7 @@ public struct MapDefinition: Sendable {
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
-        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []
+        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil
         return copying(terrain: terrain, environment: environment)
     }
     private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition) -> MapDefinition {
@@ -321,6 +322,14 @@ public struct MapDefinition: Sendable {
                 }
             }
         }
+        if let alarm = environment.alarm {
+            guard environment.devices.contains(where: { $0.id == alarm.radioDeviceID && $0.kind == .generator }), inside(alarm.radioPosition),
+                  alarm.radioRange.isFinite, (10...80).contains(alarm.radioRange),
+                  alarm.returnGuardPosts.count <= 2, alarm.returnGuardPosts.allSatisfy(inside),
+                  (0...2).contains(alarm.reinforcementCount) else {
+                throw MapValidationError("Karte \(id): Alarm benötigt einen vorhandenen Generator als Funkversorgung, 10–80 m Reichweite und höchstens zwei Wachposten/Verstärkungen.")
+            }
+        }
         var volumeIDs = Set<String>()
         var totalPlants = 0
         guard environment.vegetationZones.count <= 16 else {
@@ -432,6 +441,7 @@ public struct MapDefinition: Sendable {
             environment.noiseEmitters = BlacksiteMachinery.emitters
             environment.devices = BlacksiteDevices.definitions
             environment.spotlights = BlacksiteDevices.lights
+            environment.alarm = BlacksiteAlarm.definition
             return environment
         }(), resources: .blacksite)
 

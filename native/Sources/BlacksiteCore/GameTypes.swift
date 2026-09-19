@@ -55,6 +55,8 @@ public struct EnemyState: Sendable {
     /// Visual recognition, not knowledge of the player's position through cover.
     public var detectionProgress: Float = 0
     public var lastHeard: HearingObservation?
+    /// Historical knowledge; expiry stops report delivery/history retention, not memory.
+    public var lastContactReport: ContactReport?
     public var isMoving = false
     public var crouchAmount: Float = 0
     public var isRunning = false
@@ -170,6 +172,7 @@ public struct GameEvent: Sendable {
         case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
         case footstep, decoyThrown, decoyPulse, noiseEmitterChanged
         case deviceActivated, deviceDestroyed, gateBlocked, gateStopped
+        case contactReportStarted, contactReportInterrupted, contactReportTransmitted, alarmEscalated
         case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
@@ -185,15 +188,17 @@ public struct GameEvent: Sendable {
     public let hearing: HearingStimulus?
     public let noiseEmitter: NoiseEmitterState?
     public let device: WorldInteractableState?
+    public let contactReport: ContactReport?
+    public let alarmReportID: Int?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
                 id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
-                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil) {
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
-        self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device
+        self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device; self.contactReport = contactReport; self.alarmReportID = alarmReportID
     }
 }
 

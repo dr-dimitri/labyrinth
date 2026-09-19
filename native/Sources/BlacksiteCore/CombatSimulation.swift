@@ -14,6 +14,8 @@ public final class CombatSimulation {
     public private(set) var coverDebris: [CoverDebrisState] = []
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var supplies: [SupplyState] = []
+    public private(set) var pendingContactReports: [PendingContactReport] = []
+    public private(set) var contactReports: [ContactReport] = []
     public private(set) var devices: [WorldInteractableState] = []
     public private(set) var spotlights: [WorldSpotlightState] = []
     public private(set) var noiseEmitters: [NoiseEmitterState] = []
@@ -121,6 +123,12 @@ public final class CombatSimulation {
     private var accumulator: Double = 0
     private var nextID = 100
     private var nextHearingID = 1
+    private var nextContactReportID = 1
+    private var escalationReport: ContactReport?
+    private var assignedGuardIDs: [Int] = []
+    private var alarmReinforcementsCommitted = 0
+    private var pendingAlarmReinforcements = 0
+    private var playerHeardEscalation = false
     private var deviceInteractionLatch = false
     private var activeDeviceID: Int?
     private var deviceInteractionTicks = 0
@@ -226,6 +234,7 @@ public final class CombatSimulation {
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
         hearingStimuli.reserveCapacity(64); decoys.reserveCapacity(NoiseDecoyState.maximumCount)
+        pendingContactReports.reserveCapacity(4); contactReports.reserveCapacity(16); assignedGuardIDs.reserveCapacity(2)
         pendingCoverDebris.reserveCapacity(world.count)
         for box in obstacles { nextID = max(nextID, box.id + 1) }
         for emitter in noiseEmitters { nextID = max(nextID, emitter.id + 1) }
@@ -426,7 +435,7 @@ public final class CombatSimulation {
         if var brain = brains[id] {
             investigate(source ?? player.position, enemy: &enemies[index], brain: &brain)
             brain.hurt = 0.3; brain.suppression = 1.8
-            brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6
+            brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6; brain.lastOwnContactTime = elapsed
             brains[id] = brain
         }
         if enemies[index].health <= 0 {
@@ -612,6 +621,7 @@ public final class CombatSimulation {
         updateEnemies(dt)
         guard state == .active else { return }
         updateDevices(dt, input: input)
+        updateContactReports()
         collectSupplies()
         updateReinforcementRetries(dt)
         if missionKind == .waves { updateWaves(dt) }
@@ -829,9 +839,13 @@ public final class CombatSimulation {
                   let cell = navigationCell(at: position), navigationComponents[cell] == component,
                   reinforcementIsHidden(at: position) else { continue }
             let offset = deployedThisWave
+            let alarmArrival = pendingAlarmReinforcements > 0
             var enemy = EnemyState(id: allocateID(), position: position, health: missionKind == .waves ? Float(90 + wave * 10) : 100)
             let staging: SIMD3<Float>
-            if missionKind == .waves {
+            if alarmArrival, let alarm = map.environment.alarm, !alarm.returnGuardPosts.isEmpty {
+                let post = groundedPoint(alarm.returnGuardPosts[(alarmReinforcementsCommitted - pendingAlarmReinforcements) % alarm.returnGuardPosts.count])
+                staging = hasReachableRoute(from: position, to: post) ? post : groundedPoint(map.waveStaging[offset % map.waveStaging.count])
+            } else if missionKind == .waves {
                 staging = groundedPoint(map.waveStaging[offset % map.waveStaging.count])
             } else {
                 // Authored objectives are public tactical destinations. Arrivals
@@ -850,8 +864,11 @@ public final class CombatSimulation {
             brain.side = offset.isMultiple(of: 2) ? -1 : 1
             brains[enemy.id] = brain
             pendingReinforcements -= 1; deployedThisWave += 1
+            if alarmArrival { pendingAlarmReinforcements -= 1 }
             emit(GameEvent(kind: .reinforcementsArrived, position: position, endPosition: player.position,
-                           amount: 1, id: enemy.id, count: wave))
+                           amount: 1, id: enemy.id, count: wave,
+                           contactReport: alarmArrival ? escalationReport : nil,
+                           alarmReportID: alarmArrival ? escalationReport?.id : nil))
         }
         reinforcementCursor = (reinforcementCursor + 7) % candidates.count
     }
@@ -902,6 +919,11 @@ private struct EnemyBrain {
     var searchingInPlace = false
     var stuckTime: Float = 0
     var patrolAnchor: SIMD3<Float>
+    var successfulReports = 0
+    var reportCooldownUntil: Double = -20
+    var lastReceivedReportID = 0
+    var lastOwnContactTime: Double = -20
+    var guardPost: SIMD3<Float>?
     var hearingPriority = 0
     var priorityUntil: Double = -20
     var stepDistance: Float = 0
@@ -1124,6 +1146,7 @@ extension CombatSimulation {
         if enemy.awareness == .watching || brain.searchingInPlace ||
             brain.lastKnown.map({ horizontalDistance($0, target) > 2 }) != false { brain.pathTimer = 0 }
         enemy.awareness = .investigating; enemy.windup = 0
+        brain.guardPost = nil
         brain.alert = true; brain.lastKnown = target
         brain.searchAge = 0; brain.searchTimer = 0; brain.searchingInPlace = false
         brain.stuckTime = 0; brain.patrolGoal = nil
@@ -1161,6 +1184,7 @@ extension CombatSimulation {
                     }
                     enemy.awareness = .engaged; enemy.seesPlayer = true
                     brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6
+                    brain.lastOwnContactTime = elapsed; brain.guardPost = nil
                     brain.lastKnown = player.position; brain.searchAge = 0; brain.searchingInPlace = false
                     brain.stuckTime = 0
                 }
@@ -1269,6 +1293,8 @@ extension CombatSimulation {
             let seekingCover = brain.coverGoal != nil && brain.coverTimer > 0
             let nearCover = seekingCover && horizontalDistance(enemy.position, brain.coverGoal!) < 0.8
             let hurtPause = brain.hurt > 0.05 && enemy.grounded
+            let reporting = pendingContactReports.contains { $0.enemyID == enemy.id }
+            if reporting { enemy.windup = 0 }
             let wantCrouch = enemy.grounded && enemy.windup <= 0 &&
                 (hurtPause || (nearCover && brain.coverTimer > 1.25) || (brain.suppression > 0 && !seekingCover))
             enemy.crouchAmount += ((wantCrouch ? 1 : 0) - enemy.crouchAmount) * min(1, dt * 10)
@@ -1298,14 +1324,22 @@ extension CombatSimulation {
                     }
                     brain.cooldown = 1.1 + random() * 1.7
                 }
-            } else if enemy.seesPlayer && enemy.grounded && distance < 42 && brain.cooldown <= 0 &&
+            } else if !reporting && enemy.seesPlayer && enemy.grounded && distance < 42 && brain.cooldown <= 0 &&
                         !wantCrouch && enemy.crouchAmount < 0.35 && muzzleClear {
                 enemy.windup = 0.65
             }
             let pursuit = seekingCover ? brain.coverGoal! : (brain.lastKnown ?? enemy.position)
             let before = enemy.position, wasGrounded = enemy.grounded
             if enemy.windup <= 0 && brain.holdTimer <= 0 && !hurtPause && !nearCover && state == .active {
-                if !brain.alert {
+                if let post = brain.guardPost, !enemy.seesPlayer && !brain.visualContact {
+                    if horizontalDistance(enemy.position, post) > 0.8 {
+                        moveEnemy(&enemy, brain: &brain, toward: post, running: true, dt: dt)
+                    } else {
+                        brain.patrolAnchor = post; brain.searchingInPlace = false; brain.searchAge = 0
+                        brain.stuckTime = 0; enemy.awareness = .watching; brain.alert = false
+                        enemy.yaw += dt * 0.65
+                    }
+                } else if !brain.alert {
                     patrol(&enemy, brain: &brain, dt: dt)
                 } else if brain.searchingInPlace && !enemy.seesPlayer {
                     if !brain.visualContact { enemy.yaw += dt * 1.15 }
@@ -1643,5 +1677,143 @@ extension CombatSimulation {
             if z + 1 < navDepth, blocksLink(old, point, navigationPoint(key+navWidth)) != blocksLink(new, point, navigationPoint(key+navWidth)) { return true }
         } }
         return false
+    }
+}
+
+extension CombatSimulation {
+    public var alarmStatus: AlarmStatus {
+        AlarmStatus(radioPowered: alarmRadioPowered, escalated: escalationReport != nil,
+            assignedGuardIDs: assignedGuardIDs, reinforcementsCommitted: alarmReinforcementsCommitted,
+            playerHeardEscalation: playerHeardEscalation)
+    }
+    private var alarmRadioPowered: Bool {
+        guard let alarm = map.environment.alarm,
+              let source = devices.first(where: { $0.id == alarm.radioDeviceID }) else { return false }
+        return source.enabled && source.powered && !source.destroyed
+    }
+    private func inRadioRange(_ point: SIMD3<Float>) -> Bool {
+        guard let alarm = map.environment.alarm else { return false }
+        return simd_distance(point, map.grounded(alarm.radioPosition)) <= alarm.radioRange
+    }
+    private func reportSnapshot(_ pending: PendingContactReport, channel: ContactReportChannel) -> ContactReport {
+        ContactReport(id: pending.id, enemyID: pending.enemyID, contactPosition: pending.contactPosition,
+            contactTime: pending.contactTime, transmittedAt: elapsed, expiresAt: pending.contactTime + 20, channel: channel)
+    }
+    private func appendReport(_ report: ContactReport) {
+        if contactReports.count >= 16 { contactReports.removeFirst() }
+        contactReports.append(report)
+    }
+
+    private func updateContactReports() {
+        guard map.environment.alarm != nil else { return }
+        contactReports.removeAll { $0.expiresAt <= elapsed }
+        var index = 0
+        while index < pendingContactReports.count {
+            var pending = pendingContactReports[index]
+            guard let enemyIndex = enemies.firstIndex(where: { $0.id == pending.enemyID }),
+                  var brain = brains[pending.enemyID] else { pendingContactReports.remove(at: index); continue }
+            let enemy = enemies[enemyIndex], source = EnemyPose(enemy).eyePosition
+            if enemy.health <= 0 || !enemy.seesPlayer || !brain.visualContact || brain.hurt > 0 ||
+                !clearLine(source, eyePosition) {
+                let report = reportSnapshot(pending, channel: pending.radioAtStart && !pending.radioCancelled ? .radio : .localShout)
+                emit(GameEvent(kind: .contactReportInterrupted, position: source, id: pending.enemyID, contactReport: report))
+                brain.reportCooldownUntil = elapsed + 2
+                brains[pending.enemyID] = brain
+                pendingContactReports.remove(at: index)
+                continue
+            }
+            if pending.radioAtStart && !pending.radioCancelled && (!alarmRadioPowered || !inRadioRange(source)) {
+                pending.radioCancelled = true
+                let hearing = recordHearing(kind: .radio, position: source, strength: 0.5, range: 12, source: .enemy, sourceID: enemy.id)
+                emit(GameEvent(kind: .contactReportInterrupted, position: source, id: enemy.id,
+                    hearing: hearing, contactReport: reportSnapshot(pending, channel: .radio)))
+            }
+            pending.ticks += 1
+            if pending.ticks < 144 { pendingContactReports[index] = pending; index += 1; continue }
+            pendingContactReports.remove(at: index)
+            brain.successfulReports += 1; brain.reportCooldownUntil = elapsed + 12
+            brains[pending.enemyID] = brain
+            let local = reportSnapshot(pending, channel: .localShout)
+            let shout = recordHearing(kind: .shout, position: source, strength: 1, range: 22, source: .enemy, sourceID: enemy.id)
+            appendReport(local)
+            emit(GameEvent(kind: .contactReportTransmitted, position: source, id: enemy.id, hearing: shout, contactReport: local))
+            deliverContactReport(local, hearing: shout)
+            if pending.radioAtStart && !pending.radioCancelled && alarmRadioPowered && inRadioRange(source) {
+                let radio = reportSnapshot(pending, channel: .radio)
+                let hearing = recordHearing(kind: .radio, position: source, strength: 0.85, range: 16, source: .enemy, sourceID: enemy.id)
+                appendReport(radio)
+                emit(GameEvent(kind: .contactReportTransmitted, position: source, id: enemy.id, hearing: hearing, contactReport: radio))
+                deliverContactReport(radio, hearing: hearing)
+                escalateAlarm(radio, source: source, hearing: hearing)
+            }
+        }
+        for enemy in enemies where enemy.health > 0 && enemy.seesPlayer {
+            guard pendingContactReports.count < 4,
+                  let brain = brains[enemy.id], brain.visualContact, brain.hurt <= 0,
+                  brain.successfulReports < 2, elapsed >= brain.reportCooldownUntil,
+                  !pendingContactReports.contains(where: { $0.enemyID == enemy.id }) else { continue }
+            let source = EnemyPose(enemy).eyePosition
+            let pending = PendingContactReport(id: nextContactReportID, enemyID: enemy.id,
+                contactPosition: player.position, contactTime: elapsed, radioAtStart: alarmRadioPowered && inRadioRange(source))
+            nextContactReportID += 1; pendingContactReports.append(pending)
+            let hearing = recordHearing(kind: pending.radioAtStart ? .radio : .shout, position: source,
+                strength: 0.7, range: pending.radioAtStart ? 16 : 20, source: .enemy, sourceID: enemy.id)
+            emit(GameEvent(kind: .contactReportStarted, position: source, id: enemy.id, hearing: hearing,
+                contactReport: reportSnapshot(pending, channel: pending.radioAtStart ? .radio : .localShout)))
+        }
+    }
+
+    private func deliverContactReport(_ report: ContactReport, hearing: HearingStimulus) {
+        guard report.expiresAt > elapsed else { return }
+        for index in enemies.indices where enemies[index].health > 0 && enemies[index].id != report.enemyID {
+            let ear = EnemyPose(enemies[index]).eyePosition
+            let delivered = report.channel == .radio ? (alarmRadioPowered && inRadioRange(ear)) : acousticSample(for: hearing, listener: ear).audible
+            guard delivered, var brain = brains[enemies[index].id], report.id > brain.lastReceivedReportID else { continue }
+            brain.lastReceivedReportID = report.id
+            // Receiving a message never becomes visual confirmation or grants
+            // firing permission. Recent own sight/damage and loud combat clues win.
+            if !enemies[index].seesPlayer && elapsed - brain.lastOwnContactTime >= 6 &&
+                (brain.hearingPriority < 3 || elapsed >= brain.priorityUntil) {
+                enemies[index].lastContactReport = report
+                let assignedPost = brain.guardPost
+                investigate(report.contactPosition, enemy: &enemies[index], brain: &brain)
+                // A newer message updates knowledge, not an existing route order.
+                // Real personal contact or a directly heard distraction can still
+                // interrupt that order through the ordinary investigate path.
+                brain.guardPost = assignedPost
+                brain.hearingPriority = 2; brain.priorityUntil = elapsed + 8
+            }
+            brains[enemies[index].id] = brain
+        }
+    }
+
+    private func escalateAlarm(_ report: ContactReport, source: SIMD3<Float>, hearing: HearingStimulus) {
+        guard escalationReport == nil, report.channel == .radio, let alarm = map.environment.alarm else { return }
+        escalationReport = report
+        playerHeardEscalation = acousticSample(for: hearing, listener: eyePosition).audible
+        // At most two currently uninvolved, informed guards receive a fixed
+        // route order. The original fighter and fresh direct witnesses keep
+        // their existing combat behaviour and are never reassigned mid-fight.
+        for rawPost in alarm.returnGuardPosts {
+            let post = map.grounded(rawPost)
+            guard assignedGuardIDs.count < 2, !blocked(post, height: 1.96, radius: 0.4) else { continue }
+            let candidates = enemies.indices.filter { index in
+                let enemy = enemies[index]
+                guard enemy.health > 0, enemy.id != report.enemyID, !enemy.seesPlayer,
+                      !assignedGuardIDs.contains(enemy.id), enemy.lastContactReport?.id == report.id,
+                      let brain = brains[enemy.id] else { return false }
+                return elapsed - brain.lastOwnContactTime >= 6 && brain.hurt <= 0
+            }.sorted { simd_distance_squared(enemies[$0].position, post) < simd_distance_squared(enemies[$1].position, post) }
+            guard let index = candidates.first(where: { hasReachableRoute(from: enemies[$0].position, to: post) }),
+                  var brain = brains[enemies[index].id] else { continue }
+            brain.guardPost = post; brain.patrolAnchor = post; brain.pathTimer = 0
+            brain.searchingInPlace = false; brain.searchAge = 0; brain.stuckTime = 0
+            brains[enemies[index].id] = brain; assignedGuardIDs.append(enemies[index].id)
+        }
+        alarmReinforcementsCommitted = alarm.reinforcementCount
+        pendingAlarmReinforcements += alarm.reinforcementCount
+        emit(GameEvent(kind: .alarmEscalated, position: source, id: report.enemyID, hearing: hearing, contactReport: report,
+                       alarmReportID: report.id))
+        queueMissionReinforcements(alarm.reinforcementCount)
     }
 }

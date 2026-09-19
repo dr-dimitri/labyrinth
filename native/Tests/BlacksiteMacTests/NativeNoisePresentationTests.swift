@@ -49,4 +49,25 @@ struct NativeNoisePresentationTests {
         presentation.clear()
         #expect(presentation.lines.isEmpty)
     }
+    @Test func radioPhasesReplaceTheirCaptionAndUnheardCallsRemainHidden() {
+        let game=simulation(),presentation=NativeNoisePresentation()
+        func report(_ id:Int,_ kind:GameEvent.Kind,_ sound:HearingKind = .radio,_ position:SIMD3<Float> = SIMD3(4,1,0))->GameEvent {
+            GameEvent(kind:kind,position:position,hearing:HearingStimulus(id:id,kind:sound,position:position,
+                time:game.elapsed,strength:1,range:25,source:.enemy,sourceID:20))
+        }
+        let begin=report(30,.contactReportStarted)
+        presentation.consume(events:[begin,begin],simulation:game)
+        #expect(presentation.lines == ["FUNK MELDET · RECHTS"])
+        presentation.consume(events:[report(31,.contactReportTransmitted)],simulation:game)
+        #expect(presentation.lines == ["FUNK ÜBERMITTELT · RECHTS"])
+        presentation.consume(events:[report(32,.contactReportTransmitted,.shout,SIMD3(100,1,0))],simulation:game)
+        #expect(presentation.lines.count==1)
+        presentation.clear()
+        presentation.consume(events:[report(33,.contactReportTransmitted,.shout)],simulation:game)
+        #expect(presentation.lines == ["KONTAKTRUF · RECHTS"])
+        presentation.clear()
+        presentation.consume(events:[begin,report(34,.contactReportInterrupted)],simulation:game)
+        #expect(presentation.lines == ["FUNK UNTERBROCHEN · RECHTS"])
+    }
+
 }

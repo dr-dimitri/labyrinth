@@ -75,6 +75,64 @@ enum NativeSoundSynthesis {
         }
     }
 
+    /// A brief original nonverbal contact call. Fixed formant bands and a voiced
+    /// onset distinguish a nearby human warning from an electronic radio cue;
+    /// no speech service, recording download or runtime synthesis is required.
+    static func contactCall() -> [Float] {
+        let duration=0.46
+        var seed:UInt32=91_441
+        return samples(duration:duration) { t in
+            seed=seed &* 1_664_525 &+ 1_013_904_223
+            let noise=Double(seed)/Double(UInt32.max)*2-1
+            let opening=min(1,max(0,(t-0.03)/0.10)),ending=min(1,max(0,(duration-t)/0.12))
+            let fundamental=155+45*exp(-t*8)
+            let phase=2*Double.pi*(155*t+45*(1-exp(-t*8))/8)
+            let firstFormant=590+210*opening,secondFormant=1_660-510*opening
+            var voiced=0.0
+            for harmonic in 1...20 {
+                let frequency=Double(harmonic)*fundamental
+                let band=exp(-pow((frequency-firstFormant)/200,2))*0.8
+                    + exp(-pow((frequency-secondFormant)/310,2))*0.46
+                    + exp(-pow((frequency-2_700)/500,2))*0.19
+                voiced+=sin(phase*Double(harmonic))*band/pow(Double(harmonic),0.48)
+            }
+            let breath=noise*exp(-t*22)*0.042
+            return (voiced*0.15+breath)*min(1,t*90)*ending*(0.8+0.2*sin(t*11))
+        }
+    }
+
+    /// Distinct push-to-talk and completed-transmission syllables, synthesized
+    /// once into the existing bounded one-shot bank, never additional loops.
+    static func radioContact(transmitted:Bool)->[Float] {
+        let duration=transmitted ? 0.30:0.19
+        var seed:UInt32=transmitted ? 41_991:52_301,low=0.0
+        return samples(duration:duration) { t in
+            seed=seed &* 1_664_525 &+ 1_013_904_223
+            let noise=Double(seed)/Double(UInt32.max)*2-1
+            low+=(noise-low)*0.23
+            let tone:Double
+            if transmitted {
+                let first=sin(t*1_020*2*Double.pi)*exp(-pow((t-0.055)/0.038,2))
+                let second=sin(t*740*2*Double.pi)*exp(-pow((t-0.155)/0.044,2))
+                tone=(first+second)*0.11
+            } else { tone=sin(t*640*2*Double.pi)*exp(-pow((t-0.065)/0.045,2))*0.10 }
+            let staticNoise=(noise-low)*0.028*exp(-t*10)
+            return (tone+staticNoise)*min(1,t*800)*min(1,(duration-t)*140)
+        }
+    }
+
+    static func radioInterruption()->[Float] {
+        var seed:UInt32=19_347,low=0.0
+        return samples(duration:0.21) { t in
+            seed=seed &* 1_664_525 &+ 1_013_904_223
+            let noise=Double(seed)/Double(UInt32.max)*2-1
+            low+=(noise-low)*0.17
+            let dropping=sin((780*t-1_350*t*t)*2*Double.pi)*exp(-t*14)*0.12
+            let squelch=(noise-low)*0.055*exp(-t*11)
+            return (dropping+squelch)*min(1,t*650)*min(1,(0.21-t)*150)
+        }
+    }
+
     private static func samples(duration: Double, generate: (Double) -> Double) -> [Float] {
         (0..<Int(duration * sampleRate)).map { frame in
             Float(max(-0.8, min(0.8, generate(Double(frame) / sampleRate))))

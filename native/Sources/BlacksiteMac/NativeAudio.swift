@@ -26,7 +26,7 @@ final class NativeAudio {
     private var paused = true
     private var levels = NativeAudioLevels()
     private var threat: Float = 0
-    private var alertCooldown: Float = 0
+    private var contactSoundIDs:[Int]=[]
     var machineLoopCount: Int { machineIDs.compactMap { $0 }.count }
     var oneShotVoiceCapacity: Int { voices.count }
     var machineVoiceCapacity: Int { machineVoices.count }
@@ -72,6 +72,10 @@ final class NativeAudio {
         } }
         buffers["machine"]=pcm(samples:NativeSoundSynthesis.machine())
         buffers["decoy"]=pcm(samples:NativeSoundSynthesis.decoy())
+        buffers["contact-call"]=pcm(samples:NativeSoundSynthesis.contactCall())
+        buffers["contact-radioBegin"]=pcm(samples:NativeSoundSynthesis.radioContact(transmitted:false))
+        buffers["contact-radioSent"]=pcm(samples:NativeSoundSynthesis.radioContact(transmitted:true))
+        buffers["contact-radioInterrupted"]=pcm(samples:NativeSoundSynthesis.radioInterruption())
         buffers["damage"] = sound(duration: 0.22, low: 60, gain: 0.16, decay: 15)
         buffers["reload"] = sound(duration: 0.12, low: 530, gain: 0.08, decay: 35)
         buffers["shell"] = shellClink()
@@ -93,7 +97,7 @@ final class NativeAudio {
     }
 
     func setPaused(_ value: Bool) {
-        paused = value; alertCooldown = 0
+        paused = value
         if value {
             voices.forEach { $0.stop() }
             stopMachines()
@@ -103,7 +107,7 @@ final class NativeAudio {
 
     func reset() {
         voices.forEach { $0.stop() };stopMachines()
-        nextVoice=0;alertCooldown=0;threat=0
+        nextVoice=0;contactSoundIDs.removeAll(keepingCapacity:true);threat=0
     }
 
     private func stopMachines() {
@@ -134,8 +138,13 @@ final class NativeAudio {
             case .enemyShot:
                 let spatial = spatial(event, fallback:.enemyShot,simulation:simulation)
                 play("enemy", gain: spatial.gain, pan: spatial.pan)
-            case .enemyAlert:
-                if alertCooldown <= 0 { play("notice", gain: 0.6); alertCooldown = 1.5 }
+            case .contactReportStarted, .contactReportTransmitted, .contactReportInterrupted:
+                if let hearing=event.hearing,!contactSoundIDs.contains(hearing.id),
+                   let cue=NativeContactAudioCue.make(event:event,simulation:simulation) {
+                    contactSoundIDs.append(hearing.id)
+                    if contactSoundIDs.count>64 { contactSoundIDs.removeFirst(contactSoundIDs.count-64) }
+                    play("contact-\(cue.kind.rawValue)",gain:cue.spatial.gain,pan:cue.spatial.pan)
+                }
             case .explosion:
                 let spatial = spatial(event,fallback:.explosion,simulation:simulation)
                 play("explosion", gain: spatial.gain, pan: spatial.pan)
@@ -165,7 +174,6 @@ final class NativeAudio {
     }
 
     func update(delta: Float, simulation: CombatSimulation) {
-        alertCooldown = max(0, alertCooldown - max(0, delta))
         guard levels.shouldRun(paused: paused) else { return }
         let target: Float = simulation.enemies.contains(where: { $0.health > 0 && $0.seesPlayer }) ? 1 : 0
         threat += (target - threat) * min(1, delta * 2)

@@ -29,4 +29,21 @@ struct NativeSoundSynthesisTests {
         #expect((decoy.map(abs).max() ?? 0)>0.05)
         #expect(abs(decoy.first!)<0.001 && abs(decoy.last!)<0.001)
     }
+
+    @Test func contactCallsAndRadioPhasesAreDistinctBoundedReusableBuffers() {
+        let call=NativeSoundSynthesis.contactCall(),begin=NativeSoundSynthesis.radioContact(transmitted:false)
+        let sent=NativeSoundSynthesis.radioContact(transmitted:true),interrupted=NativeSoundSynthesis.radioInterruption()
+        #expect(call==NativeSoundSynthesis.contactCall())
+        #expect(begin==NativeSoundSynthesis.radioContact(transmitted:false))
+        #expect(sent==NativeSoundSynthesis.radioContact(transmitted:true))
+        #expect(interrupted==NativeSoundSynthesis.radioInterruption())
+        #expect(Set([call.count,begin.count,sent.count,interrupted.count]).count==4)
+        for sound in [call,begin,sent,interrupted] {
+            #expect(sound.count>=8_000 && sound.count<=21_000)
+            #expect(sound.allSatisfy { $0.isFinite && abs($0)<0.5 })
+            #expect((sound.map(abs).max() ?? 0)>0.04)
+            #expect(sound.reduce(0.0) { $0+Double($1*$1) }>0.1)
+            #expect(abs(sound.first ?? 1)<0.001 && abs(sound.last ?? 1)<0.001)
+        }
+    }
 }

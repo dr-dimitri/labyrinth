@@ -18,7 +18,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #18 | Geländeabhängiger Tarnanzug | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
 | #19 | Geräusche und Ablenkung | Umgesetzt, Review/Tests, nativer Audiomix und Bilder bestanden |
 | #20 | Strom, Licht und Servicetore | Umgesetzt, Review/Tests, Release-Build und Bilder bestanden |
-| #23 | Lokale Kontaktmeldungen | Offen |
+| #23 | Lokale Kontaktmeldungen | Umgesetzt, unabhängige Reviews, Tests und Bilder bestanden |
 | #26 | Umgebung und Extraktionsentscheidung | Offen |
 | #25 | Briefing und Tarnungsfeedback | Offen |
 | #21 | Rauch, Dampf und Gischt | Offen |
@@ -194,3 +194,38 @@ Der optimierte ARM64-Build, Ad-hoc-Signatur und Smokecheck bestehen. Gemessener
 Core-Median: 9,04 µs je Schritt bei zwölf Gegnern. GPU-P95 bei 2560×1600:
 13,92 ms High beziehungsweise 11,87 ms Balanced; Allokation 1213,52/341,14 MiB.
 Das sind keine Messungen der gesamten Bildrate. [Prüfdaten](native-environment/issue20.json).
+
+### #23 – Lokale Kontaktmeldungen und begrenzter Alarm
+
+Eigener bestätigter Sichtkontakt startet einen 1,2 Sekunden langen Meldeversuch.
+Sichtverlust, Verletzung und Tod brechen ihn ab. Ein Stromausfall verhindert den
+Funkabschluss; ein naher Ruf bleibt möglich. Kontakte speichern Position und
+Zeitpunkt beim Beginn. Empfänger untersuchen diesen Punkt, erhalten weder eine
+aktuelle Spielerposition hinter Deckung noch eine automatische Feuerfreigabe.
+
+Die erste Funkmeldung entsendet höchstens zwei vorhandene Wachen zu bekannten
+Rückwegen und reserviert einmalig höchstens zwei weitere Gegner. Die bisherigen
+sicheren Eintrittsprüfungen bleiben erhalten. Bereits übermitteltes Wissen und
+reservierte Verstärkung verschwinden durch spätere Sabotage nicht. Grenzen:
+vier gleichzeitige Melder, 16 historische Meldungen, zwei Abschlüsse je Gegner,
+zwölf Sekunden Abstand; Funkhistorie läuft nach 20 Sekunden ab.
+
+Physische Funkmodule, vier vorberechnete Audiocues und optionale Richtungstexte
+verwenden die tatsächlichen Zustände beziehungsweise Hörreize. Eine hörbare
+Meldung löst einmalig den Rückweg-/Anmarschhinweis aus. Der HUD-Zähler zeigt
+eigene bestätigte Abschüsse statt einer unhörbar veränderten Gegnerpopulation.
+Der Generatorprompt erklärt jetzt auch seine Wirkung auf den Funk.
+
+Unabhängige Code-, Audio-, UI- und Bildreviews bestanden. Im Paketlauf bestehen
+alle 130 gemeldeten Mac-Tests mit aktiviertem Offline-Audiomix und die bisherigen
+146 Core-Tests. Die neun neuen Alarmtests bestehen nach drei reinen Fixture-
+Korrekturen: tatsächliche Wachenzuordnung, gültige Autorendaten und kontrollierte
+Sicht für die zweite Meldung. Drei Metal-validierte Szenen prüfen Anlauf,
+Übermittlung und Unterbrechung durch einen echten Sniperschuss. Der kleine
+LED-Farbwechsel ist im weiten Bild nicht sicher beurteilbar. Ruhiger und
+alarmierter Datenlauf verwenden echte Bewegung bei isoliertem Kampf.
+
+Der optimierte Core-Test benötigt 14.52 µs je Schritt. Er enthält jetzt
+die tatsächliche Alarmantwort (zwölf Startgegner, bis zu 14 aktive Gegner).
+Die Arbeitslast unterscheidet sich daher von früheren Messungen; die neue
+Ausgabe weist beide Populationsgrenzen aus. [Prüfdaten](native-environment/issue23.json).
