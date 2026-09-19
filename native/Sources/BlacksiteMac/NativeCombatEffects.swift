@@ -117,6 +117,9 @@ final class NativeCombatEffects {
         alphaCounts=[0,0,0];additiveCounts=[0,0,0];decalCounts=[0,0,0]
         droppedParticles=0;droppedDecals=0;ignoredShots=0;drawCallCount=0;random=0x91ab34
     }
+    /// A cover mesh replacement invalidates its old projected surface points.
+    /// The current event batch can then place new marks on the updated mesh.
+    func removeDecals(obstacleID:Int) { decals.removeAll { $0.obstacleID == obstacleID } }
     private func unit()->Float { random=random &* 2862933555777941757 &+ 3037000493;return Float((random>>32)&0xffffff)/Float(0xffffff) }
     private func vector()->SIMD3<Float> { let a=unit()*2 * Float.pi,y=unit()*2-1,r=sqrt(max(0,1-y*y));return SIMD3(cos(a)*r,y,sin(a)*r) }
     private func add(_ particle:Particle) {

@@ -22,7 +22,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 6 | #2 Ego-Waffen und Hände | Umgesetzt und geprüft |
 | 7 | #3 Einschläge und Explosionen | Umgesetzt und geprüft |
 | 8 | #5 Texturbudget | Umgesetzt und geprüft |
-| 9 | #4 Schadensstufen und Trümmer | In Umsetzung |
+| 9 | #4 Schadensstufen und Trümmer | Umgesetzt und geprüft |
 | 10 | #6 Schauplätze und alternative Wege | Offen |
 | 11 | #9 Missionsvarianten | Offen |
 | 12 | #11 Steuerung und Zielkomfort | Offen |
@@ -271,3 +271,41 @@ GPU-P95 13,175 → 11,991 ms. Je zehn Aufwärm- und 120 abgeschlossene Messframe
 Mediane der Einzelläufe. Der reproduzierbare Vorteil ist die Speicherreduktion.
 [Erste Messung](native-roadmap/texture-performance.json),
 [Kontrollmessung](native-roadmap/texture-performance-confirmation.json).
+
+### #4 – Schadensstufen und begrenzte Trümmer
+
+Kisten, Fässer, Container und Betonbarrieren wechseln bei halben Hitpoints in
+sichtbar beschädigte Materialien. Holz splittert entlang der Bretter, Beton
+zeigt kurze unregelmäßige Risse, Metall verliert Lack und erhält Kratzer sowie
+Brandspuren. Containerstege werden eingedrückt; zugehörige alte Einschussmarken
+werden beim Geometriewechsel entfernt, neue Treffer folgen der aktuellen Fläche.
+Intakte Kollisionsvolumen bleiben bis zur Zerstörung geschlossen.
+
+Holzreste bleiben zwölf, Fassreste acht, Containerbleche fünfzehn und Betonreste
+zwanzig Sekunden sichtbar. Die Simulationszeit pausiert mit dem Spiel.
+Höchstens 24 zerstörte Objekte mit insgesamt 96 dekorativen Fragmenten bleiben
+aktiv; älteste Einträge werden samt möglichem Collider entfernt. Kleine Fragmente
+richten sich am tatsächlichen Boden aus und schrumpfen zum Ablauf. Dieselbe
+Geometrie geht in Hauptbild und beide Schattenfelder ein.
+
+Beton hinterlässt eine feste, 0,5 Meter über der ursprünglichen Basis endende
+Restdeckung. Am Hang reicht deren Unterseite bis unter das Gelände; Darstellung,
+Sichtprüfung, Beschuss, Navigation und Kollision verwenden denselben Quader.
+Erhöhte Deckung behält ihre Unterstützungshöhe. Der feste Rest verschwindet
+zusammen mit seinem Collider. Kettenexplosionen werden vollständig abgearbeitet,
+bevor neue Reste die Sicht blockieren können. Wiederholter Beschuss vergibt
+weder zusätzliche Punkte noch erneute Zerstörungsereignisse.
+
+Validierung: 135 reguläre Tests bestanden, darunter elf neue Prüfungen für
+Schadensschwellen, Treffer, Kettenreaktionen, Lebensdauer, Spielerfall/Klettern,
+Gegnersprünge, Navigation, Poolgrenzen, Neustart und Hangkontakt. 22
+Metal-validierte Bildprüfungen plus sieben gezielte Wiederholungen nach dem
+Review. Gefundene schwebende Einschussmarken, zu regelmäßige Rissmuster und
+Hangspalten wurden behoben. Keine verbliebenen Restschatten nach Ablauf.
+[Beschädigt](native-roadmap/destruction-damaged.png),
+[Restdeckung](native-roadmap/destruction-remnants.png),
+[Hangkontakt](native-roadmap/destruction-hill.png),
+[Prüfzähler](native-roadmap/destruction-checks.json).
+Reproduzierbar beispielsweise mit `--smoke-test --scene destruction-barrier
+--destruction-phase destroyed --destruction-hill`; weitere Phasen sind
+`intact`, `damaged` und `expired`, Neustart über `--destruction-reset`.

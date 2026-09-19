@@ -39,6 +39,25 @@ private struct RenderItem {
     var radius: Float
     var shadow: Bool
 }
+private struct CoverVisual {
+    let stage: CoverDamageStage
+    let isRubble: Bool
+    let position: SIMD3<Float>
+    let size: SIMD3<Float>
+    let items: [RenderItem]
+}
+private struct CoverFragment {
+    let mesh: Int
+    let offset: SIMD2<Float>
+    let size: SIMD3<Float>
+    let yaw: Float
+    let color: SIMD3<Float>
+    let material: SIMD4<Float>
+}
+private struct CachedCoverFragments {
+    let createdAt: Double
+    let fragments: [CoverFragment]
+}
 private struct ForestTree {
     var center: SIMD3<Float>
     var radius: Float
@@ -93,7 +112,11 @@ final class NativeRenderer {
     private let instanceCapacity = 48_000
     private var scenery: [RenderItem] = []
     private var forest: [ForestTree] = []
-    private var coverCache: [Int: [RenderItem]] = [:]
+    private var coverCache: [Int: CoverVisual] = [:]
+    private var debrisCache: [Int: CachedCoverFragments] = [:]
+    private var damagedCoverCount = 0
+    private var solidDebrisCount = 0
+    private var decorativeDebrisCount = 0
     private var tracers: [Tracer] = []
     private var recoil: Float = 0
     private var shake: Float = 0
@@ -119,6 +142,11 @@ final class NativeRenderer {
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
+        diagnostics["damagedCoverCount"]=damagedCoverCount
+        diagnostics["solidDebrisCount"]=solidDebrisCount
+        diagnostics["decorativeDebrisInstances"]=decorativeDebrisCount
+        diagnostics["coverCacheEntries"]=coverCache.count
+        diagnostics["debrisCacheEntries"]=debrisCache.count
         return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
@@ -226,17 +254,17 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
+    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         // Only hit owners need surface extraction. These are the exact cached
         // mesh0 parts used to draw ribs, warning paint, slats and window trims.
         let hitOwners=Set(events.compactMap { $0.surfaceImpact?.obstacleID })
         let destroyed=Set(events.filter { $0.kind == .coverDestroyed }.map(\.id))
+        let solidIDs=Set(simulation.coverDebris.compactMap(\.solidObstacleID))
         var surfaceBoxes:[Int:[CombatSurfaceBox]] = [:]
         for obstacle in simulation.obstacles where hitOwners.contains(obstacle.id) && !obstacle.destroyed && !destroyed.contains(obstacle.id) {
-            if coverCache[obstacle.id]==nil { coverCache[obstacle.id]=buildCover(obstacle) }
-            surfaceBoxes[obstacle.id]=(coverCache[obstacle.id] ?? []).compactMap { item in
+            surfaceBoxes[obstacle.id]=coverItems(obstacle,isRubble:solidIDs.contains(obstacle.id)).compactMap { item in
                 guard item.mesh==0 else { return nil }
                 let m=item.instance.model
                 let a=SIMD3(m.columns.0.x,m.columns.0.y,m.columns.0.z),b=SIMD3(m.columns.1.x,m.columns.1.y,m.columns.1.z),c=SIMD3(m.columns.2.x,m.columns.2.y,m.columns.2.z)
@@ -470,10 +498,19 @@ final class NativeRenderer {
             forward: mode == .menu ? forward : viewDirection(yaw: p.yaw, pitch: p.pitch), sun: sun, resolution: shadowResolution)
         let farVolume = DirectionalShadowVolume(matrix: lightMatrix)
         var all = scenery
-        for obstacle in simulation.obstacles {
-            if coverCache[obstacle.id] == nil { coverCache[obstacle.id] = buildCover(obstacle) }
-            if !obstacle.destroyed { all.append(contentsOf: coverCache[obstacle.id] ?? []) }
+        let solidIDs=Set(simulation.coverDebris.compactMap(\.solidObstacleID))
+        let activeIDs=Set(simulation.obstacles.filter { !$0.destroyed }.map(\.id))
+        coverCache=coverCache.filter { activeIDs.contains($0.key) }
+        let debrisIDs=Set(simulation.coverDebris.map(\.sourceObstacleID))
+        debrisCache=debrisCache.filter { debrisIDs.contains($0.key) }
+        damagedCoverCount=0;solidDebrisCount=0
+        for obstacle in simulation.obstacles where !obstacle.destroyed {
+            let rubble=solidIDs.contains(obstacle.id)
+            all.append(contentsOf:coverItems(obstacle,isRubble:rubble))
+            if rubble { solidDebrisCount+=1 }
+            else if obstacle.damageStage == .damaged { damagedCoverCount+=1 }
         }
+        appendCoverDebris(to:&all,simulation:simulation)
         for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) }
         for grenade in simulation.grenades {
             appendItem(to: &all, mesh: 1, position: grenade.position, scale: SIMD3(0.085, 0.105, 0.085), color: SIMD3(0.18, 0.23, 0.12), material: SIMD4(0.48, 0.6, 0, 0))
@@ -811,8 +848,89 @@ final class NativeRenderer {
         return ForestTree(center: position + SIMD3(0, height * 0.5, 0), radius: height * 0.65, levels: levels)
     }
 
+    private func coverItems(_ obstacle:Obstacle,isRubble:Bool)->[RenderItem] {
+        if let cached=coverCache[obstacle.id],cached.stage == obstacle.damageStage,
+           cached.isRubble == isRubble,cached.position == obstacle.position,cached.size == obstacle.size { return cached.items }
+        if coverCache[obstacle.id] != nil { combatEffects.removeDecals(obstacleID:obstacle.id) }
+        var items:[RenderItem]
+        if isRubble {
+            // The low concrete remnant is a real collider. Its visible top and
+            // sides must stay exactly on that AABB until the simulation removes
+            // both; shrinking the solid would leave invisible cover behind.
+            items=[]
+            appendItem(to:&items,position:obstacle.position+SIMD3(0,obstacle.size.y*0.5,0),scale:obstacle.size,
+                color:SIMD3(0.61,0.61,0.55),material:SIMD4(0.98,0,0,19))
+        } else { items=buildCover(obstacle) }
+        coverCache[obstacle.id]=CoverVisual(stage:obstacle.damageStage,isRubble:isRubble,position:obstacle.position,size:obstacle.size,items:items)
+        return items
+    }
+
+    private func appendCoverDebris(to items:inout [RenderItem],simulation:CombatSimulation) {
+        decorativeDebrisCount=0
+        let supportBoxes=simulation.obstacles+shellGroundColliders
+        for debris in simulation.coverDebris.prefix(24) {
+            let age=max(0,simulation.elapsed-debris.createdAt),remaining=debris.lifetime-age
+            guard remaining>0 else { continue }
+            if debrisCache[debris.sourceObstacleID]?.createdAt != debris.createdAt {
+                var rng=SeededRandom(seed:UInt64(bitPattern:Int64(debris.sourceObstacleID)) &+ 9307)
+                var fragments:[CoverFragment]=[]
+                for index in 0..<4 {
+                    var offset=SIMD2<Float>((rng.next()-0.5)*min(3,debris.size.x+0.7),(rng.next()-0.5)*min(2.2,debris.size.z+0.6))
+                    let mesh:Int,size:SIMD3<Float>,color:SIMD3<Float>,material:SIMD4<Float>
+                    switch debris.kind {
+                    case .crate:
+                        mesh=9;size=SIMD3(0.46+rng.next()*0.29,0.035,0.10+rng.next()*0.08)
+                        color=SIMD3(0.43,0.30,0.14);material=SIMD4(0.98,0,0,18)
+                    case .barrel:
+                        mesh=index==0 ? 8:9;size=SIMD3(0.28+rng.next()*0.18,0.035,0.19+rng.next()*0.13)
+                        color=SIMD3(0.31,0.16,0.09);material=SIMD4(0.89,0.3,0,20)
+                    case .container:
+                        mesh=9;size=SIMD3(0.64+rng.next()*0.31,0.032,0.26+rng.next()*0.16)
+                        color=debris.sourceObstacleID%2==0 ? SIMD3(0.34,0.22,0.14):SIMD3(0.18,0.29,0.27)
+                        material=SIMD4(0.85,0.35,0,17)
+                    case .barrier,.bunker:
+                        mesh=8;size=SIMD3(0.22+rng.next()*0.15,0.065,0.17+rng.next()*0.12)
+                        color=SIMD3(0.56,0.56,0.49);material=SIMD4(1,0,0,19)
+                        // Keep cosmetic chips beside the surviving slab rather
+                        // than hidden inside its collision volume.
+                        offset.y=(index.isMultiple(of:2) ? -1:1)*(debris.size.z*0.5+0.24+rng.next()*0.18)
+                    }
+                    fragments.append(CoverFragment(mesh:mesh,offset:offset,size:size,yaw:rng.next()*2*Float.pi,color:color,material:material))
+                }
+                debrisCache[debris.sourceObstacleID]=CachedCoverFragments(createdAt:debris.createdAt,fragments:fragments)
+            }
+            // Scaling the actual geometry also scales both directional-shadow
+            // submissions. No alpha-only disappearance or ghost caster remains.
+            let t=min(1,Float(remaining/2)),fade=t*t*(3-2*t)
+            guard fade>0.015 else { continue }
+            for fragment in debrisCache[debris.sourceObstacleID]?.fragments ?? [] {
+                guard decorativeDebrisCount<96 else { break }
+                let x=debris.position.x+fragment.offset.x,z=debris.position.z+fragment.offset.y
+                var support=SIMD3<Float>(x,simulation.terrain.height(x:x,z:z),z)
+                var normal=simulation.terrain.normal(x:x,z:z)
+                if abs(x)<=6,abs(z)<=45.5,support.y<0.015 { support.y=0.015;normal=SIMD3(0,1,0) }
+                let extent=max(fragment.size.x,fragment.size.z)*fade*0.75
+                for box in supportBoxes where !box.destroyed {
+                    let top=box.position.y+box.size.y
+                    if top>support.y,top<=debris.position.y+0.1,
+                       abs(x-box.position.x)+extent<=box.size.x*0.5,
+                       abs(z-box.position.z)+extent<=box.size.z*0.5 {
+                        support.y=top;normal=SIMD3(0,1,0)
+                    }
+                }
+                let bounds=meshes[fragment.mesh],size=fragment.size*fade
+                let bottom=(bounds.boundsCenter.y-bounds.halfExtents.y)*size.y
+                let orientation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:normal))*Self.rotationY(fragment.yaw)
+                let transform=Self.translation(support+normal*(0.001-bottom))*orientation*Self.scale(size)
+                appendTransformed(to:&items,mesh:fragment.mesh,transform:transform,color:fragment.color,material:fragment.material)
+                decorativeDebrisCount+=1
+            }
+        }
+    }
+
     private func buildCover(_ obstacle: Obstacle) -> [RenderItem] {
         var out: [RenderItem] = []; let p = obstacle.position, s = obstacle.size
+        let damaged=obstacle.damageStage == .damaged
         let metal = SIMD3<Float>(0.18, 0.23, 0.22), concrete = SIMD3<Float>(0.66, 0.67, 0.62)
         func box(_ position: SIMD3<Float>, _ scale: SIMD3<Float>, _ color: SIMD3<Float>, material: SIMD4<Float> = SIMD4(0.65, 0.3, 0, 0)) { appendItem(to: &out, position: p + position, scale: scale, color: color, material: material) }
         switch obstacle.kind {
@@ -823,7 +941,9 @@ final class NativeRenderer {
             for t in stride(from: -length * 0.5 + 0.18, to: length * 0.5, by: 0.32) {
                 for side: Float in [-1, 1] {
                     let position = longX ? SIMD3(t, s.y * 0.5, side * (s.z * 0.5 + 0.027)) : SIMD3(side * (s.x * 0.5 + 0.027), s.y * 0.5, t)
-                    box(position, longX ? SIMD3(0.095, s.y - 0.2, 0.07) : SIMD3(0.07, s.y - 0.2, 0.095), color * 0.92)
+                    let dent:Float=damaged && abs(t)<length*0.32 ? 0.045:0
+                    let shifted=position-(longX ? SIMD3(0,0,side*dent):SIMD3(side*dent,0,0))
+                    box(shifted, longX ? SIMD3(0.095, s.y - 0.2, 0.07) : SIMD3(0.07, s.y - 0.2, 0.095), color * 0.92)
                 }
             }
             for y: Float in [0.09, s.y - 0.09] { for side: Float in [-1, 1] { box(SIMD3(0, y, side * s.z * 0.5), SIMD3(s.x + 0.07, 0.14, 0.1), metal) } }
@@ -862,9 +982,16 @@ final class NativeRenderer {
             for y in stride(from: Float(0.08), to: s.y, by: 0.29) { for side: Float in [-1, 1] { box(SIMD3(0, y, side * (s.z * 0.5 + 0.01)), SIMD3(s.x, 0.022, 0.028), wood * 0.58) } }
             for x in [-s.x * 0.28, s.x * 0.28] { box(SIMD3(x, s.y + 0.028, 0), SIMD3(0.07, 0.045, s.z), metal) }
         case .barrel:
+            // Keep the cylindrical impact surface continuous; the damaged
+            // material supplies scraped paint and scorched, dented shading.
             appendItem(to: &out, mesh: 2, position: p + SIMD3(0, s.y * 0.5, 0), scale: SIMD3(s.x * 0.5, s.y, s.z * 0.5), color: SIMD3(0.47, 0.18, 0.095), material: SIMD4(0.54, 0.65, 0, 0))
             for y in [s.y * 0.1, s.y * 0.3, s.y * 0.72, s.y * 0.96] { appendItem(to: &out, mesh: 2, position: p + SIMD3(0, y, 0), scale: SIMD3(s.x * 0.515, 0.045, s.z * 0.515), color: metal) }
             box(SIMD3(0, 0.65, s.z * 0.5 + 0.01), SIMD3(0.23, 0.25, 0.017), SIMD3(0.9, 0.63, 0.1))
+        }
+        if damaged {
+            let materialID:Float
+            switch obstacle.kind { case .crate:materialID=18;case .barrier,.bunker:materialID=19;case .barrel:materialID=20;case .container:materialID=17 }
+            for index in out.indices { out[index].instance.material.w=materialID }
         }
         return out
     }

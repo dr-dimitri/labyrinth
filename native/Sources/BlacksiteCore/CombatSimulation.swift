@@ -8,6 +8,7 @@ public final class CombatSimulation {
     public private(set) var player: PlayerState
     public private(set) var enemies: [EnemyState]
     public private(set) var obstacles: [Obstacle]
+    public private(set) var coverDebris: [CoverDebrisState] = []
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var supplies: [SupplyState] = []
     public private(set) var weapons: [WeaponKind: WeaponState] = [
@@ -48,6 +49,7 @@ public final class CombatSimulation {
     private var reinforcementCursor = 0
     private var deployedThisWave = 0
     private var events: [GameEvent] = []
+    private var pendingCoverDebris: [Obstacle] = []
     private var climbing: ClimbState?
     private var brains: [Int: EnemyBrain] = [:]
     private var navigationDirty = true
@@ -87,6 +89,9 @@ public final class CombatSimulation {
         }
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
+        coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
+        pendingCoverDebris.reserveCapacity(world.count)
+        for box in obstacles { nextID = max(nextID, box.id + 1) }
         for enemy in enemies {
             brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02,
                                          patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
@@ -304,12 +309,69 @@ public final class CombatSimulation {
         guard obstacles[index].health <= 0 else { return nil }
         obstacles[index].destroyed = true; score += 25; navigationDirty = true
         let box = obstacles[index]
+        pendingCoverDebris.append(box)
         emit(GameEvent(kind: .coverDestroyed, position: box.position + SIMD3(0, box.size.y * 0.5, 0), id: box.id))
         return box.kind == .barrel ? box.position + SIMD3(0, 0.55, 0) : nil
     }
 
     func damageCover(index: Int, amount: Float) {
         if let barrel = applyCoverDamage(index: index, amount: amount) { explode(at: barrel) }
+        else { finishCoverDestruction() }
+    }
+
+    /// Called only when the current damage/blast transaction is complete.
+    /// Newly collapsed concrete must not occlude its own chain explosion.
+    private func finishCoverDestruction() {
+        for box in pendingCoverDebris {
+            let lifetime: Double
+            switch box.kind {
+            case .crate: lifetime = 12
+            case .barrel: lifetime = 8
+            case .container: lifetime = 15
+            case .barrier: lifetime = 20
+            case .bunker: continue
+            }
+            if coverDebris.count >= CoverDebrisState.maximumCount { removeCoverDebris(at: 0) }
+            var solidID: Int?
+            // A 0.5m block intersects the AI's 0.45m jump probe. Short decorative
+            // heaps would block feet while remaining invisible to that probe.
+            if box.kind == .barrier && box.size.y >= 0.5 {
+                let id = allocateID()
+                var base = box.position
+                if terrain != .flat && abs(base.y - terrain.height(x: base.x, z: base.z)) <= 0.05 {
+                    // Every triangle under this footprint is bounded by these
+                    // grid vertices. Extend only grounded remains, once, so a
+                    // horizontal rest cannot float above a descending slope.
+                    // Raised roof cover must retain its original support level.
+                    for z in Int(floor(box.minimum.z))...Int(ceil(box.maximum.z)) {
+                        for x in Int(floor(box.minimum.x))...Int(ceil(box.maximum.x)) {
+                            base.y = min(base.y, terrain.height(x: Float(x), z: Float(z)))
+                        }
+                    }
+                }
+                var solid = Obstacle(id: id, kind: .barrier, position: base,
+                                     size: SIMD3(box.size.x, box.position.y + 0.5 - base.y, box.size.z))
+                solid.health = .infinity
+                obstacles.append(solid); solidID = id; navigationDirty = true
+            }
+            coverDebris.append(CoverDebrisState(sourceObstacleID: box.id, kind: box.kind, position: box.position,
+                                               size: box.size, createdAt: elapsed, lifetime: lifetime, solidObstacleID: solidID))
+        }
+        pendingCoverDebris.removeAll(keepingCapacity: true)
+    }
+
+    private func removeCoverDebris(at index: Int) {
+        let debris = coverDebris.remove(at: index)
+        if let id = debris.solidObstacleID {
+            obstacles.removeAll { $0.id == id }
+            navigationDirty = true
+        }
+    }
+
+    private func updateCoverDebris() {
+        for index in coverDebris.indices.reversed() where elapsed - coverDebris[index].createdAt >= coverDebris[index].lifetime {
+            removeCoverDebris(at: index)
+        }
     }
 
     func damagePlayer(amount: Float, from: SIMD3<Float>) {
@@ -354,6 +416,7 @@ public final class CombatSimulation {
             }
             emit(GameEvent(kind: .explosion, position: center, amount: 8))
         }
+        finishCoverDestruction()
     }
 
     private func allocateID() -> Int { defer { nextID += 1 }; return nextID }
@@ -374,6 +437,7 @@ public final class CombatSimulation {
     private func tick(_ dt: Float, input: GameInput) {
         guard state == .active else { return }
         elapsed += 1.0 / 120.0
+        updateCoverDebris()
         updatePlayer(dt, input: input)
         for kind in WeaponKind.allCases {
             guard var weapon = weapons[kind] else { continue }

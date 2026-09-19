@@ -39,6 +39,9 @@ fragment void shadowFragment(Raster in [[stage_in]],texture2d<float> pineAlpha [
 float3 aces(float3 c) { return saturate((c*(2.51*c+0.03))/(c*(2.43*c+0.59)+0.14)); }
 float hash(float3 p) { return fract(sin(dot(p,float3(12.9898,78.233,39.425)))*43758.5453); }
 float noise(float2 p) { float2 i=floor(p),f=fract(p); f=f*f*(3-2*f); return mix(mix(hash(float3(i,0)),hash(float3(i+float2(1,0),0)),f.x),mix(hash(float3(i+float2(0,1),0)),hash(float3(i+1,0)),f.x),f.y); }
+float coverSegmentDistance(float2 p,float2 a,float2 b) {
+  float2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/max(dot(ab,ab),0.0001),0.0,1.0));
+}
 float3 perturbNormal(float3 n,float3 position,float2 uv,float3 map,float strength) {
   float3 q1=dfdx(position),q2=dfdy(position); float2 st1=dfdx(uv),st2=dfdy(uv);
   float jacobian=st1.x*st2.y-st1.y*st2.x;
@@ -136,7 +139,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float exposed=smoothstep(0.12,0.38,1.0-n.y)*(0.45+noise(in.world.xz*0.35)*0.4);
     albedo=mix(albedo,rockColor.sample(surface,uv*0.6).rgb*in.tint.rgb,exposed);
     n=perturbNormal(n,in.world,uv,map,0.9);
-  } else if(id==2) {
+  } else if(id==2 || id==19) {
     albedo*=concreteColor.sample(surface,uv).rgb;
     float gray=dot(albedo,float3(0.2126,0.7152,0.0722)); albedo=mix(albedo,float3(gray),0.6);
     rough*=concreteRough.sample(surface,uv).r; map=concreteNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
@@ -165,6 +168,14 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     albedo=mix(albedo,earthColor.sample(surface,in.world.xz*0.76923).rgb*0.52,grime);
     albedo*=0.91+noise(in.world.xz*0.12)*0.14; rough=max(0.78,rough*asphaltRough.sample(surface,uv).r);
     map=asphaltNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
+  } else if(id==17 || id==20) {
+    // Existing photographic painted-metal maps also describe damaged cover.
+    // The object's own tint preserves the container/barrel identification.
+    float3 paint=weaponMetalColor.sample(surface,uv).rgb;
+    albedo*=0.67+dot(paint,float3(0.2126,0.7152,0.0722))*1.30;
+    rough=clamp(0.48+weaponMetalRough.sample(surface,uv).r*0.40,0.55,0.94);
+    metal=0.30;map=weaponMetalNormal.sample(surface,uv).xyz*2-1;
+    n=perturbNormal(n,in.world,uv,map,0.42);
   } else if(id==15) {
     uv=in.detailUV+float2(0.50,0.35);
     float3 coating=weaponMetalColor.sample(surface,uv).rgb;
@@ -205,6 +216,51 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   } else {
     float weather=hash(floor(in.world*110)); float stain=noise(in.world.xz*2.1+in.world.y);
     albedo*=0.91+weather*0.11+stain*0.045;
+  }
+  if(id>=17 && id<=20) {
+    // Damage changes the closed material surface rather than painting fake
+    // passable holes into an intact collision volume. Metre-scale stains and
+    // centimetre-scale fractures remain readable from fighting distance.
+    float2 damageUV=uv*2.0;
+    float2 cell=floor(damageUV*1.1),f=fract(damageUV*1.1);
+    float seed=hash(float3(cell,3.7)),other=hash(float3(cell,19.3));
+    float2 center=float2(0.35+seed*0.30,0.35+other*0.30);
+    float2 q=(f-center)/1.1;
+    float occurrence=smoothstep(0.24,0.46,hash(float3(cell,41.9)));
+    float scar=smoothstep(0.46,0.78,noise(damageUV*2.2+float2(8.4,19.7)));
+    float soot=smoothstep(0.35,0.77,noise(damageUV*0.95+float2(21.3,4.6)));
+    if(id==19) {
+      // Each short fracture has its own centre, direction and length. Its
+      // endpoints stop inside the patch; no cell-edge line can form wallpaper.
+      float angle=seed*6.283185,c=cos(angle),s=sin(angle);
+      float2 r=float2(c*q.x-s*q.y,s*q.x+c*q.y)/(0.72+other*0.45);
+      float d=min(coverSegmentDistance(r,float2(-0.22,-0.06),float2(-0.055,0.025)),
+                  coverSegmentDistance(r,float2(-0.055,0.025),float2(0.075,-0.035)));
+      d=min(d,coverSegmentDistance(r,float2(0.075,-0.035),float2(0.24,0.055)));
+      float branch=coverSegmentDistance(r,float2(0.075,-0.035),float2(0.045,0.145));
+      float crack=(1.0-smoothstep(0.0025,0.008,min(d,branch)))*occurrence;
+      float chipped=(1.0-smoothstep(0.07,0.20,length(r)))*scar;
+      albedo=mix(albedo*0.79,float3(0.28,0.27,0.23),chipped*0.25);
+      albedo*=1.0-crack*0.58;rough=0.97;metal=0;
+    } else if(id==18) {
+      // The crate's horizontal boards split along their fibres. Taper both
+      // ends and vary patch positions instead of repeating vertical zigzags.
+      float grain=0.84+noise(damageUV*float2(2.0,55.0))*0.24;
+      float fibre=q.y-q.x*(seed-0.5)*0.11;
+      float ends=1.0-smoothstep(0.10+other*0.04,0.23+other*0.06,abs(q.x));
+      float split=(1.0-smoothstep(0.0015,0.009,abs(fibre)))*ends*occurrence;
+      float fresh=(1.0-smoothstep(0.009,0.046,abs(fibre)))*ends*occurrence;
+      albedo=mix(albedo*grain*0.72,float3(0.45,0.29,0.125),fresh*0.7+scar*0.12);
+      albedo*=1.0-split*0.56;rough=0.98;metal=0;
+    } else {
+      // Painted metal loses coating and acquires bright fine scratches; it
+      // must not inherit the brittle concrete/wood fracture pattern.
+      float scratch=(1.0-smoothstep(0.001,0.006,abs(q.y-q.x*(other-0.5)*0.8)))
+        *(1.0-smoothstep(0.13,0.27,abs(q.x)))*occurrence;
+      float scrape=scar*(0.4+0.6*smoothstep(0.38,0.72,noise(damageUV*float2(3,18))));
+      albedo=mix(albedo*(0.75-soot*(id==20 ? 0.60:0.38)),float3(0.25,0.24,0.21),scrape*0.56);
+      albedo=mix(albedo,float3(0.37,0.36,0.32),scratch*0.68);rough=max(rough,0.83-soot*0.05);
+    }
   }
   rough=clamp(rough,id==12 ? 0.10:0.16,1.0);
   float3 l=normalize(u.sunDirection.xyz),v=normalize(u.eyeTime.xyz-in.world),h=normalize(l+v);

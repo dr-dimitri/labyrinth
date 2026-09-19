@@ -96,13 +96,15 @@ struct BlacksiteMain {
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let sceneCheck = try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer)
-                let simulation = sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
+                var simulation = sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745)
                 if sceneCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
                 let weaponCheck = try NativeWeaponCheck.prepare(arguments: args, renderer: renderer, simulation: simulation)
                 let effectsCheck = try NativeEffectsCheck.prepare(arguments: args, renderer: renderer, simulation: simulation)
+                let destructionCheck = try NativeDestructionCheck.prepare(arguments: args, renderer: renderer, simulation: simulation)
+                if let destructionCheck { simulation = destructionCheck.simulation }
                 let textureCheck = try NativeTextureCheck.prepare(arguments: args, renderer: renderer, simulation: simulation,
                                                                   width: width, height: height, initialHighQuality: highQuality)
                 if benchmark {
@@ -110,6 +112,7 @@ struct BlacksiteMain {
                     result.merge(renderer.characterDiagnostics) { _, value in value }
                     result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(effectsCheck) { _, value in value }
+                    result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
                     let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                     print(String(decoding: json, as: UTF8.self)); return
@@ -121,6 +124,7 @@ struct BlacksiteMain {
                                            "assets": NativeResources.assetRoot?.path ?? "missing"]
                 result.merge(weaponCheck) { _, value in value }
                 result.merge(effectsCheck) { _, value in value }
+                result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }

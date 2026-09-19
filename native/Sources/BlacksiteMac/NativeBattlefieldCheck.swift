@@ -10,7 +10,7 @@ enum NativeBattlefieldCheck {
         let metadata: [String: Any]
     }
     private struct InvalidScene: LocalizedError {
-        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, firefight, terrain or hollow." }
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, destruction-crate, destruction-barrel, destruction-barrier, destruction-container, destruction-chain, destruction-stress, firefight, terrain or hollow." }
     }
 
     static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
@@ -25,6 +25,30 @@ enum NativeBattlefieldCheck {
         var world = GameMap.obstacles
         var seconds:Double=0
         switch name {
+        case "destruction-crate", "destruction-barrel", "destruction-barrier", "destruction-container", "destruction-chain", "destruction-stress":
+            let kind: ObstacleKind = name == "destruction-crate" ? .crate : name == "destruction-barrier" ? .barrier : name == "destruction-container" ? .container : .barrel
+            let size: SIMD3<Float> = kind == .crate ? SIMD3(2.5,1.7,2.2) : kind == .barrier ? SIMD3(5.4,1.05,0.85) : kind == .container ? SIMD3(5,3.1,3.6) : SIMD3(0.8,1.15,0.8)
+            world = [Obstacle(id: 801, kind: kind, position: SIMD3(0,0,5), size: size)]
+            if name == "destruction-chain" {
+                world += [Obstacle(id: 802, kind: .barrel, position: SIMD3(-1.1,0,5), size: size),
+                          Obstacle(id: 803, kind: .barrel, position: SIMD3(1.1,0,5), size: size)]
+            }
+            if name == "destruction-stress" {
+                for row in 0..<5 { for column in -2...2 where row != 0 || column != 0 {
+                    world.append(Obstacle(id: 801 + world.count, kind: .barrel,
+                                          position: SIMD3(Float(column)*1.2,0,5-Float(row)*1.2), size: size))
+                } }
+            }
+            let distance: Float = name == "destruction-stress" ? 9 : 7
+            player.position = SIMD3(0,0,5 + distance)
+            if arguments.contains("--destruction-hill") {
+                world = world.map { Obstacle(id: $0.id, kind: $0.kind, position: $0.position + SIMD3(14,0,24), size: $0.size) }
+                player.position += SIMD3(14,0,24)
+            }
+            let target = world[0].position
+            let targetHeight = terrain.height(x: target.x, z: target.z) + size.y * 0.48
+            let eyeHeight = terrain.height(x: player.position.x, z: player.position.z) + player.height - 0.1
+            player.pitch = atan2(targetHeight - eyeHeight, distance)
         case "impact-metal", "impact-concrete", "impact-wood":
             let kind: ObstacleKind = name == "impact-metal" ? .container : name == "impact-wood" ? .crate : .barrier
             world = [Obstacle(id: 801, kind: kind, position: SIMD3(0, 0, 5), size: SIMD3(4, 2.4, 2))]

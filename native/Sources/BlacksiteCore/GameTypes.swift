@@ -112,6 +112,11 @@ public struct Obstacle: Sendable {
     public let size: SIMD3<Float>
     public var health: Float
     public var destroyed = false
+    public var damageStage: CoverDamageStage {
+        if destroyed || health <= 0 { return .destroyed }
+        guard health.isFinite, maximumHealth.isFinite else { return .intact }
+        return health <= maximumHealth * 0.5 ? .damaged : .intact
+    }
     public var maximumHealth: Float {
         switch kind {
         case .bunker: return .infinity
