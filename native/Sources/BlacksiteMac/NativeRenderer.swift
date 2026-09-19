@@ -632,12 +632,14 @@ final class NativeRenderer {
             for y: Float in [0.09, s.y - 0.09] { for side: Float in [-1, 1] { box(SIMD3(0, y, side * s.z * 0.5), SIMD3(s.x + 0.07, 0.14, 0.1), metal) } }
             for x in [-s.x * 0.5, s.x * 0.5] { for z in [-s.z * 0.5, s.z * 0.5] { box(SIMD3(x, s.y * 0.5, z), SIMD3(0.14, s.y, 0.14), metal) } }
             for x: Float in [-0.65, 0.65] { box(SIMD3(x, s.y * 0.5, s.z * 0.5 + 0.09), SIMD3(0.045, s.y - 0.35, 0.045), metal) }
-            box(SIMD3(0, s.y + 0.024, 0), SIMD3(s.x - 0.15, 0.06, s.z - 0.15), color)
+            // The main shell already supplies the roof at the collision height.
+            // A second raised plate would bury feet and contact shadows.
             box(SIMD3(0, 2.1, s.z * 0.5 + 0.056), SIMD3(min(2, s.x - 0.3), 0.46, 0.022), SIMD3(0.72, 0.69, 0.52))
             for x: Float in [-0.6, -0.25, 0.1, 0.45] { box(SIMD3(x, 2.1, s.z * 0.5 + 0.075), SIMD3(0.12, 0.22, 0.01), metal) }
         case .bunker:
-            box(SIMD3(0, s.y * 0.5, 0), s, concrete, material: SIMD4(0.92, 0, 0, 2))
-            box(SIMD3(0, s.y, 0), SIMD3(s.x + 0.65, 0.3, s.z + 0.65), concrete * 0.8, material: SIMD4(0.9, 0, 0, 2))
+            let roofThickness = min(0.3, s.y * 0.5), wallHeight = s.y - roofThickness
+            box(SIMD3(0, wallHeight * 0.5, 0), SIMD3(s.x, wallHeight, s.z), concrete, material: SIMD4(0.92, 0, 0, 2))
+            box(SIMD3(0, s.y - roofThickness * 0.5, 0), SIMD3(s.x + 0.65, roofThickness, s.z + 0.65), concrete * 0.8, material: SIMD4(0.9, 0, 0, 2))
             box(SIMD3(0, 0.25, 0), SIMD3(s.x + 0.25, 0.5, s.z + 0.25), concrete * 0.65, material: SIMD4(1, 0, 0, 3))
             for x in [-s.x * 0.32, 0, s.x * 0.32] {
                 box(SIMD3(x, s.y * 0.66, s.z * 0.5 + 0.045), SIMD3(2.4, 1.4, 0.11), SIMD3(0.045, 0.08, 0.09), material: SIMD4(0.17, 0.8, 0, 0))
@@ -651,7 +653,7 @@ final class NativeRenderer {
             box(SIMD3(1.6, s.y + 0.55, 1), SIMD3(2.5, 1, 2), metal)
             for x in stride(from: Float(0.55), to: 2.6, by: 0.16) { box(SIMD3(x, s.y + 0.56, 2.01), SIMD3(0.05, 0.7, 0.03), metal * 0.5) }
         case .barrier:
-            box(SIMD3(0, s.y * 0.46, 0), SIMD3(s.x, s.y * 0.92, s.z), concrete, material: SIMD4(0.98, 0, 0, 2))
+            box(SIMD3(0, s.y * 0.5, 0), s, concrete, material: SIMD4(0.98, 0, 0, 2))
             box(SIMD3(0, 0.13, 0), SIMD3(s.x + 0.13, 0.26, s.z + 0.26), concrete * 0.8, material: SIMD4(1, 0, 0, 2))
             for x in stride(from: -s.x * 0.5 + 0.32, to: s.x * 0.5, by: 0.78) {
                 for side: Float in [-1, 1] { box(SIMD3(x, s.y * 0.71, side * (s.z * 0.5 + 0.009)), SIMD3(0.42, 0.20, 0.018), SIMD3(0.72, 0.53, 0.16)) }
