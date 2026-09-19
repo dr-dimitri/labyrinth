@@ -36,10 +36,14 @@ struct NativeSettings {
     static let defaultSensitivity: Float = 0.0023
     static let sensitivityRange: ClosedRange<Float> = 0.0001...0.006
     var difficulty: Difficulty = .normal
+    var selectedMapID = PublishedMapRegistry.defaultMapID
     var selectedMission: MissionKind = .waves
+    var selectedClass: OperatorClass = .assault
+    var selectedCamouflage: CamouflagePattern = .none
     var highQuality = true
     var musicVolume: Float = 0.45
     var effectsVolume: Float = 0.45
+    var soundCaptions = true
     var sensitivity: Float = 0.0023
     var adsSensitivity: Float = 0.0023 * 0.65
     var scopeSensitivity: Float = 0.0023 * 0.19
@@ -53,7 +57,11 @@ struct NativeSettings {
         defaults.register(defaults: ["native.difficulty": "normal", "native.highQuality": true,
                                     "native.volume": 0.45, "native.sensitivity": 0.0023, "native.fps": 60])
         difficulty = Difficulty(rawValue: defaults.string(forKey: "native.difficulty") ?? "normal") ?? .normal
+        selectedMapID = PublishedMapRegistry.normalizedID(defaults.string(forKey: "native.mapID"))
         selectedMission = MissionKind(rawValue: defaults.string(forKey: "native.mission") ?? "waves") ?? .waves
+        selectedClass = OperatorClass(rawValue: defaults.string(forKey: "native.operatorClass") ?? "assault") ?? .assault
+        selectedCamouflage = CamouflagePattern(rawValue: defaults.string(forKey: "native.camouflage") ?? "none") ?? .none
+        soundCaptions = defaults.object(forKey: "native.soundCaptions") == nil || defaults.bool(forKey: "native.soundCaptions")
         highQuality = defaults.bool(forKey: "native.highQuality")
         let legacyVolume = defaults.float(forKey: "native.volume")
         musicVolume = max(0, min(1, defaults.object(forKey: "native.musicVolume") == nil ? legacyVolume : defaults.float(forKey: "native.musicVolume")))
@@ -69,10 +77,14 @@ struct NativeSettings {
     }
     func save(defaults: UserDefaults = .standard) {
         defaults.set(difficulty.rawValue, forKey: "native.difficulty")
+        defaults.set(PublishedMapRegistry.normalizedID(selectedMapID), forKey: "native.mapID")
         defaults.set(selectedMission.rawValue, forKey: "native.mission")
+        defaults.set(selectedClass.rawValue, forKey: "native.operatorClass")
+        defaults.set(selectedCamouflage.rawValue, forKey: "native.camouflage")
         defaults.set(highQuality, forKey: "native.highQuality")
         defaults.set(musicVolume, forKey: "native.musicVolume")
         defaults.set(effectsVolume, forKey: "native.effectsVolume")
+        defaults.set(soundCaptions, forKey: "native.soundCaptions")
         defaults.set(sensitivity, forKey: "native.sensitivity")
         defaults.set(adsSensitivity, forKey: "native.adsSensitivity")
         defaults.set(scopeSensitivity, forKey: "native.scopeSensitivity")

@@ -1,0 +1,933 @@
+{
+  "issue": 20,
+  "tests": {
+    "core": 146,
+    "macReported": 118,
+    "systemAudio": "enabled; two offline PCM integration tests passed",
+    "optionalMetalTextureUpload": "not enabled"
+  },
+  "review": {
+    "independentCoreAndGraphics": "passed",
+    "fixes": [
+      "terrain foundation beneath generator",
+      "valid spotlight projection limits",
+      "power-loss event snapshot",
+      "context prompt eligibility",
+      "manual diagnostic walking route"
+    ],
+    "images": "eight actual Metal captures reviewed"
+  },
+  "scenes": {
+    "light-wall": {
+      "activeSpotlights": 1,
+      "artificialAtProbe": 0,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 0,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        1
+      ],
+      "spotShadowInstances": [
+        29
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "light-wall-off": {
+      "activeSpotlights": 0,
+      "artificialAtProbe": 0,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 1,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": false,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": false,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        0
+      ],
+      "spotShadowInstances": [
+        0
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "light-terrain": {
+      "activeSpotlights": 1,
+      "artificialAtProbe": 0,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 0,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        1
+      ],
+      "spotShadowInstances": [
+        2
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "generator-on": {
+      "activeSpotlights": 2,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 0,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        },
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1002,
+          "kind": "serviceGate",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "gateColliderPosition": [
+        0,
+        0,
+        -15
+      ],
+      "gateColliderSize": [
+        12,
+        2.799999952316284,
+        0.44999998807907104
+      ],
+      "gatePowered": true,
+      "gateProgress": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        1,
+        1
+      ],
+      "spotShadowInstances": [
+        16,
+        66
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "generator-off": {
+      "activeSpotlights": 0,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 1,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": false,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": false,
+          "progress": 0
+        },
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1002,
+          "kind": "serviceGate",
+          "moving": false,
+          "powered": false,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "gateColliderPosition": [
+        0,
+        0,
+        -15
+      ],
+      "gateColliderSize": [
+        12,
+        2.799999952316284,
+        0.44999998807907104
+      ],
+      "gatePowered": false,
+      "gateProgress": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        0,
+        0
+      ],
+      "spotShadowInstances": [
+        0,
+        0
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "gate-moving": {
+      "activeSpotlights": 2,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 1,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        },
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1002,
+          "kind": "serviceGate",
+          "moving": true,
+          "powered": true,
+          "progress": 0.35833317041397095
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "gateColliderPosition": [
+        0,
+        1.2183327674865723,
+        -15
+      ],
+      "gateColliderSize": [
+        12,
+        2.799999952316284,
+        0.44999998807907104
+      ],
+      "gatePowered": true,
+      "gateProgress": 0.35833317041397095,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        1,
+        1
+      ],
+      "spotShadowInstances": [
+        16,
+        66
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "gate-manual": {
+      "activeSpotlights": 0,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 2,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": false,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": false,
+          "progress": 0
+        },
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1002,
+          "kind": "serviceGate",
+          "moving": false,
+          "powered": false,
+          "progress": 1
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "gateColliderPosition": [
+        0,
+        3.4000000953674316,
+        -15
+      ],
+      "gateColliderSize": [
+        12,
+        2.799999952316284,
+        0.44999998807907104
+      ],
+      "gatePowered": false,
+      "gateProgress": 1,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 0,
+      "spotlightPowers": [
+        0,
+        0
+      ],
+      "spotShadowInstances": [
+        0,
+        0
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "metalValidation": "passed"
+    },
+    "light-soldier": {
+      "activeSpotlights": 1,
+      "artificialAtProbe": 0.189470574259758,
+      "artificialAtSoldierEye": 0.20587998628616333,
+      "device": "Apple M2 Pro",
+      "deviceActivations": 0,
+      "devices": [
+        {
+          "blockedByActor": false,
+          "destroyed": false,
+          "enabled": true,
+          "id": 1001,
+          "kind": "generator",
+          "moving": false,
+          "powered": true,
+          "progress": 0
+        }
+      ],
+      "directSunAfter": 1,
+      "directSunBefore": 1,
+      "gateBlocks": 0,
+      "invalidSoldierPoses": 0,
+      "skinnedSoldiers": 1,
+      "spotlightPowers": [
+        1
+      ],
+      "spotShadowInstances": [
+        41
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732
+      ],
+      "metalValidation": "passed"
+    }
+  },
+  "coreBenchmark": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "enemyCount": 12,
+    "fixedFrequencyHz": 120,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 9.037916666666666,
+    "medianCPUSeconds": 0.06507299999999999,
+    "medianWallSeconds": 0.06532412499655038,
+    "obstacleCount": 25,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 8394.910499840975,
+        "cpuSeconds": 0.067195,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.06735183333512396
+      },
+      {
+        "checksum": 8394.910499840975,
+        "cpuSeconds": 0.06481100000000002,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.06495274999178946
+      },
+      {
+        "checksum": 8394.910499840975,
+        "cpuSeconds": 0.06509000000000001,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.06540095832315274
+      },
+      {
+        "checksum": 8394.910499840975,
+        "cpuSeconds": 0.06493499999999999,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.06524787499802187
+      },
+      {
+        "checksum": 8394.910499840975,
+        "cpuSeconds": 0.06507299999999999,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.06532412499655038
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 922.0413996588449,
+    "vegetationZoneCount": 5
+  },
+  "graphicsBenchmark": {
+    "high": {
+      "activeFlashes": 0,
+      "activeSmoke": 0,
+      "activeSparks": 0,
+      "backend": "Metal",
+      "camouflageClothingInstances": 0,
+      "combatEffectDrawCalls": 0,
+      "combatParticleDrops": 0,
+      "combatParticleLimit": 256,
+      "combatParticles": 0,
+      "coverCacheEntries": 25,
+      "cpuAverageMs": 2.935039235308068,
+      "cpuP95Ms": 3.975666651967913,
+      "damagedCoverCount": 0,
+      "debrisCacheEntries": 0,
+      "decalMaterials": {},
+      "decorativeDebrisInstances": 0,
+      "device": "Apple M2 Pro",
+      "drawCalls": 76,
+      "droppedSoldiers": 0,
+      "farShadowInstances": 6556,
+      "footContactPatches": 2,
+      "forestTrees": 228,
+      "frames": 120,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationPlantBudget": 512,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationZones": 5,
+      "gpuAllocatedMB": 1213.515625,
+      "gpuAverageMs": 8.23089097199651,
+      "gpuP95Ms": 13.915583345806226,
+      "height": 1600,
+      "impactDecalDrops": 0,
+      "impactDecalLimit": 80,
+      "impactDecals": 0,
+      "invalidSoldierPoses": 0,
+      "levelDetailInstanceBudget": 96,
+      "levelDetailInstances": 83,
+      "loadoutCamouflage": "none",
+      "loadoutFragmentationGrenades": 4,
+      "mapID": "blacksite",
+      "mapSupportSurfaces": 3,
+      "mapTerrainVertices": 198744,
+      "mapTextureReferences": 29,
+      "mapVersion": 1,
+      "missionPropInstances": 0,
+      "missionPropShadowCasters": 0,
+      "missionRingSegments": 0,
+      "nearShadowInstances": 1665,
+      "nearShadowResolution": 2048,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "playerCamouflagePattern": "none",
+      "renderTargetAccounting": "current render pass attachments",
+      "samples": 4,
+      "sceneryInstances": 3461,
+      "serialFrameAverageMs": 12.024863193558607,
+      "shotsWithoutSurfaceImpact": 0,
+      "skinnedSoldiers": 5,
+      "skyTextureWidth": 8192,
+      "soldierDrawCallsIncludingShadows": 10,
+      "soldierTextureWidth": 2048,
+      "soldierTriangles": 97250,
+      "solidDebrisCount": 0,
+      "spotlightPowers": [
+        1,
+        1
+      ],
+      "spotShadowInstances": [
+        16,
+        66
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "textureDimensions": {
+        "environment/sunrise.jpg": [
+          8192,
+          4096
+        ],
+        "Gameplay foliage fixed coverage": [
+          512,
+          1024
+        ],
+        "Soldier body-color": [
+          2048,
+          2048
+        ],
+        "Soldier body-normal": [
+          2048,
+          2048
+        ],
+        "Soldier head-color": [
+          2048,
+          2048
+        ],
+        "Soldier head-normal": [
+          2048,
+          2048
+        ],
+        "Soldier matte cloth roughness": [
+          1,
+          1
+        ],
+        "textures/asphalt/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/asphalt/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/asphalt/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/floor/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/floor/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/floor/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-bark/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-bark/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-bark/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-earth/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-earth/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-earth/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-ground/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-ground/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-ground/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-rock/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-rock/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-rock/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/pine/alpha.jpg": [
+          1024,
+          2048
+        ],
+        "textures/pine/color.jpg": [
+          1024,
+          2048
+        ],
+        "textures/pine/normal.jpg": [
+          512,
+          1024
+        ],
+        "textures/pine/roughness.jpg": [
+          512,
+          1024
+        ],
+        "textures/weapon-fabric/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/weapon-fabric/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-fabric/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/weapon-metal/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/roughness.jpg": [
+          1024,
+          1024
+        ]
+      },
+      "textureMemoryMB": {
+        "foliage": 138.53125,
+        "landscape": 544.609375,
+        "renderTargets": 142.875,
+        "shadows": 35.296875,
+        "sky": 172.015625,
+        "soldiers": 86.0626220703125,
+        "total": 1175.9844970703125,
+        "weapons": 56.59375
+      },
+      "textureQuality": "high",
+      "visibleInstances": 19871,
+      "warmupFrames": 10,
+      "width": 2560
+    },
+    "balanced": {
+      "activeFlashes": 0,
+      "activeSmoke": 0,
+      "activeSparks": 0,
+      "backend": "Metal",
+      "camouflageClothingInstances": 0,
+      "combatEffectDrawCalls": 0,
+      "combatParticleDrops": 0,
+      "combatParticleLimit": 128,
+      "combatParticles": 0,
+      "coverCacheEntries": 25,
+      "cpuAverageMs": 2.8652020836792267,
+      "cpuP95Ms": 3.5371249832678586,
+      "damagedCoverCount": 0,
+      "debrisCacheEntries": 0,
+      "decalMaterials": {},
+      "decorativeDebrisInstances": 0,
+      "device": "Apple M2 Pro",
+      "drawCalls": 76,
+      "droppedSoldiers": 0,
+      "farShadowInstances": 6556,
+      "footContactPatches": 2,
+      "forestTrees": 228,
+      "frames": 120,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationPlantBudget": 512,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationZones": 5,
+      "gpuAllocatedMB": 341.140625,
+      "gpuAverageMs": 8.644504861392003,
+      "gpuP95Ms": 11.869166657561436,
+      "height": 1600,
+      "impactDecalDrops": 0,
+      "impactDecalLimit": 40,
+      "impactDecals": 0,
+      "invalidSoldierPoses": 0,
+      "levelDetailInstanceBudget": 96,
+      "levelDetailInstances": 83,
+      "loadoutCamouflage": "none",
+      "loadoutFragmentationGrenades": 4,
+      "mapID": "blacksite",
+      "mapSupportSurfaces": 3,
+      "mapTerrainVertices": 198744,
+      "mapTextureReferences": 29,
+      "mapVersion": 1,
+      "missionPropInstances": 0,
+      "missionPropShadowCasters": 0,
+      "missionRingSegments": 0,
+      "nearShadowInstances": 1665,
+      "nearShadowResolution": 1024,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "playerCamouflagePattern": "none",
+      "renderTargetAccounting": "current render pass attachments",
+      "samples": 1,
+      "sceneryInstances": 3461,
+      "serialFrameAverageMs": 12.368363194157913,
+      "shotsWithoutSurfaceImpact": 0,
+      "skinnedSoldiers": 5,
+      "skyTextureWidth": 4096,
+      "soldierDrawCallsIncludingShadows": 10,
+      "soldierTextureWidth": 1024,
+      "soldierTriangles": 97250,
+      "solidDebrisCount": 0,
+      "spotlightPowers": [
+        1,
+        1
+      ],
+      "spotShadowInstances": [
+        16,
+        66
+      ],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [
+        6732,
+        6732
+      ],
+      "textureDimensions": {
+        "environment/sunrise.jpg": [
+          4096,
+          2048
+        ],
+        "Gameplay foliage fixed coverage": [
+          512,
+          1024
+        ],
+        "Soldier body-color": [
+          1024,
+          1024
+        ],
+        "Soldier body-normal": [
+          1024,
+          1024
+        ],
+        "Soldier head-color": [
+          1024,
+          1024
+        ],
+        "Soldier head-normal": [
+          1024,
+          1024
+        ],
+        "Soldier matte cloth roughness": [
+          1,
+          1
+        ],
+        "textures/asphalt/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/asphalt/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/asphalt/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/floor/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/floor/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/floor/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-bark/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-bark/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-bark/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-earth/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-earth/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-earth/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-ground/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-ground/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-ground/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-rock/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-rock/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-rock/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/pine/alpha.jpg": [
+          512,
+          1024
+        ],
+        "textures/pine/color.jpg": [
+          512,
+          1024
+        ],
+        "textures/pine/normal.jpg": [
+          256,
+          512
+        ],
+        "textures/pine/roughness.jpg": [
+          256,
+          512
+        ],
+        "textures/weapon-fabric/color.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-fabric/normal.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-fabric/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-metal/color.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/normal.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-metal/roughness.jpg": [
+          512,
+          512
+        ]
+      },
+      "textureMemoryMB": {
+        "foliage": 36.390625,
+        "landscape": 135.15625,
+        "renderTargets": 31.75,
+        "shadows": 23.203125,
+        "sky": 42.671875,
+        "soldiers": 21.3751220703125,
+        "total": 304.6094970703125,
+        "weapons": 14.0625
+      },
+      "textureQuality": "balanced",
+      "visibleInstances": 15576,
+      "warmupFrames": 10,
+      "width": 2560
+    }
+  },
+  "qualification": "Diagnostic wall/terrain scenes test real occlusion, not production art. CPU timing and GPU timing do not measure complete game FPS. Automated data route uses actual movement with combat isolated.",
+  "build": "optimized ARM64 app, ad-hoc signature and smoke test passed"
+}

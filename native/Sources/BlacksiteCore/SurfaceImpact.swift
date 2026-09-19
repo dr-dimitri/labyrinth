@@ -1,7 +1,7 @@
 import simd
 
 public enum SurfaceMaterial: String, CaseIterable, Sendable {
-    case soil, concrete, metal, wood, asphalt
+    case soil, concrete, metal, wood, asphalt, glass
 }
 
 /// Immutable snapshot of the winning surface hit, captured before its damage can
@@ -28,15 +28,14 @@ extension CombatSimulation {
             let material: SurfaceMaterial
             switch box.kind {
             case .bunker, .barrier: material = .concrete
-            case .container, .barrel: material = .metal
+            case .container, .barrel, .accessPanel: material = .metal
             case .crate: material = .wood
+            case .glass: material = .glass
             }
             return SurfaceImpact(position: position, normal: hit.normal, material: material, obstacleID: box.id)
         }
         guard hit.hitGround else { return nil }
-        // Matches the 12 × 91 metre asphalt strip in the authored battlefield.
-        // Its thin visual overlay does not change the terrain collision surface.
-        let material: SurfaceMaterial = abs(position.x) <= 6 && abs(position.z) <= 45.5 ? .asphalt : .soil
+        let material = map.groundMaterial(at: position)
         return SurfaceImpact(position: position, normal: hit.normal, material: material)
     }
 }

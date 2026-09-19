@@ -26,6 +26,8 @@ EXTRA_MANIFEST_PATHS = [
     NATIVE_DIR.parent / "docs" / "native-sky-sources.json",
     NATIVE_DIR.parent / "docs" / "native-foliage-sources.json",
     NATIVE_DIR.parent / "docs" / "native-weapon-material-sources.json",
+    NATIVE_DIR.parent / "docs" / "native-nebelwacht-sources.json",
+    NATIVE_DIR.parent / "docs" / "native-sundkai-sources.json",
 ]
 MATERIALS = {
     "forest-earth": "brown_mud_03",
@@ -234,6 +236,27 @@ def main():
                 raise ValueError("Weapon material manifest must pin all six color, normal and roughness JPEGs")
             if any(not record.get("sourceMD5") or not record.get("sha256") for record in manifest_records):
                 raise ValueError("Weapon materials require official source MD5 and pinned SHA-256 checksums")
+        if source_manifest.name == "native-nebelwacht-sources.json":
+            expected = {f"maps/nebelwacht/textures/{folder}/{channel}.jpg": [pixels, pixels]
+                        for folder in ("coastal-rock", "concrete")
+                        for channel, pixels in (("color", 4096), ("normal", 2048), ("roughness", 1024))}
+            expected["maps/nebelwacht/environment/sky.jpg"] = [8192, 4096]
+            if len(manifest_records) != 7 or {record["path"] for record in manifest_records} != set(expected):
+                raise ValueError("Nebelwacht manifest must pin its six PBR maps and photographic sky")
+            if any(record["resolution"] != expected[record["path"]]
+                   or not record.get("sourceMD5") or not record.get("sha256") for record in manifest_records):
+                raise ValueError("Nebelwacht assets require original dimensions, source MD5 and pinned SHA-256")
+        if source_manifest.name == "native-sundkai-sources.json":
+            expected = {f"maps/sundkai/textures/mud/{channel}.jpg": [pixels, pixels]
+                        for channel, pixels in (("color", 4096), ("normal", 2048), ("roughness", 1024))}
+            expected.update({f"maps/sundkai/foliage/broadleaf/{channel}.jpg": [pixels, pixels]
+                             for channel, pixels in (("color", 4096), ("normal", 2048), ("roughness", 1024))})
+            expected["maps/sundkai/foliage/broadleaf/alpha.jpg"] = [2048, 2048]
+            if len(manifest_records) != 7 or {record["path"] for record in manifest_records} != set(expected):
+                raise ValueError("Sundkai manifest must pin its three mud maps and four broadleaf atlas maps")
+            if any(record["resolution"] != expected[record["path"]]
+                   or not record.get("sourceMD5") or not record.get("sha256") for record in manifest_records):
+                raise ValueError("Sundkai assets require original dimensions, source MD5 and pinned SHA-256")
         pinned_extras.extend(manifest_records)
     if args.verify:
         for record in records + pinned_extras:
@@ -247,7 +270,7 @@ def main():
         if args.refresh:
             write_manifest(manifest)
     size = sum(record["bytes"] for record in records + pinned_extras)
-    print(f"Verified {len(records)} landscape material maps and {len(pinned_extras)} sky/foliage/weapon images, "
+    print(f"Verified {len(records)} landscape material maps and {len(pinned_extras)} sky/foliage/weapon/map images, "
           f"{size / 1_000_000:.2f} MB, all dimensions and hashes match.")
 
 

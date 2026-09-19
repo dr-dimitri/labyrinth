@@ -1,15 +1,15 @@
 import simd
 
 public enum MissionKind: String, CaseIterable, Hashable, Sendable {
-    case waves, recoverData, secureRadio
+    case waves, recoverData, secureRadio, operation
 }
 
 public enum MissionPhase: String, Sendable {
-    case waves, collectData, extract, activateRadio, holdRadio, completed
+    case waves, prepareOperation, activateRelays, collectData, extract, activateRadio, holdRadio, completed
 }
 
 public enum MissionInterruption: String, Sendable {
-    case outOfRange, notGrounded, interactionReleased, contested
+    case outOfRange, notGrounded, interactionReleased, contested, blocked, prerequisites, releaseRequired
 }
 
 /// Read-only objective rules for native UI, accessibility and world markers.
@@ -25,13 +25,19 @@ public struct MissionStatus: Sendable {
     public let requiredProgress: Float
     public let interruption: MissionInterruption?
     public let interactionAvailable: Bool
+    public let extractionID: String?
+    public let objectiveID: String?, objectiveTitle: String?
+    public let completedObjectives: Int, requiredObjectives: Int
 
     public init(kind: MissionKind, phase: MissionPhase, objectivePosition: SIMD3<Float>?,
                 objectiveRadius: Float, distance: Float?, progress: Float, requiredProgress: Float,
-                interruption: MissionInterruption?, interactionAvailable: Bool) {
+                interruption: MissionInterruption?, interactionAvailable: Bool, extractionID: String? = nil, objectiveID: String? = nil, objectiveTitle: String? = nil,
+                completedObjectives: Int = 0, requiredObjectives: Int = 0) {
         self.kind = kind; self.phase = phase; self.objectivePosition = objectivePosition
         self.objectiveRadius = objectiveRadius; self.distance = distance
         self.progress = progress; self.requiredProgress = requiredProgress
-        self.interruption = interruption; self.interactionAvailable = interactionAvailable
+        self.interruption = interruption; self.interactionAvailable = interactionAvailable; self.extractionID = extractionID
+        self.objectiveID = objectiveID; self.objectiveTitle = objectiveTitle
+        self.completedObjectives = completedObjectives; self.requiredObjectives = requiredObjectives
     }
 }

@@ -18,24 +18,45 @@ public struct TerrainIntersection: Sendable, Equatable {
 public enum TerrainProfile: Sendable, Equatable {
     case flat
     case battlefield
+    case heightField(TerrainHeightField)
+
+    /// Conservative world-height bounds shared by ray and render traversal.
+    public var minimumHeight: Float {
+        switch self { case .flat: return 0; case .battlefield: return -3; case .heightField(let field): return field.minimumHeight }
+    }
+    public var maximumHeight: Float {
+        switch self { case .flat: return 0; case .battlefield: return 12; case .heightField(let field): return field.maximumHeight }
+    }
+
+    private func plane(x: Int, z: Int, upper: Bool) -> TerrainPlane {
+        switch self {
+        case .flat: return TerrainPlane(originHeight: 0, dx: 0, dz: 0)
+        case .battlefield: return BattlefieldGrid.plane(x: x, z: z, upper: upper)
+        case .heightField(let field):
+            let a = field.vertex(x, z), b = field.vertex(x + 1, z), c = field.vertex(x, z + 1)
+            if !upper { return TerrainPlane(originHeight: a, dx: b - a, dz: c - a) }
+            let d = field.vertex(x + 1, z + 1)
+            return TerrainPlane(originHeight: b + c - d, dx: d - c, dz: d - b)
+        }
+    }
 
     public static let gridSpacing: Float = 1
 
     public func height(x: Float, z: Float) -> Float {
-        guard self == .battlefield, x.isFinite, z.isFinite,
+        guard x.isFinite, z.isFinite,
               abs(x) < 1_000_000, abs(z) < 1_000_000 else { return 0 }
         let ix = Int(floor(x)), iz = Int(floor(z))
         let u = x - Float(ix), v = z - Float(iz)
-        let plane = BattlefieldGrid.plane(x: ix, z: iz, upper: u + v > 1)
+        let plane = plane(x: ix, z: iz, upper: u + v > 1)
         return plane.originHeight + plane.dx * u + plane.dz * v
     }
 
     /// Normal of the same surface triangle used by height and ray queries.
     public func normal(x: Float, z: Float) -> SIMD3<Float> {
-        guard self == .battlefield, x.isFinite, z.isFinite,
+        guard x.isFinite, z.isFinite,
               abs(x) < 1_000_000, abs(z) < 1_000_000 else { return SIMD3(0, 1, 0) }
         let ix = Int(floor(x)), iz = Int(floor(z))
-        let plane = BattlefieldGrid.plane(x: ix, z: iz, upper: x - Float(ix) + z - Float(iz) > 1)
+        let plane = plane(x: ix, z: iz, upper: x - Float(ix) + z - Float(iz) > 1)
         return simd_normalize(SIMD3(-plane.dx, 1, -plane.dz))
     }
 
@@ -61,10 +82,10 @@ public enum TerrainProfile: Sendable, Equatable {
             let distance = (padding - origin.y) / ray.y
             return distance <= maximumDistance ? TerrainIntersection(distance: distance, normal: SIMD3(0, 1, 0)) : nil
         }
-        // All authored heights are below 12m. Skip empty air for long vertical
-        // rays instead of traversing cells that cannot possibly contain a hit.
-        if ray.y >= 0 && origin.y > 12 + padding { return nil }
-        var entry: Float = ray.y < 0 ? max(0, (12 + padding - origin.y) / ray.y) : 0
+        // Skip only air above this selected profile, including elevated maps.
+        let ceiling = maximumHeight + padding
+        if ray.y >= 0 && origin.y > ceiling { return nil }
+        var entry: Float = ray.y < 0 ? max(0, (ceiling - origin.y) / ray.y) : 0
         guard entry <= maximumDistance else { return nil }
         let start = origin + ray * entry
         guard start.x.isFinite, start.z.isFinite,
@@ -81,7 +102,7 @@ public enum TerrainProfile: Sendable, Equatable {
             let exit = min(maximumDistance, boundaryX, boundaryZ)
             var first: TerrainIntersection?
             for upper in [false, true] {
-                let plane = BattlefieldGrid.plane(x: ix, z: iz, upper: upper)
+                let plane = plane(x: ix, z: iz, upper: upper)
                 let slope = ray.y - plane.dx * ray.x - plane.dz * ray.z
                 guard slope < -0.000_000_1 else { continue }
                 let above = origin.y - padding - plane.originHeight -
@@ -136,6 +157,8 @@ private enum BattlefieldGrid {
             (-12, -35, 7, 0.8), (12, -35, 7, 0.8),
             (10, -1, 0.8, 0.8), (-11, 11, 0.8, 0.8),
             (18, 17, 0.8, 0.8), (-12, -22, 0.8, 0.8),
+            (27, 2, 1.6, 1.2), // Grounded generator: shared visible/physical foundation.
+            (-15.8, 1.5, 1.2, 2.2), (20, -18, 1.2, 2.2), // Optional breach thresholds.
         ]
         // Nearby foundations share an elevation; otherwise a barrel next to a
         // container could create a steep step between their independently

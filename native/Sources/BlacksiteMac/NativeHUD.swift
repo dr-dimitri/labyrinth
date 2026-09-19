@@ -76,10 +76,12 @@ final class GameHUDView: NSView {
     private var startButton: NativeButton!
     private var settingsButton: NativeButton!
     private var helpButton: NativeButton!
+    private var loadoutButton: NativeButton!
     private var resumeButton: NativeButton!
     private var leaveButton: NativeButton!
     private var retryButton: NativeButton!
     private var pauseButton: NativeButton!
+    private let reportView = NativeRunReportView(frame: .zero)
     private var missionButtons: [(MissionKind, NativeButton)] = []
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
@@ -90,11 +92,14 @@ final class GameHUDView: NSView {
         startButton = NativeButton("EINSATZ STARTEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
         settingsButton = NativeButton("EINSTELLUNGEN") { [weak self] in self?.coordinator?.showSettings() }
         helpButton = NativeButton("STEUERUNG / ARSENAL") { [weak self] in self?.coordinator?.showHelp() }
+        loadoutButton = NativeButton("EINSATZBRIEFING") { [weak self] in self?.coordinator?.showLoadout() }
+        loadoutButton.setAccessibilityHelp("Karte, Auftrag, Schwierigkeit, Tarnmuster und Startvorrat wählen")
         resumeButton = NativeButton("FORTSETZEN", primary: true) { [weak self] in self?.coordinator?.resume() }
         leaveButton = NativeButton("ZURÜCK ZUM HAUPTMENÜ") { [weak self] in self?.coordinator?.returnToMenu() }
-        retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
+        retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.retryMatch() }
         pauseButton = NativeButton("Ⅱ  ESC") { [weak self] in self?.coordinator?.pause() }
-        for button in [startButton, settingsButton, helpButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
+        for button in [startButton, settingsButton, helpButton, loadoutButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
+        addSubview(reportView); reportView.isHidden = true
         for mission in MissionKind.allCases {
             let button = NativeButton(NativeMissionPresentation.name(mission)) { [weak self] in self?.coordinator?.selectMission(mission) }
             button.selectionStyle = true; button.setButtonType(.radio)
@@ -110,10 +115,15 @@ final class GameHUDView: NSView {
         needsLayout = true; needsDisplay = true
         if let c = coordinator {
             let s = c.simulation
+            if c.mode == .result, let report = c.runReport {
+                reportView.update(report)
+                setAccessibilityValue(report.accessibilityText)
+                return
+            }
             let hints = NativeHUDControlHints(settings:c.settings)
-            updateMissionSelection(c.settings.selectedMission,interactionLabel:hints.interactionLabel)
+            updateMissionSelection(c.settings.selectedMission,interactionLabel:hints.interactionLabel, map: c.selectedMap)
             if c.mode == .menu {
-                setAccessibilityValue("Hauptmenü. Auftrag: \(NativeMissionPresentation.name(c.settings.selectedMission)). \(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:hints.interactionLabel)). \(hints.modeLines.joined(separator:". "))")
+                setAccessibilityValue("Hauptmenü. Karte: \(c.selectedMap.displayName). Auftrag: \(NativeMissionPresentation.name(c.settings.selectedMission)). \(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:hints.interactionLabel, map: c.selectedMap)). \(NativeCamouflagePresentation.name(c.settings.selectedCamouflage)), \(LoadoutDefinition(operatorClass: c.settings.selectedClass, camouflage: c.settings.selectedCamouflage).fragmentationGrenades) Splittergranaten. \(hints.modeLines.joined(separator:". "))")
                 return
             }
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
@@ -123,29 +133,40 @@ final class GameHUDView: NSView {
             let grenades = CombatFeedback.nearbyGrenades(s).map {
                 "Granate \(ThreatBearing(source: $0.position, listener: s.eyePosition, yaw: s.player.yaw).label), \(String(format: "%.1f", $0.fuse)) Sekunden"
             }
-            let presentation = NativeMissionPresentation(s.missionStatus,interactionLabel:hints.interactionLabel)
+            let presentation = NativeMissionPresentation(s.missionStatus,interactionLabel:hints.interactionLabel, operation: s.operationStatus, map: s.map)
             let objective: String
             if c.mode == .result { objective = s.state == .won ? presentation.title : "Auftrag nicht abgeschlossen" }
             else if c.mode == .paused { objective = [presentation.title, presentation.progressText].filter { !$0.isEmpty }.joined(separator: ". ") }
             else { objective = presentation.accessibilityText }
             let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
-            let controls = c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : ""
-            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
+            let contextDevice = s.deviceContextAvailable ? s.deviceInteractionStatus : nil
+            let controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus) +
+                (contextDevice.map { ". " + NativeDevicePresentation($0, interactionLabel: hints.interactionLabel,
+                    suppliesRadio: s.map.environment.alarm?.radioDeviceID == $0.id).accessibilityText } ?? "") +
+                ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
+                ". " + NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).accessibilityText +
+                ". " + NativeClassPresentation.accessibilityText(s, bindings: c.settings.bindings) +
+                (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
+                (c.weatherPresentation.line(simulation: s).map { ". " + $0 } ?? "") +
+                (c.alarmPresentation.accessibilityText.isEmpty ? "" : ". " + c.alarmPresentation.accessibilityText) +
+                (s.operationStatus.map { ". " + NativeOperationPresentation($0).accessibilityText } ?? "") +
+                (c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : "")
+            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten, \(s.noiseDecoyCount) Geräuschköder. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
         }
     }
 
-    func updateMissionSelection(_ selected: MissionKind, interactionLabel: String = "E") {
+    func updateMissionSelection(_ selected: MissionKind, interactionLabel: String = "E", map: MapDefinition = .blacksite) {
         for (mission, button) in missionButtons {
             let state: NSControl.StateValue = mission == selected ? .on : .off
             if button.state != state { button.state = state; button.needsDisplay = true }
-            let help=NativeMissionPresentation.rules(mission,interactionLabel:interactionLabel)
+            let help=NativeMissionPresentation.rules(mission,interactionLabel:interactionLabel, map: map)
             if button.accessibilityHelp() != help { button.setAccessibilityHelp(help) }
         }
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
-        for button in subviews where !button.isHidden {
+        for button in subviews where button is NativeButton && !button.isHidden {
             if button.frame.contains(local) { return button }
         }
         return nil
@@ -161,6 +182,12 @@ final class GameHUDView: NSView {
     // does not exercise this path. Keep each control stable between mode changes.
     func layoutButtons(mode: NativeRenderMode, ready: Bool) {
         let w = bounds.width, h = bounds.height, x = w * 0.07
+        reportView.isHidden = mode != .result || !ready
+        reportView.frame = NSRect(x: w / 2 - 360, y: h / 2 - 248, width: 720, height: 352)
+        let leaveTitle = mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
+        if leaveButton.title != leaveTitle {
+            leaveButton.title = leaveTitle; leaveButton.setAccessibilityLabel(leaveTitle)
+        }
         func update(_ button: NativeButton, visible: Bool, frame: NSRect? = nil) {
             let hidden = !ready || !visible
             if button.isHidden != hidden { button.isHidden = hidden }
@@ -170,8 +197,10 @@ final class GameHUDView: NSView {
                frame: NSRect(x: x, y: h * 0.70, width: 325, height: 54))
         update(helpButton, visible: mode == .menu,
                frame: NSRect(x: x, y: h * 0.70 + 68, width: 325, height: 40))
+        update(loadoutButton, visible: mode == .menu,
+               frame: NSRect(x: x + 340, y: h * 0.70, width: 224, height: 54))
         for (index, choice) in missionButtons.enumerated() {
-            update(choice.1, visible: mode == .menu,
+            update(choice.1, visible: mode == .menu && (coordinator?.selectedMap.supportsMission(choice.0) ?? true),
                    frame: NSRect(x: x + CGFloat(index) * 145, y: h * 0.55, width: 137, height: 32))
         }
         update(pauseButton, visible: mode == .playing,
@@ -179,13 +208,13 @@ final class GameHUDView: NSView {
         update(resumeButton, visible: mode == .paused,
                frame: NSRect(x: w / 2 - 175, y: h / 2 + 38, width: 350, height: 52))
         update(retryButton, visible: mode == .result,
-               frame: NSRect(x: w / 2 - 175, y: h / 2 + 94, width: 350, height: 52))
+               frame: NSRect(x: w / 2 - 175, y: h / 2 + 117, width: 350, height: 52))
         update(settingsButton, visible: mode == .menu || mode == .paused,
                frame: mode == .paused
                    ? NSRect(x: w / 2 - 175, y: h / 2 + 104, width: 350, height: 43)
                    : NSRect(x: w - 235, y: 42, width: 190, height: 36))
         update(leaveButton, visible: mode == .paused || mode == .result,
-               frame: NSRect(x: w / 2 - 175, y: h / 2 + 161, width: 350, height: 43))
+               frame: NSRect(x: w / 2 - 175, y: h / 2 + (mode == .result ? 180 : 161), width: 350, height: 43))
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -216,13 +245,14 @@ final class GameHUDView: NSView {
         text("SITE", x: x - 4, y: heroY + 20 + titleSize * 0.84, size: titleSize, font: font)
         fill(NSRect(x: x + titleSize * 1.75, y: heroY + titleSize * 1.69, width: titleSize * 0.13, height: titleSize * 0.13), accent)
         text("Dein Auftrag. Deine Vorgehensweise.", x: x, y: h * 0.505, size: 16, width: 425)
-        text(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:NativeControlLabels.label(for:.interact,bindings:c.settings.bindings)), x: x, y: h * 0.62, size: 11, color: muted, width: 445)
+        text(NativeMissionPresentation.rules(c.settings.selectedMission,interactionLabel:NativeControlLabels.label(for:.interact,bindings:c.settings.bindings), map: c.selectedMap), x: x, y: h * 0.62, size: 11, color: muted, width: 445)
+        text("\(NativeCamouflagePresentation.name(c.settings.selectedCamouflage)) · \(LoadoutDefinition(operatorClass: c.settings.selectedClass, camouflage: c.settings.selectedCamouflage).fragmentationGrenades) Granaten", x: x + 340, y: h * 0.70 + 65, size: 9, color: muted, width: 240)
         if w >= 1050 {
             let rect = NSRect(x: w - 336, y: h - 315, width: 276, height: 208)
             fill(rect, NSColor(hex: 0x101f18, alpha: 0.83)); stroke(rect, NSColor(hex: 0xc5d0b4, alpha: 0.25))
             text("●  EINSATZGEBIET", x: rect.minX + 22, y: rect.minY + 22, size: 9, color: accent, tracking: 1.6, mono: true)
-            text("Der Außenposten", x: rect.minX + 22, y: rect.minY + 49, size: 23, weight: .semibold)
-            text("SEKTOR 07  ·  06:42 LOKALZEIT", x: rect.minX + 22, y: rect.minY + 82, size: 9, color: muted, mono: true)
+            text(c.selectedMap.displayName, x: rect.minX + 22, y: rect.minY + 49, size: 23, weight: .semibold, width: 232)
+            text("OFFLINE · SOLO-EINSATZ", x: rect.minX + 22, y: rect.minY + 82, size: 9, color: muted, mono: true)
             line(x1: rect.minX + 22, y1: rect.minY + 112, x2: rect.maxX - 22, y2: rect.minY + 112, color: muted.withAlphaComponent(0.3))
             text("FEINDKONTAKT", x: rect.minX + 22, y: rect.minY + 135, size: 9, color: muted, mono: true)
             text("Bestätigt", x: rect.minX + 178, y: rect.minY + 135, size: 11, color: accent)
@@ -243,27 +273,25 @@ final class GameHUDView: NSView {
             searching = searching || enemy.awareness == .searching
         }
         if detection > 0 { return "VERDACHT · \(Int(detection * 100)) %" }
-        if investigating { return "FEINDE PRÜFEN EIN GERÄUSCH" }
+        if investigating { return "FEINDE UNTERSUCHEN EINEN HINWEIS" }
         if searching { return "KEIN SICHTKONTAKT · FEINDE SUCHEN" }
-        return simulation.isHidden ? "VERSTECKT · WACHEN PATROUILLIEREN" : "SEKTOR BEOBACHTEN"
+        return simulation.isHidden ? "KEIN SICHTKONTAKT BESTÄTIGT" : "SEKTOR BEOBACHTEN"
     }
 
     private func drawHUD(_ c: GameCoordinator) {
         let s = c.simulation, p = s.player, w = bounds.width, h = bounds.height, now = CACurrentMediaTime()
         let hints=NativeHUDControlHints(settings:c.settings)
-        let objective = NativeMissionPresentation(s.missionStatus,interactionLabel:hints.interactionLabel)
+        let objective = NativeMissionPresentation(s.missionStatus,interactionLabel:hints.interactionLabel, operation: s.operationStatus, map: s.map)
         let scoped = c.isAimPresented && s.activeWeapon == .sniper && c.mode == .playing
         if scoped { drawScope() }
         NSGradient(starting: NSColor.black.withAlphaComponent(0.65), ending: .clear)?.draw(in: NSRect(x: 0, y: 0, width: w, height: 160), angle: 90)
         let shadow: [NSColor] = [NSColor.black.withAlphaComponent(0), NSColor.black.withAlphaComponent(0.58)]
         NSGradient(colors: shadow)?.draw(in: NSRect(x: 0, y: h - 195, width: w, height: 195), angle: 90)
-        text("OPERATION BLACKSITE · " + NativeMissionPresentation.name(s.missionKind), x: 32, y: 42, size: 9, color: accent, tracking: 1, width: 380, mono: true)
+        text(s.map.displayName.uppercased() + " · " + NativeMissionPresentation.name(s.missionKind), x: 32, y: 42, size: 9, color: accent, tracking: 1, width: 380, mono: true)
         text(objective.title, x: 32, y: 64, size: 14, weight: .medium, width: 370)
         let detail: String
         if s.missionStatus.phase != .waves {
             detail = objective.detail
-        } else if s.pendingReinforcements > 0 {
-            detail = "\(s.pendingReinforcements) Verstärkungen im Anmarsch"
         } else { detail = s.intermission > 0 ? "Verstärkung in \(Int(ceil(s.intermission))) s" : "\(s.kills) Abschüsse  ·  \(timeString(s.elapsed))" }
         text("●  " + detail, x: 32, y: 90, size: 10, color: muted, width: 410, mono: true)
         if objective.showsProgress {
@@ -274,7 +302,21 @@ final class GameHUDView: NSView {
         }
         text(s.missionKind == .waves ? "ANGRIFFSWELLE" : "AUFTRAG", x: w - 210, y: 42, size: 8, color: muted, tracking: 2, width: 175, alignment: .right, mono: true)
         text(s.missionKind == .waves ? String(format: "%02d", max(1, s.wave)) + " / 03" : NativeMissionPresentation.name(s.missionKind), x: w - 245, y: 61, size: s.missionKind == .waves ? 30 : 18, width: 210, alignment: .right, mono: true)
-        text("\(s.remainingEnemies) FEINDE  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
+        text("\(s.kills) BESTÄTIGT  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
+        if let status = s.operationStatus, now >= c.bannerUntil {
+            let operation = NativeOperationPresentation(status)
+            let extracting = s.missionStatus.phase == .extract
+            let required = !operation.objectiveLines.isEmpty
+            let lines = extracting ? operation.extractionLines : required ? operation.objectiveLines : operation.preparationLines
+            text(extracting ? "BEKANNTE AUSGÄNGE" : required ? operation.objectiveHeading : "OPTIONALE VORBEREITUNG",
+                 x: w - 386, y: 190, size: 8, color: accent, tracking: 1, width: 354, alignment: .right, mono: true)
+            for (index, value) in lines.prefix(2).enumerated() {
+                text(value, x: w - 386, y: 211 + CGFloat(index) * 34, size: 10, color: muted, width: 354, alignment: .right)
+            }
+        }
+        if let warning = c.weatherPresentation.line(simulation: s) {
+            text(warning, x: w - 386, y: 282, size: 10, color: accent, width: 354, alignment: .right, mono: true)
+        }
         if !scoped {
             let heading = Int(((-p.yaw * 180 / .pi).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360))
             let names = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"], index = (Int(Float(heading) / 45 + 0.5)) % 8
@@ -294,6 +336,11 @@ final class GameHUDView: NSView {
             text(c.bannerDetail, x: w / 2 - 280, y: h * 0.215 + 66, size: 11, color: muted, width: 560, alignment: .center)
         }
         let hx: CGFloat = 32, hy = h - 151, barWidth: CGFloat = 206
+        if c.settings.soundCaptions {
+            for (index, caption) in c.noisePresentation.lines.prefix(3).enumerated() {
+                text(caption, x: hx, y: hy - 78 + CGFloat(index) * 18, size: 9, color: muted, width: 310, mono: true)
+            }
+        }
         text("✚  VIPER 01", x: hx, y: hy, size: 12, weight: .medium, tracking: 1)
         let stance = s.climbProgress != nil ? "KLETTERT" : p.prone ? "LIEGEND" : !p.grounded ? "IN DER LUFT" : s.isSprinting ? "SPRINT" : "STEHEND"
         text(stance, x: hx + 95, y: hy + 3, size: 8, color: muted, width: 110, alignment: .right, mono: true)
@@ -304,6 +351,7 @@ final class GameHUDView: NSView {
         fill(NSRect(x: hx, y: hy + 74, width: barWidth, height: 2), muted.withAlphaComponent(0.15))
         fill(NSRect(x: hx, y: hy + 74, width: barWidth * CGFloat(p.stamina / 100), height: 2), muted)
         text("●  " + awarenessText(s), x: hx, y: hy + 87, size: 8, color: s.isHidden ? NSColor(hex: 0xa5e4b5) : muted, mono: true)
+        text(NativeCamouflagePresentation.localStatus(s.concealmentStatus), x: hx, y: hy + 104, size: 8, color: muted, width: 310, mono: true)
         let weapon = s.weapons[s.activeWeapon]!, ax = w - 273, aw: CGFloat = 240
         text(s.activeWeapon == .sniper ? "SCHARFSCHÜTZENGEWEHR" : "STURMGEWEHR", x: ax, y: hy - 10, size: 8, color: muted, tracking: 1.5, width: aw, alignment: .right, mono: true)
         text(s.activeWeapon.displayName, x: ax, y: hy + 7, size: 13, weight: .semibold, tracking: 1.6, width: aw, alignment: .right)
@@ -311,6 +359,9 @@ final class GameHUDView: NSView {
         text("/ \(weapon.reserve)", x: ax + 160, y: hy + 60, size: 18, color: muted, width: 80, alignment: .right, mono: true)
         line(x1: ax, y1: hy + 91, x2: ax + aw, y2: hy + 91, color: muted.withAlphaComponent(0.4))
         text("\(hints.reloadLabel) NACHLADEN    ◈ \(s.grenadeCount)", x: ax, y: hy + 105, size: 9, width: aw, alignment: .right, mono: true)
+        text(NativeClassPresentation.stockText(s, bindings: c.settings.bindings), x: w / 2 - 130, y: hy + 71, size: 9, color: muted, width: 260, alignment: .center, mono: true)
+        text("\(NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings)) KÖDER · \(s.noiseDecoyCount)", x: w / 2 - 130, y: hy + 88, size: 9, color: muted, width: 260, alignment: .center, mono: true)
+        text(NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).stockText, x: w / 2 - 130, y: hy + 105, size: 9, color: muted, width: 260, alignment: .center, mono: true)
         if weapon.reloadRemaining > 0 {
             text("NACHLADEN", x: ax, y: hy - 40, size: 9, color: accent, width: aw, alignment: .right, mono: true)
             fill(NSRect(x: ax, y: hy - 23, width: aw * CGFloat(1 - weapon.reloadRemaining / s.activeWeapon.reloadDuration), height: 2), accent)
@@ -318,6 +369,13 @@ final class GameHUDView: NSView {
         if let action = objective.interactionTitle, s.climbProgress == nil && !scoped {
             panelText(action, detail: objective.interactionDetail, y: h * 0.65)
             fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(objective.fraction), height: 2), accent)
+        } else if s.deviceContextAvailable, let status = s.deviceInteractionStatus, s.climbProgress == nil && !scoped {
+            let device = NativeDevicePresentation(status, interactionLabel: hints.interactionLabel,
+                suppliesRadio: s.map.environment.alarm?.radioDeviceID == status.id)
+            panelText(device.title, detail: device.detail, y: h * 0.65)
+            if device.showsProgress {
+                fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(device.fraction), height: 2), accent)
+            }
         } else if s.mantleAvailable && s.climbProgress == nil && !scoped {
             panelText(hints.mantleTitle, detail: hints.mantleDetail, y: h * 0.65)
         } else if let progress = s.climbProgress {
@@ -423,6 +481,7 @@ final class GameHUDView: NSView {
 
     private func drawOverlay(_ c: GameCoordinator) {
         fill(bounds, NSColor(hex: 0x0b1912, alpha: 0.88))
+        if c.mode == .result { return }
         let x = bounds.midX - 175, y = bounds.midY - 190, won = c.simulation.state == .won
         text(c.mode == .paused ? "VERBINDUNG GEHALTEN" : won ? (c.simulation.missionKind == .secureRadio ? "FUNKSTATION GESICHERT" : "EXTRAKTION ERFOLGREICH") : "SIGNAL VERLOREN", x: x, y: y, size: 10, color: accent, tracking: 2, mono: true)
         text(c.mode == .paused ? "EINSATZ\nPAUSIERT." : won ? "MISSION\nERFÜLLT." : "EINSATZ\nGESCHEITERT.", x: x, y: y + 31, size: 44, weight: .heavy, width: 440)
@@ -434,13 +493,16 @@ final class GameHUDView: NSView {
         } else {
             let s = c.simulation
             text("\(s.kills) ABSCHÜSSE     \(s.score) XP     \(timeString(s.elapsed))", x: x, y: y + 164, size: 12, mono: true)
-            let result = won ? s.missionKind == .secureRadio ? "Funkverbindung steht. Bereich unter Kontrolle." : s.missionKind == .recoverData ? "Daten geborgen. Evakuierung abgeschlossen." : "Außenposten gesichert. Willkommen zurück." : "Nutze Deckung, Containerdächer und Granaten."
+            let result = won ? s.missionKind == .secureRadio ? "Funkverbindung steht. Bereich unter Kontrolle." : (s.missionKind == .recoverData || s.missionKind == .operation) ? "Daten geborgen. Evakuierung abgeschlossen." : "Außenposten gesichert. Willkommen zurück." : "Nutze Deckung, Containerdächer und Granaten."
             text(result, x: x, y: y + 207, size: 12, color: muted, width: 400)
         }
     }
 
     private func panelText(_ title: String, detail: String, y: CGFloat) {
-        let width: CGFloat = min(520, max(270, CGFloat(title.count) * 7 + 44)), x = bounds.midX - width / 2
+        let titleWidth = (title as NSString).size(withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)]).width
+        let detailWidth = (detail as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 9)]).width
+        let width = min(min(620, bounds.width - 64), max(270, max(titleWidth, detailWidth) + 32))
+        let x = bounds.midX - width / 2
         fill(NSRect(x: x, y: y, width: width, height: detail.isEmpty ? 35 : 48), NSColor(hex: 0x10231a, alpha: 0.92))
         text(title, x: x + 10, y: y + 10, size: 10, width: width - 20, alignment: .center, mono: true)
         if !detail.isEmpty { text(detail, x: x + 10, y: y + 28, size: 9, color: muted, width: width - 20, alignment: .center) }

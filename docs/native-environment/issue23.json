@@ -1,0 +1,206 @@
+{
+  "issue": 23,
+  "tests": {
+    "macReported": 130,
+    "macFullRun": "passed with offline system audio enabled; optional Metal texture upload skipped",
+    "existingCoreTests": 146,
+    "existingCoreResult": "passed in full package run",
+    "newAlarmTests": 9,
+    "finalAlarmRun": "passed after three fixture corrections; no production relaxation"
+  },
+  "review": {
+    "independentCoreGraphicsAudioUI": "passed",
+    "fixes": [
+      "HUD no longer reveals unannounced enemy populations",
+      "radio power-loss caption and cue identify interruption",
+      "radio attachment restricted to stationary generator",
+      "guard posts persist through repeated remote reports"
+    ],
+    "fixtureCorrections": [
+      "use actual nearest-guard assignment order",
+      "valid map definition plus damaged scenario copy",
+      "keep later-report test sender out of unrelated cover retreat"
+    ]
+  },
+  "scenes": {
+    "alarm-started": {
+      "alarmEscalated": false,
+      "alarmHeardByPlayer": false,
+      "alarmPropInstances": 7,
+      "alarmReinforcementsCommitted": 0,
+      "alarmReporterVisuals": 1,
+      "assignedGuardIDs": [],
+      "contactPosition": [
+        0,
+        0,
+        6
+      ],
+      "contactTime": 0.7666666666666664,
+      "effectAgeAfterShot": 0,
+      "localReportTransmitted": 0,
+      "pendingProgress": 0.2013888955116272,
+      "pendingReports": 1,
+      "receiverID": 9861,
+      "receiverRecognition": 0,
+      "receiverReportID": -1,
+      "receiverSeesPlayer": false,
+      "reporterHealth": 100,
+      "reporterID": 9860,
+      "reporterPosition": [
+        0,
+        0,
+        -6
+      ],
+      "reportID": 1,
+      "reportInterrupted": 0,
+      "reportStarted": 1,
+      "reportTransmitted": 0,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    },
+    "alarm-transmitted": {
+      "alarmEscalated": true,
+      "alarmHeardByPlayer": true,
+      "alarmPropInstances": 13,
+      "alarmReinforcementsCommitted": 2,
+      "alarmReporterVisuals": 0,
+      "assignedGuardIDs": [
+        9861
+      ],
+      "contactPosition": [
+        0,
+        0,
+        6
+      ],
+      "contactTime": 0.7666666666666664,
+      "effectAgeAfterShot": 0,
+      "localReportTransmitted": 1,
+      "pendingProgress": 0,
+      "pendingReports": 0,
+      "receiverID": 9861,
+      "receiverRecognition": 0,
+      "receiverReportID": 1,
+      "receiverSeesPlayer": false,
+      "reportChannel": "radio",
+      "reporterHealth": 100,
+      "reporterID": 9860,
+      "reporterPosition": [
+        -0.2893333435058594,
+        0,
+        -6
+      ],
+      "reportExpiresAt": 20.766666666666666,
+      "reportID": 1,
+      "reportInterrupted": 0,
+      "reportStarted": 1,
+      "reportTransmitted": 1,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    },
+    "alarm-interrupted": {
+      "alarmEscalated": false,
+      "alarmHeardByPlayer": false,
+      "alarmPropInstances": 4,
+      "alarmReinforcementsCommitted": 0,
+      "alarmReporterVisuals": 0,
+      "assignedGuardIDs": [],
+      "contactPosition": [
+        0,
+        0,
+        6
+      ],
+      "contactTime": 0.7666666666666664,
+      "effectAgeAfterShot": 0.35,
+      "localReportTransmitted": 0,
+      "pendingProgress": 0,
+      "pendingReports": 0,
+      "receiverID": 9861,
+      "receiverRecognition": 0,
+      "receiverReportID": -1,
+      "receiverSeesPlayer": false,
+      "reporterHealth": 0,
+      "reporterID": 9860,
+      "reporterPosition": [
+        0,
+        0,
+        -6
+      ],
+      "reportID": 1,
+      "reportInterrupted": 1,
+      "reportStarted": 1,
+      "reportTransmitted": 0,
+      "metalValidation": "passed",
+      "independentImageReview": "passed"
+    }
+  },
+  "coreBenchmark": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 12,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 14.522638888888883,
+    "medianCPUSeconds": 0.10456299999999996,
+    "medianWallSeconds": 0.10482254167436622,
+    "obstacleCount": 25,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 6958.443136572838,
+        "cpuSeconds": 0.108989,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10959033333347179
+      },
+      {
+        "checksum": 6958.443136572838,
+        "cpuSeconds": 0.10519199999999998,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10553033332689665
+      },
+      {
+        "checksum": 6958.443136572838,
+        "cpuSeconds": 0.10425200000000004,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10459375000209548
+      },
+      {
+        "checksum": 6958.443136572838,
+        "cpuSeconds": 0.10456299999999996,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10482254167436622
+      },
+      {
+        "checksum": 6958.443136572838,
+        "cpuSeconds": 0.10440299999999997,
+        "maximumLivingEnemies": 14,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.10470108332810923
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, initially 12 alerted AI soldiers plus any real alarm response, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed. Per-sample population bounds expose changes in combat workload.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 573.8167420598111,
+    "vegetationZoneCount": 5
+  },
+  "qualification": "The benchmark now includes the real finite alarm response and records initial/maximum population; its workload differs from earlier 12-only runs. CPU microseconds do not measure total game FPS. Alarm mission tests use real movement with combat isolated; not human combat playthroughs. Small chest-LED color changes could not be distinguished reliably in the wide images."
+}

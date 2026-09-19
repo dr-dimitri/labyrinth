@@ -51,9 +51,25 @@ Alle 23 nativen Landschaftsbilder stehen unter [CC0](https://polyhaven.com/licen
 
 Die Waffen und die Stoffteile der Egoansicht verwenden [Blue Metal Plate](https://polyhaven.com/a/blue_metal_plate) und [Denim Fabric](https://polyhaven.com/a/denim_fabric) von Rob Tuytel / Poly Haven unter [CC0](https://polyhaven.com/license). Unter `native/Assets/textures/weapon-metal` und `weapon-fabric` liegen jeweils eine originale 2048²-Farbkarte sowie originale 1024²-OpenGL-Normalen- und Rauheitskarten. Die sechs JPEGs werden unverändert übernommen und belegen zusammen rund 7,08 MB. Farbe wird als sRGB gelesen, Normalen und Rauheit als lineare Daten; die Normalenkarten verwenden die OpenGL-Konvention (+Y).
 
-Das separate [Quellenmanifest](native-weapon-material-sources.json) dokumentiert die offiziellen Downloadadressen, Autoren, Maße, Quell-MD5 und SHA-256 jeder Datei. `native/scripts/fetch-assets.py --verify` prüft alle 29 fotografischen Landschafts-, Himmels-, Laub- und Waffenbilder offline auf Dateigröße, Pixelmaße und Prüfsummen. Ohne Option stellt das Skript die festgehaltenen Originale wieder her; `--refresh` aktualisiert nur die sechs Landschaftsmaterialgruppen, die übrigen Quellen bleiben festgeschrieben. Der App-Build führt die Offline-Prüfung vor dem Kompilieren aus und benötigt dafür Python 3. Er übernimmt das Quellenmanifest und die Material-Credits ins App-Paket.
+Das separate [Quellenmanifest](native-weapon-material-sources.json) dokumentiert die offiziellen Downloadadressen, Autoren, Maße, Quell-MD5 und SHA-256 jeder Datei. `native/scripts/fetch-assets.py --verify` prüft alle 43 fotografischen Landschafts-, Himmels-, Laub-, Waffen- und Kartenbilder offline auf Dateigröße, Pixelmaße und Prüfsummen. Ohne Option stellt das Skript die festgehaltenen Originale wieder her; `--refresh` aktualisiert nur die sechs Landschaftsmaterialgruppen, die übrigen Quellen bleiben festgeschrieben. Der App-Build führt die Offline-Prüfung vor dem Kompilieren aus und benötigt dafür Python 3. Er übernimmt das Quellenmanifest und die Material-Credits ins App-Paket.
 
 Die beiden neuen CC0-Materialien ändern weder die SWAT-Texturen noch die gesonderten Lizenzbedingungen des folgenden Charaktermodells.
+
+## Nebelwacht: Küstenmaterialien und bewölkter Himmel
+
+Die eigene Kartenbibliothek unter `native/Assets/maps/nebelwacht` enthält zwei fotografische PBR-Sätze: [Seaside Rock](https://polyhaven.com/a/seaside_rock) von Dimitrios Savva mit 2 × 2 m Quellmaß und [Concrete Layers](https://polyhaven.com/a/concrete_layers) von Amal Kumar mit ungefähr 1,55 × 1,55 m. Jeder Satz verwendet eine originale 4096²-Farbkarte, eine 2048²-OpenGL-Normalenkarte (+Y) und eine 1024²-Rauheitskarte. Farbe wird als sRGB gelesen, Normalen und Rauheit als lineare Daten. Der gemeinsame Texturlader verkleinert die Bilder für Balanced erst zur Laufzeit.
+
+Der Himmel ist das unveränderte 8192 × 4096 große, tonemapped sRGB-JPEG aus [Kloofendal Overcast (Pure Sky)](https://polyhaven.com/a/kloofendal_overcast_puresky) von Greg Zaal. Es dient als fotografischer Hintergrund und ist kein HDR-Beleuchtungsdatensatz. Die sieben Originaldateien belegen zusammen 52.109.290 Bytes; es wurden weder Bildinhalte verändert noch Dateien neu komprimiert.
+
+Alle sieben Dateien stehen unter [CC0 1.0](https://polyhaven.com/license). Das [Nebelwacht-Quellenmanifest](native-nebelwacht-sources.json) hält Autoren, offizielle API- und Downloadadressen, konkrete API-Dateipfade, Originalmaße, Quell-MD5 und SHA-256 fest. `native/scripts/fetch-assets.py --verify` prüft sie zusammen mit den übrigen nativen Bildern offline. Derselbe Aufruf ohne Option stellt fehlende Originale anhand der festgeschriebenen Quellen wieder her. Manifest und [Karten-Credits](../native/Assets/maps/nebelwacht/CREDITS.txt) werden mit der App ausgeliefert; die gesonderte SWAT-Lizenz bleibt unverändert.
+
+## Sundkai: organischer Schlamm und breite Küstenblätter
+
+Unter `native/Assets/maps/sundkai` liegen sieben unveränderte Originalbilder. [Mud Forest](https://polyhaven.com/a/mud_forest) von eye-candy.xyz liefert eine 4096²-Farbkarte, 2048²-OpenGL-Normalen und 1024²-Rauheit bei etwa 2,35 m Kachelbreite. Der fotografierte Boden enthält Laub und Zweige und wird entsprechend als organischer Uferschlamm verwendet; er wird nicht als kahler schwarzer Unterwasserboden bezeichnet. Bereits vorhandene native Materialien für nackten Schlamm, Rinde und Beton behalten ihre eigenen Quellenangaben.
+
+Die vier Blattkarten stammen aus [Island Tree 01](https://polyhaven.com/a/island_tree_01) von Rob Tuytel (Scanning/Processing) und Rico Cilliers (Cleanup/Processing): `leaves_diff` in 4096², `leaves_nor_gl` und `leaves_alpha` in 2048² sowie `leaves_rough` in 1024². Farbe und Alpha wurden tatsächlich geprüft: Der Atlas enthält acht einzelne breite Küstenblätter, keine Kiefernzweige. Die Quelle bestätigt keine bestimmte Mangrovenart. Blattverteilung und Wurzeln sind eigene Spielgeometrie; das ursprüngliche Baummodell wird nicht mitgeliefert. Die unveränderten Atlasbilder werden über passende UV-Bereiche verwendet, ohne eingebrannten Zuschnitt.
+
+Alle sieben Dateien sind originale JPEGs unter [CC0](https://polyhaven.com/license) und belegen zusammen 24.561.409 Bytes. Für Alpha wurde die offizielle 8-bit-JPEG-Ausgabe gewählt, damit der bestehende kompakte Datenkartenpfad erhalten bleibt. Farbe wird als sRGB, Alpha/Rauheit/Normalen als lineare Daten gelesen; Normalen folgen OpenGL (+Y). Das [Sundkai-Manifest](native-sundkai-sources.json) enthält offizielle API-Dateipfade, Autoren, Originalabmessungen, Quell-MD5 und SHA-256. Offline-Prüfung und Wiederherstellung laufen über dasselbe `fetch-assets.py`; der App-Build übernimmt Manifest und [Karten-Credits](../native/Assets/maps/sundkai/CREDITS.txt). Die getrennte SWAT-Lizenz bleibt unverändert.
 
 ## Nativer Soldat: SWAT / Mixamo
 
@@ -81,6 +97,16 @@ Die folgenden Dateien enthalten genaue Download-URLs, Dateigrößen, SHA-256-Pr�
 - [Waldmaterialien und gescannte Farne](forest-asset-sources.json)
 - [Wolfsmodell und Originaltexturen](model-forest-creature-sources.json)
 - [Native Waffen- und Stoffmaterialien](native-weapon-material-sources.json)
+- [Nebelwacht-Materialien und Himmel](native-nebelwacht-sources.json)
+- [Sundkai-Schlamm und breite Blattkarten](native-sundkai-sources.json)
 - [Nativer SWAT-Soldat, Originaltexturen und Animationen](../native/Assets/characters/soldier/SOURCE.json)
 
 `npm test` prüft unter anderem diese Prüfsummen, Bildabmessungen, GLB-Datenbereiche, Materialkarten und die Skelettgewichte des Steinwächters.
+
+## Kessel-9: vorhandene fotografische Materialien
+
+Kessel-9 verwendet die unveränderten Beton- und Felskarten aus dem oben dokumentierten Nebelwacht-Satz sowie den vorhandenen Blacksite-Himmel und Metall-/Figurenressourcen. Neue Bilddateien oder Lizenzen kommen nicht hinzu. Betonrippen, Wartungsschotts, Kabelrampe und Staumauerkulisse sind eigene Spielgeometrie. Beton verwendet 1,55 m, Fels 2 m Materialmaßstab; die Auswahl wird wie bei den übrigen Karten ausschließlich für die aktive Karte auf die GPU geladen.
+
+## Sirocco: wiederverwendete Fotografien und Salzglas
+
+Sirocco verwendet vorhandene fotografische Beton- und Felsmaterialien sowie denselben lokalen Himmel und dieselben Figuren-/Waffenressourcen. Eine zurückhaltende warme Tönung kennzeichnet den trockenen Salzgrund. Salzablagerungen, Glasrisse und das Gebäudelayout entstehen im Spielcode; es gibt keine neuen Bildquellen oder zusätzlichen Lizenzen. Durchsicht, Paneelschatten und Bruchzustand verwenden die bereits dokumentierten Glasmaterialien.

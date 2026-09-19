@@ -105,4 +105,15 @@ struct NativeMissionPresentationTests {
             #expect(holding.interactionTitle == nil && holding.fraction > 0)
         }
     }
+    @Test func coastalInstructionsUseItsActualExitAndOnlyItsAvailablePreparation() {
+        let map = MapDefinition.nebelwacht
+        let rules = NativeMissionPresentation.rules(.operation, map: map)
+        #expect(rules.contains("Funk abschalten") && !rules.contains("Tor öffnen"))
+        let extraction = NativeMissionPresentation(status(.extract), map: map)
+        #expect(extraction.title.contains("Versorgungstor") && !extraction.title.contains("Nordtor"))
+        #expect(NativeMissionPresentation.rules(.recoverData, map: map).contains("Versorgungstor"))
+        #expect(NativeMissionPresentation.banner(for: .extract, map: map)?.detail.contains("Versorgungstor") == true)
+        #expect(NativeMissionPresentation.rules(.operation).contains("Tor öffnen"))
+    }
+
 }

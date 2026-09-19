@@ -1,0 +1,698 @@
+{
+  "issue": 27,
+  "status": "Implemented and independently reviewed; native interaction deferred because macOS is locked",
+  "budgets": {
+    "issue": 27,
+    "setBeforeFinalGraphicsAcceptance": true,
+    "machine": "Apple M2 Pro",
+    "width": 2560,
+    "height": 1600,
+    "reference": "docs/native-environment/baseline.json and issue22.json; baseline Blacksite full renderer, 12 AI Core",
+    "targets": {
+      "coreMedianMicrosecondsPerStep9AI": 25,
+      "highGpuP95Milliseconds": 16.7,
+      "balancedGpuP95Milliseconds": 14,
+      "highGPUAllocatedMiB": 1250,
+      "balancedGPUAllocatedMiB": 360
+    },
+    "qualification": "Acceptance budgets for the measured subsystem only, not promised total game FPS. Matched seed/camera/time and spray enabled/disabled; report actual living enemies and particle counts. Any failure requires practical correction or explicit investigation before map publication."
+  },
+  "coreOn": {
+    "authoredSpraySources": 2,
+    "benchmark": "Native authored-map combat",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 9,
+    "mapID": "nebelwacht",
+    "mapVersion": 1,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 9.858749999999993,
+    "medianCPUSeconds": 0.07098299999999996,
+    "medianWallSeconds": 0.07098741669324227,
+    "obstacleCount": 17,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5957.864134028554,
+        "cloudEvents": 6,
+        "cpuSeconds": 0.085353,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 2,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.08535641667549498,
+        "warningEvents": 6
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5957.864134028554,
+        "cloudEvents": 6,
+        "cpuSeconds": 0.071064,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 2,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07106816666782834,
+        "warningEvents": 6
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5957.864134028554,
+        "cloudEvents": 6,
+        "cpuSeconds": 0.07068000000000002,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 2,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07068341664853506,
+        "warningEvents": 6
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5957.864134028554,
+        "cloudEvents": 6,
+        "cpuSeconds": 0.07075500000000001,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 2,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07075825001811609,
+        "warningEvents": 6
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5957.864134028554,
+        "cloudEvents": 6,
+        "cpuSeconds": 0.07098299999999996,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 2,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07098741669324227,
+        "warningEvents": 6
+      }
+    ],
+    "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds and optical events expose differing spray workloads; this is CPU simulation cost, not GPU frame time.",
+    "scriptedGrenades": true,
+    "seed": 1745,
+    "sprayEnabled": true
+  },
+  "coreOff": {
+    "authoredSpraySources": 0,
+    "benchmark": "Native authored-map combat",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 9,
+    "mapID": "nebelwacht",
+    "mapVersion": 1,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 10.259583333333333,
+    "medianCPUSeconds": 0.073869,
+    "medianWallSeconds": 0.073881333344616,
+    "obstacleCount": 17,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5561.203846395016,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.073869,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07387158332858235,
+        "warningEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5561.203846395016,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07226099999999999,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07231683333520778,
+        "warningEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5561.203846395016,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07395100000000002,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07397312499233522,
+        "warningEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5561.203846395016,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07386500000000001,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.073881333344616,
+        "warningEvents": 0
+      },
+      {
+        "acceptedGrenades": 9,
+        "checksum": 5561.203846395016,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.07415500000000003,
+        "explosionEvents": 9,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "restartsAfterPlayerDeath": 2,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.07416445831768215,
+        "warningEvents": 0
+      }
+    ],
+    "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds and optical events expose differing spray workloads; this is CPU simulation cost, not GPU frame time.",
+    "scriptedGrenades": true,
+    "seed": 1745,
+    "sprayEnabled": false
+  },
+  "qualification": "Core subsystem timings are not game FPS. Nine initial living guards, up to two actual alarm reinforcements; real grenades and death restarts. Spray changes AI decisions, so on/off is not a pure rendering-cost comparison. GPU on/off shares seed, camera, elapsed and eleven living soldiers; AI positions can differ after smoke visibility changes. It is not a strict isolated shader-overhead measurement. GPU P95 is not total game FPS. Map cycles compare actual allocations at 1280x800; main budgets use 2560x1600.",
+  "tests": {
+    "core": 198,
+    "macFull": 191,
+    "macCoveredTotal": 192,
+    "publicationAndBriefingRerun": 6,
+    "actualAudioTextureAndWarningIntegration": 17
+  },
+  "review": {
+    "independentCodeAndImages": "passed",
+    "fixes": [
+      "Supply spray moved onto actual return crossing at z=-35.",
+      "Second climb step meets the real mantle minimum width.",
+      "Wrapped photographic sky gradients remove a bright vertical mip seam.",
+      "Radome underside closed; panel seams antialiased.",
+      "Powered warning countdown and caption disappear when their actual emission is cancelled.",
+      "Map-specific objective/exit names replace Blacksite-only labels."
+    ],
+    "nativeUI": "Optimized published-map app launched; CUA could not acquire the window because macOS is locked and auto-unlock failed. Existing user unlock request remains pending. Retry/selection tests and static AppKit layout passed; physical menu interaction stays on final release checklist."
+  },
+  "routes": {
+    "supplyReturnNavigationMeters": 38.24,
+    "westReturnNavigationMeters": 56.55,
+    "groundRouteChecksBeforeAndAfterDestruction": 10,
+    "actualMantleChains": 2,
+    "referenceOperations": "All three classes complete each of the quiet announced-spray route and alarmed rock exit: six actual movement/objective/extraction runs. Combat explicitly isolated after proving a real alarm report."
+  },
+  "graphics": {
+    "high": {
+      "on": {
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "gpuP95Ms": 3.9486666792072356,
+        "gpuAverageMs": 3.2695777765184175,
+        "cpuP95Ms": 1.7365000094287097,
+        "gpuAllocatedMB": 847.40625,
+        "textureMemoryMB": {
+          "foliage": 0.000244140625,
+          "landscape": 326.765625,
+          "renderTargets": 142.875,
+          "shadows": 33.265625,
+          "sky": 172.015625,
+          "soldiers": 86.0626220703125,
+          "total": 817.5784912109375,
+          "weapons": 56.59375
+        },
+        "fixtureElapsed": 8.058333333333517,
+        "fixtureSeed": 1745,
+        "cameraYaw": 0.588002622127533,
+        "cameraPitch": -0.01479091215878725,
+        "playerFeet": [
+          6,
+          6,
+          15
+        ],
+        "initialLiveSoldiers": 9,
+        "liveAuthoredSoldiers": 9,
+        "liveSoldiers": 11,
+        "liveAlarmReinforcements": 2,
+        "alarmEscalated": true,
+        "smokeVolumeCount": 1,
+        "combatParticles": 0,
+        "activeFlashes": 0,
+        "activeSparks": 0,
+        "impactDecals": 0,
+        "drawCalls": 61
+      },
+      "off": {
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "gpuP95Ms": 4.042999993544072,
+        "gpuAverageMs": 3.047818749716195,
+        "cpuP95Ms": 2.2587083221878856,
+        "gpuAllocatedMB": 847.40625,
+        "textureMemoryMB": {
+          "foliage": 0.000244140625,
+          "landscape": 326.765625,
+          "renderTargets": 142.875,
+          "shadows": 33.265625,
+          "sky": 172.015625,
+          "soldiers": 86.0626220703125,
+          "total": 817.5784912109375,
+          "weapons": 56.59375
+        },
+        "fixtureElapsed": 8.058333333333517,
+        "fixtureSeed": 1745,
+        "cameraYaw": 0.588002622127533,
+        "cameraPitch": -0.01479091215878725,
+        "playerFeet": [
+          6,
+          6,
+          15
+        ],
+        "initialLiveSoldiers": 9,
+        "liveAuthoredSoldiers": 9,
+        "liveSoldiers": 11,
+        "liveAlarmReinforcements": 2,
+        "alarmEscalated": true,
+        "smokeVolumeCount": 0,
+        "combatParticles": 0,
+        "activeFlashes": 0,
+        "activeSparks": 0,
+        "impactDecals": 0,
+        "drawCalls": 61
+      },
+      "cycles": [
+        {
+          "transition": 1,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 1107.578125,
+          "textureMemoryMB": {
+            "foliage": 138.53125,
+            "landscape": 544.609375,
+            "renderTargets": 35.875,
+            "shadows": 35.296875,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 1068.9844970703125,
+            "weapons": 56.59375
+          }
+        },
+        {
+          "transition": 2,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 740.078125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 326.765625,
+            "renderTargets": 35.875,
+            "shadows": 33.265625,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 710.5784912109375,
+            "weapons": 56.59375
+          }
+        },
+        {
+          "transition": 3,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 1107.578125,
+          "textureMemoryMB": {
+            "foliage": 138.53125,
+            "landscape": 544.609375,
+            "renderTargets": 35.875,
+            "shadows": 35.296875,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 1068.9844970703125,
+            "weapons": 56.59375
+          }
+        },
+        {
+          "transition": 4,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 740.078125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 326.765625,
+            "renderTargets": 35.875,
+            "shadows": 33.265625,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 710.5784912109375,
+            "weapons": 56.59375
+          }
+        },
+        {
+          "transition": 5,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 1107.578125,
+          "textureMemoryMB": {
+            "foliage": 138.53125,
+            "landscape": 544.609375,
+            "renderTargets": 35.875,
+            "shadows": 35.296875,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 1068.9844970703125,
+            "weapons": 56.59375
+          }
+        },
+        {
+          "transition": 6,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 740.078125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 326.765625,
+            "renderTargets": 35.875,
+            "shadows": 33.265625,
+            "sky": 172.015625,
+            "soldiers": 86.0626220703125,
+            "total": 710.5784912109375,
+            "weapons": 56.59375
+          }
+        }
+      ],
+      "aftermath": {
+        "fixtureElapsed": 4.450000000000011,
+        "acceptedGrenadeThrows": 3,
+        "explosionEvents": 3,
+        "explosions": [
+          {
+            "ageAtCapture": 1.6500000000000181,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 2.7999999999999927
+          },
+          {
+            "ageAtCapture": 0.9000000000000208,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 3.54999999999999
+          },
+          {
+            "ageAtCapture": 0.15000000000000746,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 4.300000000000003
+          }
+        ],
+        "initialLiveSoldiers": 9,
+        "liveSoldiers": 9,
+        "combatParticles": 100,
+        "activeFlashes": 1,
+        "activeSparks": 8,
+        "combatParticleDrops": 0,
+        "impactDecals": 0,
+        "destroyedCoverCount": 0,
+        "coverDebrisCount": 0
+      }
+    },
+    "balanced": {
+      "on": {
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "gpuP95Ms": 6.0678749869111925,
+        "gpuAverageMs": 3.71241944473392,
+        "cpuP95Ms": 2.4676666653249413,
+        "gpuAllocatedMB": 240.953125,
+        "textureMemoryMB": {
+          "foliage": 0.000244140625,
+          "landscape": 81.09375,
+          "renderTargets": 31.75,
+          "shadows": 21.171875,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 212.1253662109375,
+          "weapons": 14.0625
+        },
+        "fixtureElapsed": 8.058333333333517,
+        "fixtureSeed": 1745,
+        "cameraYaw": 0.588002622127533,
+        "cameraPitch": -0.01479091215878725,
+        "playerFeet": [
+          6,
+          6,
+          15
+        ],
+        "initialLiveSoldiers": 9,
+        "liveAuthoredSoldiers": 9,
+        "liveSoldiers": 11,
+        "liveAlarmReinforcements": 2,
+        "alarmEscalated": true,
+        "smokeVolumeCount": 1,
+        "combatParticles": 0,
+        "activeFlashes": 0,
+        "activeSparks": 0,
+        "impactDecals": 0,
+        "drawCalls": 61
+      },
+      "off": {
+        "device": "Apple M2 Pro",
+        "width": 2560,
+        "height": 1600,
+        "frames": 120,
+        "gpuP95Ms": 3.474124998319894,
+        "gpuAverageMs": 2.6737666676732865,
+        "cpuP95Ms": 2.0187500049360096,
+        "gpuAllocatedMB": 240.953125,
+        "textureMemoryMB": {
+          "foliage": 0.000244140625,
+          "landscape": 81.09375,
+          "renderTargets": 31.75,
+          "shadows": 21.171875,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 212.1253662109375,
+          "weapons": 14.0625
+        },
+        "fixtureElapsed": 8.058333333333517,
+        "fixtureSeed": 1745,
+        "cameraYaw": 0.588002622127533,
+        "cameraPitch": -0.01479091215878725,
+        "playerFeet": [
+          6,
+          6,
+          15
+        ],
+        "initialLiveSoldiers": 9,
+        "liveAuthoredSoldiers": 9,
+        "liveSoldiers": 11,
+        "liveAlarmReinforcements": 2,
+        "alarmEscalated": true,
+        "smokeVolumeCount": 0,
+        "combatParticles": 0,
+        "activeFlashes": 0,
+        "activeSparks": 0,
+        "impactDecals": 0,
+        "drawCalls": 61
+      },
+      "cycles": [
+        {
+          "transition": 1,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 319.703125,
+          "textureMemoryMB": {
+            "foliage": 36.390625,
+            "landscape": 135.15625,
+            "renderTargets": 8.25,
+            "shadows": 23.203125,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 281.1094970703125,
+            "weapons": 14.0625
+          }
+        },
+        {
+          "transition": 2,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 218.125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 81.09375,
+            "renderTargets": 8.25,
+            "shadows": 21.171875,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 188.6253662109375,
+            "weapons": 14.0625
+          }
+        },
+        {
+          "transition": 3,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 319.703125,
+          "textureMemoryMB": {
+            "foliage": 36.390625,
+            "landscape": 135.15625,
+            "renderTargets": 8.25,
+            "shadows": 23.203125,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 281.1094970703125,
+            "weapons": 14.0625
+          }
+        },
+        {
+          "transition": 4,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 218.125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 81.09375,
+            "renderTargets": 8.25,
+            "shadows": 21.171875,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 188.6253662109375,
+            "weapons": 14.0625
+          }
+        },
+        {
+          "transition": 5,
+          "mapID": "blacksite",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 319.703125,
+          "textureMemoryMB": {
+            "foliage": 36.390625,
+            "landscape": 135.15625,
+            "renderTargets": 8.25,
+            "shadows": 23.203125,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 281.1094970703125,
+            "weapons": 14.0625
+          }
+        },
+        {
+          "transition": 6,
+          "mapID": "nebelwacht",
+          "mapVersion": 1,
+          "gpuAllocatedMB": 218.125,
+          "textureMemoryMB": {
+            "foliage": 0.000244140625,
+            "landscape": 81.09375,
+            "renderTargets": 8.25,
+            "shadows": 21.171875,
+            "sky": 42.671875,
+            "soldiers": 21.3751220703125,
+            "total": 188.6253662109375,
+            "weapons": 14.0625
+          }
+        }
+      ],
+      "aftermath": {
+        "fixtureElapsed": 4.450000000000011,
+        "acceptedGrenadeThrows": 3,
+        "explosionEvents": 3,
+        "explosions": [
+          {
+            "ageAtCapture": 1.6500000000000181,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 2.7999999999999927
+          },
+          {
+            "ageAtCapture": 0.9000000000000208,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 3.54999999999999
+          },
+          {
+            "ageAtCapture": 0.15000000000000746,
+            "position": [
+              0,
+              6.276000022888184,
+              17.71661376953125
+            ],
+            "time": 4.300000000000003
+          }
+        ],
+        "initialLiveSoldiers": 9,
+        "liveSoldiers": 9,
+        "combatParticles": 50,
+        "activeFlashes": 1,
+        "activeSparks": 4,
+        "combatParticleDrops": 0,
+        "impactDecals": 0,
+        "destroyedCoverCount": 0,
+        "coverDebrisCount": 0
+      }
+    }
+  },
+  "images": "Fourteen actual Metal validation captures in High/Balanced plus rock-route capture and actual minimum-size AppKit briefing. Independent final image review passed.",
+  "assets": {
+    "originalBytes": 52109290,
+    "fileCount": 7,
+    "license": "CC0; original photographed rock/concrete maps and tonemapped overcast sky",
+    "sourceManifest": "docs/native-nebelwacht-sources.json",
+    "offlineVerifiedImageCountAcrossApp": 36
+  },
+  "build": "Final optimized ARM64 app, ad-hoc signature and real Metal smoke check passed after registry/caption fixes."
+}

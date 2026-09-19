@@ -1,0 +1,325 @@
+{
+  "issue": 17,
+  "date": "2026-09-19",
+  "review": "Independent code and final image reviews passed; no open findings.",
+  "fullTestsBeforeFinalBudgetFix": {
+    "core": 120,
+    "macReported": 91
+  },
+  "targetedTestsAfterFinalFix": {
+    "core": 17,
+    "mac": 10
+  },
+  "coreBenchmark": {
+    "benchmark": "Blacksite native combat simulation",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "enemyCount": 12,
+    "fixedFrequencyHz": 120,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 8.489722222222225,
+    "medianCPUSeconds": 0.061126000000000014,
+    "medianWallSeconds": 0.061126666667405516,
+    "obstacleCount": 23,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.065193,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06519691666471772
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06100499999999999,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06100899999728426
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06121499999999999,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.0612261249916628
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.06093100000000001,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.06093350000446662
+      },
+      {
+        "checksum": 7429.607634365559,
+        "cpuSeconds": 0.061126000000000014,
+        "minimumLivingEnemies": 12,
+        "restartsAfterPlayerDeath": 1,
+        "simulatedSeconds": 59.99999999999724,
+        "steps": 7200,
+        "wallSeconds": 0.061126666667405516
+      }
+    ],
+    "scenario": "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
+    "seed": 1745,
+    "simulationSecondsPerCPUSecond": 981.5790334718448,
+    "vegetationZoneCount": 5
+  },
+  "syntheticQueryBenchmark": {
+    "benchmark": "Unconfirmed prone-player vegetation perception query",
+    "build": "Swift -O -whole-module-optimization",
+    "note": "Synthetic overlapping foliage stresses the bounded query, including hard sight and body samples. This is not a frame-rate measurement.",
+    "samplesPerScenario": 5,
+    "scenarios": [
+      {
+        "checksum": 10000,
+        "medianCPUMicrosecondsPerQuery": 0.023200000000000044,
+        "overlappingZones": 0,
+        "queriesPerSample": 10000,
+        "samples": [
+          0.023300000000000057,
+          0.023199999999999957,
+          0.02329999999999997,
+          0.023200000000000044,
+          0.023199999999999957
+        ]
+      },
+      {
+        "checksum": 2518.840822637081,
+        "medianCPUMicrosecondsPerQuery": 0.8112000000000001,
+        "overlappingZones": 1,
+        "queriesPerSample": 10000,
+        "samples": [
+          0.8112000000000001,
+          0.8250999999999998,
+          0.8083000000000004,
+          0.8112000000000001,
+          0.8223999999999995
+        ]
+      },
+      {
+        "checksum": 2500,
+        "medianCPUMicrosecondsPerQuery": 10.371000000000002,
+        "overlappingZones": 16,
+        "queriesPerSample": 10000,
+        "samples": [
+          10.365800000000002,
+          10.331600000000002,
+          10.404200000000003,
+          10.371000000000002,
+          10.3748
+        ]
+      }
+    ]
+  },
+  "metalScenes": [
+    {
+      "result": "pass",
+      "scene": "vegetation-overview",
+      "textureQuality": "balanced",
+      "vegetationZone": "west-loading-brush",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "earth",
+      "localFoliageDensity": 0,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-overview",
+      "textureQuality": "high",
+      "vegetationZone": "west-loading-brush",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "earth",
+      "localFoliageDensity": 0,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-prone",
+      "textureQuality": "balanced",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "vegetation",
+      "localFoliageDensity": 0.6000000238418579,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 1.8740310668945312,
+      "playerProne": true,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-edge",
+      "textureQuality": "high",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "earth",
+      "localFoliageDensity": 0,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-ground",
+      "textureQuality": "high",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "vegetation",
+      "localFoliageDensity": 0.6000000238418579,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-overview",
+      "textureQuality": "high",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "earth",
+      "localFoliageDensity": 0,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-prone",
+      "textureQuality": "high",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "soil",
+      "localCamouflageGround": "vegetation",
+      "localFoliageDensity": 0.6000000238418579,
+      "supportingObstacleID": null,
+      "observerEyeOpticalDepth": 1.8740310668945312,
+      "playerProne": true,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    },
+    {
+      "result": "pass",
+      "scene": "vegetation-roof",
+      "textureQuality": "high",
+      "vegetationZone": "south-slope-grass",
+      "vegetationZoneCount": 5,
+      "gameplayVegetationZones": 5,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationVertices": 82176,
+      "gameplayVegetationInstances": 5,
+      "gameplayVegetationAlphaWidth": 512,
+      "gameplayVegetationPlantBudget": 512,
+      "localSurfaceMaterial": "metal",
+      "localCamouflageGround": "none",
+      "localFoliageDensity": 0,
+      "supportingObstacleID": 9801,
+      "observerEyeOpticalDepth": 0,
+      "playerProne": false,
+      "invalidSoldierPoses": 0,
+      "droppedSoldiers": 0
+    }
+  ],
+  "mapCycles": [
+    {
+      "transition": 1,
+      "mapID": "blacksite",
+      "gpuAllocatedMB": 314.984375,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationAlphaWidth": 512
+    },
+    {
+      "transition": 2,
+      "mapID": "test-range",
+      "gpuAllocatedMB": 196.375,
+      "gameplayVegetationPlants": 0,
+      "gameplayVegetationAlphaWidth": 0
+    },
+    {
+      "transition": 3,
+      "mapID": "blacksite",
+      "gpuAllocatedMB": 314.984375,
+      "gameplayVegetationPlants": 160,
+      "gameplayVegetationAlphaWidth": 512
+    },
+    {
+      "transition": 4,
+      "mapID": "test-range",
+      "gpuAllocatedMB": 196.375,
+      "gameplayVegetationPlants": 0,
+      "gameplayVegetationAlphaWidth": 0
+    }
+  ],
+  "nativeWindowValidation": "Pending host unlock; Metal offscreen validation passed."
+}

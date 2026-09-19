@@ -18,6 +18,7 @@ enum CoreBenchmark {
         let simulatedSeconds: Double
         let restartsAfterPlayerDeath: Int
         let minimumLivingEnemies: Int
+        let maximumLivingEnemies: Int
         let checksum: Double
         var cpuMicrosecondsPerStep: Double { cpuSeconds * 1_000_000 / Double(steps) }
     }
@@ -28,8 +29,9 @@ enum CoreBenchmark {
         let scenario: String
         let seed: UInt64
         let fixedFrequencyHz: Int
-        let enemyCount: Int
+        let initialEnemyCount: Int
         let obstacleCount: Int
+        let vegetationZoneCount: Int
         let sampleDurationSeconds: Int
         let measuredSamples: Int
         let deterministic: Bool
@@ -46,7 +48,7 @@ enum CoreBenchmark {
         }
         let game = CombatSimulation(difficulty: .normal, seed: 1745, world: GameMap.obstacles,
                                     startingPlayer: PlayerState(), startingEnemies: enemies, startingWave: 3,
-                                    terrain: .battlefield)
+                                    terrain: .battlefield, map: .blacksite)
         precondition(game.aliveCount == 12)
         precondition(game.enemies.allSatisfy { !game.blocked($0.position, height: 1.9, radius: 0.4) })
         // Alert every soldier once, exercising pursuit and route finding from the start.
@@ -63,7 +65,7 @@ enum CoreBenchmark {
     }
 
     private static func measure(seconds: Int) -> Sample {
-        var game = makeScenario(), restarts = 0, minimumEnemies = 12
+        var game = makeScenario(), restarts = 0, minimumEnemies = 12, maximumEnemies = 12
         var checksum: Double = 0, simulatedSeconds: Double = 0
         let steps = seconds * 120
         let cpuStart = processCPUTime(), wallStart = ProcessInfo.processInfo.systemUptime
@@ -81,6 +83,7 @@ enum CoreBenchmark {
             game.step(deltaTime: 1.0 / 120, input: input)
             simulatedSeconds += game.elapsed - before
             minimumEnemies = min(minimumEnemies, game.aliveCount)
+            maximumEnemies = max(maximumEnemies, game.aliveCount)
             if step % 2 == 0 { _ = game.drainEvents() } // Same cadence as a 60 Hz presentation.
             if step % 60 == 0 {
                 checksum += Double(game.player.position.x + game.player.position.y + game.player.position.z + game.player.health)
@@ -94,7 +97,8 @@ enum CoreBenchmark {
         precondition(abs(simulatedSeconds - Double(seconds)) < 0.000_001)
         precondition(minimumEnemies == 12)
         return Sample(cpuSeconds: cpu, wallSeconds: wall, steps: steps, simulatedSeconds: simulatedSeconds,
-                      restartsAfterPlayerDeath: restarts, minimumLivingEnemies: minimumEnemies, checksum: checksum)
+                      restartsAfterPlayerDeath: restarts, minimumLivingEnemies: minimumEnemies,
+                      maximumLivingEnemies: maximumEnemies, checksum: checksum)
     }
 
     static func main() throws {
@@ -107,8 +111,9 @@ enum CoreBenchmark {
         }
         precondition(deterministic, "The fixed-seed simulation produced inconsistent state checksums")
         let report = Report(benchmark: "Blacksite native combat simulation", build: "Swift -O -whole-module-optimization",
-                            scenario: "Battlefield hills and hollows, 12 alerted AI soldiers, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed.",
-                            seed: 1745, fixedFrequencyHz: 120, enemyCount: 12, obstacleCount: GameMap.obstacles.count,
+                            scenario: "Battlefield hills and hollows, initially 12 alerted AI soldiers plus any real alarm response, scripted movement/jumps. Restart on player death keeps every measured step active; enemies are never removed. Per-sample population bounds expose changes in combat workload.",
+                            seed: 1745, fixedFrequencyHz: 120, initialEnemyCount: 12, obstacleCount: GameMap.obstacles.count,
+                            vegetationZoneCount: MapDefinition.blacksite.environment.vegetationZones.count,
                             sampleDurationSeconds: 60, measuredSamples: samples.count, deterministic: deterministic,
                             medianCPUMicrosecondsPerStep: medianCPU * 1_000_000 / 7200,
                             medianCPUSeconds: medianCPU, medianWallSeconds: medianWall,

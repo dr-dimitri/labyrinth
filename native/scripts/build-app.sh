@@ -74,6 +74,12 @@ done
 
 # Validate pinned photographic assets before compiling or replacing a good app.
 # This is strictly offline; restoration is an explicit, separate command.
+for map in nebelwacht sundkai; do
+    [[ -s "$NATIVE_DIR/Assets/maps/$map/CREDITS.txt" ]] || {
+        printf 'Missing map source credits: native/Assets/maps/%s/CREDITS.txt. Restore this tracked file before building.\n' "$map" >&2
+        exit 1
+    }
+done
 if ! command -v python3 >/dev/null 2>&1; then
     printf 'Python 3 is required for offline native asset verification. Install Python 3 before building.\n' >&2
     exit 1
@@ -141,9 +147,15 @@ cp -R "$NATIVE_DIR/Assets" "$RESOURCES/Assets"
 cp "$NATIVE_DIR/Assets/CREDITS.txt" "$RESOURCES/ASSET-CREDITS.txt"
 printf '\n' >> "$RESOURCES/ASSET-CREDITS.txt"
 cat "$SOLDIER_DIR/CREDITS.txt" >> "$RESOURCES/ASSET-CREDITS.txt"
+printf '\n' >> "$RESOURCES/ASSET-CREDITS.txt"
+cat "$NATIVE_DIR/Assets/maps/nebelwacht/CREDITS.txt" >> "$RESOURCES/ASSET-CREDITS.txt"
+printf '\n' >> "$RESOURCES/ASSET-CREDITS.txt"
+cat "$NATIVE_DIR/Assets/maps/sundkai/CREDITS.txt" >> "$RESOURCES/ASSET-CREDITS.txt"
 cp "$REPO_DIR/docs/native-sky-sources.json" "$RESOURCES/native-sky-sources.json"
 cp "$REPO_DIR/docs/native-foliage-sources.json" "$RESOURCES/native-foliage-sources.json"
 cp "$REPO_DIR/docs/native-weapon-material-sources.json" "$RESOURCES/native-weapon-material-sources.json"
+cp "$REPO_DIR/docs/native-nebelwacht-sources.json" "$RESOURCES/native-nebelwacht-sources.json"
+cp "$REPO_DIR/docs/native-sundkai-sources.json" "$RESOURCES/native-sundkai-sources.json"
 cat >> "$RESOURCES/ASSET-CREDITS.txt" <<'EOF'
 
 PHOTOGRAPHIC SKY

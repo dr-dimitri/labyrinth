@@ -25,6 +25,17 @@ struct NativeSpatialSample: Equatable, Sendable {
 }
 
 enum NativeSpatialAudio {
+    /// Shared camera-relative panning for sources whose propagation gain was
+    /// already evaluated by the Core, including occlusion and material strength.
+    static func positioned(gain: Float, source: SIMD3<Float>, listener: SIMD3<Float>,
+                           yaw: Float, width: Float = 0.9) -> NativeSpatialSample {
+        let offset=source-listener, distance=simd_length(offset)
+        guard gain.isFinite, gain>0, distance.isFinite, yaw.isFinite else { return .silent }
+        let right=SIMD3<Float>(cos(yaw),0,-sin(yaw))
+        let pan=max(-width,min(width,simd_dot(offset/max(0.1,distance),right)*width))
+        return NativeSpatialSample(gain:min(1,gain),pan:pan)
+    }
+
     enum Sound: Sendable {
         case enemyShot, explosion, shellImpact
 

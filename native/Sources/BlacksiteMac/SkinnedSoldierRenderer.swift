@@ -40,12 +40,14 @@ final class SkinnedSoldierRenderer {
     private var counts=[Int](repeating:0,count:3)
     private var nearRanges = [[Range<Int>]](repeating: [], count: 3)
     private var nearDrawRangeCount = 0
+    private var spotRanges=[[[Range<Int>]]](repeating:[[],[]],count:3)
+    private var spotDrawRangeCount=0
     private let capacity=64
     private(set) var soldierCount=0
     private(set) var invalidPoseCount=0
     private(set) var capacityDropCount=0
     private(set) var footContactCount=0
-    var drawCallCount:Int { (soldierCount>0 ? primitives.count*(2+nearDrawRangeCount):0)+(footContactCount>0 ? 1:0) }
+    var drawCallCount:Int { (soldierCount>0 ? primitives.count*(2+nearDrawRangeCount+spotDrawRangeCount):0)+(footContactCount>0 ? 1:0) }
     var triangleCount:Int { soldierCount*primitives.reduce(0) { $0+$1.indexCount/3 } }
     var baseColorSize:SIMD2<Int> { materials.reduce(SIMD2(0,0)) { SIMD2(max($0.x,$1.color.width),max($0.y,$1.color.height)) } }
 
@@ -168,15 +170,16 @@ final class SkinnedSoldierRenderer {
         }
     }
 
-    func reset() { counts=[0,0,0];contactCounts=[0,0,0];footContactCount=0;nearRanges=[[],[],[]];nearDrawRangeCount=0;soldierCount=0;invalidPoseCount=0;capacityDropCount=0;asset.resetAnimation() }
+    func reset() { spotRanges=[[[Range<Int>]]](repeating:[[],[]],count:3);spotDrawRangeCount=0;counts=[0,0,0];contactCounts=[0,0,0];footContactCount=0;nearRanges=[[],[],[]];nearDrawRangeCount=0;soldierCount=0;invalidPoseCount=0;capacityDropCount=0;asset.resetAnimation() }
 
-    func prepare(enemies:[EnemyState],time:Double,terrain:TerrainProfile,slot:Int,nearShadow:DirectionalShadowVolume? = nil,supportObstacles:[Obstacle] = []) {
+    func prepare(enemies:[EnemyState],time:Double,terrain:TerrainProfile,slot:Int,nearShadow:DirectionalShadowVolume? = nil,supportObstacles:[Obstacle] = [],spotVolumes:[SpotShadowVolume?] = []) {
         guard counts.indices.contains(slot) else { return }
         let target=palettes[slot].contents().bindMemory(to:simd_float4x4.self,capacity:capacity*asset.paletteCount)
         let contacts=contactBuffers[slot].contents().bindMemory(to:FootContactPatch.self,capacity:capacity*2)
         var contactCount=0
         var count=0;invalidPoseCount=0;capacityDropCount=0
         var ranges: [Range<Int>] = []
+        var spots=[[Range<Int>]](repeating:[],count:2)
         for enemy in enemies {
             if let death=enemy.deathTime,time-death>8 { continue }
             guard count<capacity else { capacityDropCount+=1;continue }
@@ -198,10 +201,23 @@ final class SkinnedSoldierRenderer {
                 if let last = ranges.last, last.upperBound == count { ranges[ranges.count-1] = last.lowerBound..<(count+1) }
                 else { ranges.append(count..<(count+1)) }
             }
+            for index in spotVolumes.indices.prefix(2) where spotVolumes[index]?.intersects(center:enemy.position+SIMD3(0,0.8,0),radius:2.4) == true {
+                if let last=spots[index].last,last.upperBound==count { spots[index][spots[index].count-1]=last.lowerBound..<(count+1) }
+                else { spots[index].append(count..<(count+1)) }
+            }
             count+=1
         }
         counts[slot]=count;soldierCount=count;nearRanges[slot]=ranges;nearDrawRangeCount=ranges.count
         contactCounts[slot]=contactCount;footContactCount=contactCount
+        spotRanges[slot]=spots;spotDrawRangeCount=spots.reduce(0) { $0+$1.count }
+    }
+
+    func encodeSpotShadow(encoder:MTLRenderCommandEncoder,slot:Int,light:Int) {
+        guard spotRanges.indices.contains(slot),spotRanges[slot].indices.contains(light),!spotRanges[slot][light].isEmpty else { return }
+        encoder.pushDebugGroup("Instanced skinned soldier lamp shadows")
+        encoder.setRenderPipelineState(shadowPipeline)
+        draw(encoder:encoder,slot:slot,ranges:spotRanges[slot][light])
+        encoder.popDebugGroup()
     }
 
     func encodeShadow(encoder:MTLRenderCommandEncoder,slot:Int,near:Bool = false) {

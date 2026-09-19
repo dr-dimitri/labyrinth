@@ -39,6 +39,7 @@ private struct RenderItem {
     var radius: Float
     var shadow: Bool
     var levelAddition = false
+    var ownerID:Int? = nil
 }
 private struct CoverVisual {
     let stage: CoverDamageStage
@@ -64,6 +65,15 @@ private struct MissionVisual {
     let phase: MissionPhase
     let position: SIMD3<Float>
     let radius: Float
+    let terrain: TerrainProfile
+    let props: [RenderItem]
+    let ring: [RenderItem]
+}
+private struct OperationExitVisual {
+    let id: String
+    let position: SIMD3<Float>
+    let radius: Float
+    let routeKind: OperationRouteKind
     let terrain: TerrainProfile
     let props: [RenderItem]
     let ring: [RenderItem]
@@ -100,6 +110,8 @@ final class NativeRenderer {
     private let queue: MTLCommandQueue
     private let pipelines: [Int: MTLRenderPipelineState]
     private let skyPipelines: [Int: MTLRenderPipelineState]
+    private let glassPipelines:[Int:MTLRenderPipelineState]
+    private let glassDepthState:MTLDepthStencilState
     private let shadowPipeline: MTLRenderPipelineState
     private let depthState: MTLDepthStencilState
     private let skyDepthState: MTLDepthStencilState
@@ -107,12 +119,25 @@ final class NativeRenderer {
     private let shadowSampler: MTLSamplerState
     private var textures: [MTLTexture]
     private let textureRoot: URL
+    private let library: MTLLibrary
+    private(set) var map: MapDefinition
+    private var appearanceBuffer: MTLBuffer
     private let shadowTexture: MTLTexture
     private var nearShadowTexture: MTLTexture
     private let weaponShadowTexture: MTLTexture
-    private let meshes: [Mesh]
-    private let skinnedSoldiers: SkinnedSoldierRenderer
+    private var meshes: [Mesh]
+    private let baseMeshCount: Int
+    private struct VegetationBatch { let id:String;let kind:VegetationKind;let mesh:Int;let plants:Int }
+    private struct VegetationResources { let meshes:[Mesh];let batches:[VegetationBatch];let alpha:MTLTexture? }
+    private var vegetationBatches:[VegetationBatch]=[]
+    private var vegetationAlpha:MTLTexture?
+    private struct SpotResources { let textures:[MTLTexture];let terrain:[Mesh] }
+    private var spotResources:SpotResources
+    private var spotShadowInstanceCounts:[Int]=[]
+    private var spotLightPowers:[Float]=[]
+    private var skinnedSoldiers: SkinnedSoldierRenderer?
     private let combatEffects: NativeCombatEffects
+    private let shallowWater: NativeShallowWaterRenderer
     private let inflight = DispatchSemaphore(value: 3)
     private var buffers: [MTLBuffer]
     private let uniformBuffers: [MTLBuffer]
@@ -124,12 +149,21 @@ final class NativeRenderer {
     private var forest: [ForestTree] = []
     private var coverCache: [Int: CoverVisual] = [:]
     private var debrisCache: [Int: CachedCoverFragments] = [:]
+    private var reconMarkerCount=0
+    private var breachChargeVisualCount=0
+    private var operatorVisualParts=0
+    private var clearGlassCount=0
+    private var activeBreachCount=0
+    private var breachFrameCount=0
     private var damagedCoverCount = 0
     private var solidDebrisCount = 0
     private var decorativeDebrisCount = 0
     private var staticLevelDetailCount = 0
     private var activeLevelItemCount = 0
     private var missionVisual: MissionVisual?
+    private var operationExitVisuals: [OperationExitVisual] = []
+    private var operationMarkerIDs: [String] = []
+    private var relayTerminalCount=0
     private var missionPropCount = 0
     private var missionRingCount = 0
     private var missionPropShadowCount = 0
@@ -143,18 +177,76 @@ final class NativeRenderer {
     private var weaponAimBlend: Float = 0
     private var weaponWallBlend: Float = 0
     private var weaponParts: [WeaponKind: WeaponParts] = [:]
+    private var displayedCamouflagePattern: CamouflagePattern = .none
+    private var camouflageClothingInstances = 0
+    private var decoyPulseTimes:[Int:Double]=[:]
+    private var alarmReporterVisualCount=0,alarmPropInstances=0
+    private var noiseEmitterVisualCount=0
+    private var noiseDecoyVisualCount=0
+    private var noisePropInstances=0
+    private var smokeVolumeCount=0
+    private var smokeGrenadeVisualCount=0
+    private var smokeDensities:[Float]=[]
+    private var weatherWarningCount=0
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
-        var diagnostics:[String:Any] = ["skinnedSoldiers": skinnedSoldiers.soldierCount,
-         "soldierTriangles": skinnedSoldiers.triangleCount,
-         "soldierDrawCallsIncludingShadows": skinnedSoldiers.drawCallCount,
-         "soldierTextureWidth": skinnedSoldiers.baseColorSize.x,
-         "invalidSoldierPoses": skinnedSoldiers.invalidPoseCount,
-         "droppedSoldiers": skinnedSoldiers.capacityDropCount,
-         "footContactPatches": skinnedSoldiers.footContactCount,
+        var diagnostics:[String:Any] = ["skinnedSoldiers": (skinnedSoldiers?.soldierCount ?? 0),
+         "soldierTriangles": (skinnedSoldiers?.triangleCount ?? 0),
+         "soldierDrawCallsIncludingShadows": (skinnedSoldiers?.drawCallCount ?? 0),
+         "soldierTextureWidth": (skinnedSoldiers?.baseColorSize.x ?? 0),
+         "invalidSoldierPoses": (skinnedSoldiers?.invalidPoseCount ?? 0),
+         "droppedSoldiers": (skinnedSoldiers?.capacityDropCount ?? 0),
+         "footContactPatches": (skinnedSoldiers?.footContactCount ?? 0),
          "farShadowInstances": farShadowInstanceCount, "nearShadowInstances": nearShadowInstanceCount]
         diagnostics.merge(combatEffects.diagnostics) { _,new in new }
+        diagnostics.merge(shallowWater.diagnostics) { _,new in new }
+        diagnostics["relayTerminalVisuals"]=relayTerminalCount
+        diagnostics["mapID"]=map.id
+        diagnostics["mapVersion"]=map.version
+        diagnostics["sceneryInstances"]=scenery.count
+        diagnostics["forestTrees"]=forest.count
+        diagnostics["mapTextureReferences"]=map.resources.texturePaths.count
+        diagnostics["mapSupportSurfaces"]=shellGroundColliders.count
+        diagnostics["mapTerrainVertices"]=meshes[7].count
+        diagnostics["coastalWaterSurfaces"]=map.scenery.boxes.filter { $0.mesh == .water }.count
+        diagnostics["coastalWaterVertices"]=meshes[NativeCoastalGeometry.waterMesh].count
+        diagnostics["radomeSurfaces"]=map.scenery.boxes.filter { $0.mesh == .dome }.count
+        diagnostics["radomeVertices"]=meshes[NativeCoastalGeometry.domeMesh].count
+        diagnostics["mapSunIntensity"]=map.environment.sunIntensity
+        diagnostics["mapSurfaceWetness"]=map.scenery.terrainAppearance.surfaceWetness
+        diagnostics["gameplayVegetationZones"]=vegetationBatches.count
+        diagnostics["gameplayVegetationPlants"]=vegetationBatches.reduce(0) { $0+$1.plants }
+        diagnostics["gameplayVegetationVertices"]=vegetationBatches.reduce(0) { $0+meshes[$1.mesh].count }
+        diagnostics["gameplayVegetationInstances"]=vegetationBatches.count
+        diagnostics["gameplayVegetationAlphaWidth"]=vegetationAlpha?.width ?? 0
+        diagnostics["gameplayVegetationPlantBudget"]=NativeVegetationGeometry.maximumPlants
+        diagnostics["playerCamouflagePattern"]=displayedCamouflagePattern.rawValue
+        diagnostics["camouflageClothingInstances"]=camouflageClothingInstances
+        diagnostics["noiseEmitterVisuals"]=noiseEmitterVisualCount
+        diagnostics["noiseDecoyVisuals"]=noiseDecoyVisualCount
+        diagnostics["noisePropInstances"]=noisePropInstances
+        diagnostics["gameplaySmokeVolumes"]=smokeVolumeCount
+        diagnostics["smokeGrenadeVisuals"]=smokeGrenadeVisualCount
+        diagnostics["smokeDensities"]=smokeDensities
+        diagnostics["smokeUniformBytes"]=MemoryLayout<GPUWorldSmoke>.stride
+        diagnostics["smokeVolumeDrawCalls"]=0
+        diagnostics["weatherWarningBeacons"]=map.environment.smokeEmitters.filter { $0.warningIndicatorPosition != nil }.count
+        diagnostics["activeWeatherWarningLights"]=weatherWarningCount
+        diagnostics["visibleReconMarkers"]=reconMarkerCount
+        diagnostics["breachChargeVisuals"]=breachChargeVisualCount
+        diagnostics["operatorVisualParts"]=operatorVisualParts
+        diagnostics["reconMarkerShadowCasters"]=0
+        diagnostics["clearGlassSurfaces"]=clearGlassCount
+        diagnostics["activeBreachSurfaces"]=activeBreachCount
+        diagnostics["breachFrameBodies"]=breachFrameCount
+        diagnostics["clearGlassShadowCasters"]=0
+        diagnostics["alarmReporterVisuals"]=alarmReporterVisualCount
+        diagnostics["alarmPropInstances"]=alarmPropInstances
+        diagnostics["spotlightPowers"]=spotLightPowers
+        diagnostics["spotShadowInstances"]=spotShadowInstanceCounts
+        diagnostics["spotShadowResolution"]=SpotShadowVolume.resolution
+        diagnostics["spotShadowTerrainVertices"]=spotResources.terrain.map(\.count)
         diagnostics["textureMemoryMB"]=textureMemoryMB
         diagnostics["textureDimensions"]=textureDimensions
         diagnostics["textureQuality"]=highQuality ? "high":"balanced"
@@ -167,16 +259,14 @@ final class NativeRenderer {
         diagnostics["levelDetailInstanceBudget"]=96
         diagnostics["missionPropInstances"]=missionPropCount
         diagnostics["missionRingSegments"]=missionRingCount
+        diagnostics["operationExitMarkers"]=operationMarkerIDs.count
+        diagnostics["operationMarkerIDs"]=operationMarkerIDs
         diagnostics["missionPropShadowCasters"]=missionPropShadowCount
         return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
     // after gameplay cover so ShellSimulation's support indices remain stable.
-    private let shellGroundColliders: [Obstacle] = [
-        Obstacle(id: -10001, kind: .bunker, position: .zero, size: SIMD3(12,0.015,91)),
-        Obstacle(id: -10002, kind: .bunker, position: SIMD3(-6.2,0,0), size: SIMD3(0.3,0.08,85)),
-        Obstacle(id: -10003, kind: .bunker, position: SIMD3(6.2,0,0), size: SIMD3(0.3,0.08,85))
-    ]
+    private var shellGroundColliders: [Obstacle] = []
     private var shellCollisionCache: [Obstacle] = []
     private var farShadowInstanceCount = 0
     private var nearShadowInstanceCount = 0
@@ -192,11 +282,16 @@ final class NativeRenderer {
     private weak var metalView: MTKView?
     private var cameraEye = SIMD3<Float>(0, 1.62, 32)
     private var cameraForward = SIMD3<Float>(0, 0, -1)
-    private let sun = simd_normalize(SIMD3<Float>(-0.68, 0.24, -0.69))
-    private let fog = SIMD3<Float>(0.40, 0.49, 0.54)
+    private var sun: SIMD3<Float> { simd_normalize(map.environment.sunDirection) }
+    private var fog: SIMD3<Float> { map.environment.fogColor }
     private var lightMatrix = matrix_identity_float4x4
 
-    init(view: MTKView, assetRoot: URL?, highQuality: Bool = true) throws {
+    init(view: MTKView, assetRoot: URL?, highQuality: Bool = true, map: MapDefinition = .blacksite) throws {
+        guard map.resources.soldierAsset != nil else {
+            throw RenderError.unavailable("Karte \(map.id): Für einen spielbaren Einsatz fehlt die Soldatenmodell-Ressource.")
+        }
+        try map.validateGameplay()
+        self.map=map
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { throw RenderError.unavailable("Metal wird auf diesem Mac nicht unterstützt.") }
         self.device = device; self.queue = queue; deviceName = device.name
         self.highQuality=highQuality;currentScale=highQuality ? 1:0.82
@@ -204,6 +299,10 @@ final class NativeRenderer {
               MemoryLayout<GPUUniforms>.offset(of: \.nearLightViewProjection) == 256,
               MemoryLayout<GPUUniforms>.offset(of: \.shadowParameters) == 320 else {
             throw RenderError.unavailable("CPU- und Metal-Schattenlayout stimmen nicht überein.")
+        }
+        guard MemoryLayout<GPUWorldSmoke>.stride==336,MemoryLayout<GPUWorldSmokeVolume>.stride==80,
+              MemoryLayout<GPUWorldSmoke>.offset(of:\.first)==16,MemoryLayout<GPUWorldSmoke>.offset(of:\.fourth)==256 else {
+            throw RenderError.unavailable("CPU- und Metal-Rauchlayout stimmen nicht überein.")
         }
         // The packaged .app intentionally carries a direct resource rather than
         // SwiftPM's generated bundle. Access Bundle.module only for swift run.
@@ -214,7 +313,9 @@ final class NativeRenderer {
         guard let shaderURL, FileManager.default.fileExists(atPath: shaderURL.path) else { throw RenderError.unavailable("Metal-Shader fehlen im Programmpaket.") }
         let options = MTLCompileOptions(); options.fastMathEnabled = true
         let library = try device.makeLibrary(source: String(contentsOf: shaderURL, encoding: .utf8), options: options)
-        var main: [Int: MTLRenderPipelineState] = [:], skies: [Int: MTLRenderPipelineState] = [:]
+        self.library=library
+        appearanceBuffer=try Self.makeAppearanceBuffer(device:device,map:map)
+        var main: [Int: MTLRenderPipelineState] = [:], skies: [Int: MTLRenderPipelineState] = [:],glass:[Int:MTLRenderPipelineState]=[:]
         for samples in [1, 4] where device.supportsTextureSampleCount(samples) {
             let p = MTLRenderPipelineDescriptor(); p.label = "Blacksite physically based opaque \(samples)x"
             p.vertexFunction = library.makeFunction(name: "worldVertex"); p.fragmentFunction = library.makeFunction(name: "worldFragment")
@@ -224,14 +325,22 @@ final class NativeRenderer {
             s.vertexFunction = library.makeFunction(name: "skyVertex"); s.fragmentFunction = library.makeFunction(name: "skyFragment")
             s.colorAttachments[0].pixelFormat = .bgra8Unorm_srgb; s.depthAttachmentPixelFormat = .depth32Float; s.rasterSampleCount = samples
             skies[samples] = try device.makeRenderPipelineState(descriptor: s)
+            let g=MTLRenderPipelineDescriptor();g.label="Physical clear breach glass \(samples)x"
+            g.vertexFunction=library.makeFunction(name:"worldVertex");g.fragmentFunction=library.makeFunction(name:"breachGlassFragment")
+            g.depthAttachmentPixelFormat = .depth32Float;g.rasterSampleCount=samples
+            let color=g.colorAttachments[0]!;color.pixelFormat = .bgra8Unorm_srgb;color.isBlendingEnabled=true
+            color.sourceRGBBlendFactor = .one;color.destinationRGBBlendFactor = .oneMinusSourceAlpha
+            color.sourceAlphaBlendFactor = .zero;color.destinationAlphaBlendFactor = .one
+            glass[samples]=try device.makeRenderPipelineState(descriptor:g)
         }
-        pipelines = main; skyPipelines = skies
+        pipelines = main; skyPipelines = skies;glassPipelines=glass
         let sd = MTLRenderPipelineDescriptor(); sd.label = "Directional shadow depth"
         sd.vertexFunction = library.makeFunction(name: "shadowVertex"); sd.fragmentFunction = library.makeFunction(name: "shadowFragment"); sd.depthAttachmentPixelFormat = .depth32Float
         shadowPipeline = try device.makeRenderPipelineState(descriptor: sd)
         let dd = MTLDepthStencilDescriptor(); dd.depthCompareFunction = .lessEqual; dd.isDepthWriteEnabled = true
         guard let ds = device.makeDepthStencilState(descriptor: dd) else { throw RenderError.unavailable("Tiefenpuffer konnte nicht angelegt werden.") }; depthState = ds
-        dd.isDepthWriteEnabled = false; dd.depthCompareFunction = .always; skyDepthState = device.makeDepthStencilState(descriptor: dd)!
+        dd.isDepthWriteEnabled=false;glassDepthState=device.makeDepthStencilState(descriptor:dd)!
+        dd.depthCompareFunction = .always; skyDepthState = device.makeDepthStencilState(descriptor: dd)!
         let sm = MTLSamplerDescriptor(); sm.minFilter = .linear; sm.magFilter = .linear; sm.mipFilter = .linear; sm.maxAnisotropy = 8; sm.sAddressMode = .repeat; sm.tAddressMode = .repeat
         sampler = device.makeSamplerState(descriptor: sm)!
         let ss = MTLSamplerDescriptor(); ss.minFilter = .nearest; ss.magFilter = .nearest; ss.compareFunction = .lessEqual; ss.sAddressMode = .clampToEdge; ss.tAddressMode = .clampToEdge
@@ -243,41 +352,116 @@ final class NativeRenderer {
         weaponShadowDesc.usage=[.renderTarget,.shaderRead];weaponShadowDesc.storageMode = .private
         guard let weaponShadow=device.makeTexture(descriptor:weaponShadowDesc) else { throw RenderError.unavailable("Waffen-Schattenpuffer konnte nicht angelegt werden.") }
         weaponShadow.label="512 viewmodel-only self shadows";weaponShadowTexture=weaponShadow
-        meshes = try Self.makeMeshes(device: device)
         let root=try Self.resolveTextureRoot(assetRoot:assetRoot);textureRoot=root
-        textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality) }
-        skinnedSoldiers = try SkinnedSoldierRenderer(device: device, library: library,
-            assetURL: root.appendingPathComponent("characters/soldier/soldier.glb"),highQuality:highQuality)
+        let baseMeshes=try Self.makeMeshes(device:device,map:map)
+        baseMeshCount=baseMeshes.count
+        let vegetation=try Self.makeVegetation(device:device,root:root,map:map,firstMesh:baseMeshes.count)
+        meshes=baseMeshes+vegetation.meshes;vegetationBatches=vegetation.batches;vegetationAlpha=vegetation.alpha
+        spotResources=try Self.makeSpotResources(device:device,map:map)
+        textures = try autoreleasepool { try Self.loadTextures(device:device,root:root,highQuality:highQuality,resources:map.resources) }
+        if let soldier=map.resources.soldierAsset {
+            skinnedSoldiers = try SkinnedSoldierRenderer(device:device,library:library,
+                assetURL:root.appendingPathComponent(map.resources.assetDirectory).appendingPathComponent(soldier),highQuality:highQuality)
+        }
         combatEffects = try NativeCombatEffects(device:device,library:library)
+        shallowWater = try NativeShallowWaterRenderer(device:device,library:library,map:map)
         buffers = try (0..<3).map { index in guard let b = device.makeBuffer(length: 48_000 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Instanzpuffer konnte nicht angelegt werden.") }; b.label = "Instances frame \(index)"; return b }
         uniformBuffers = (0..<3).map { _ in device.makeBuffer(length: MemoryLayout<GPUUniforms>.stride, options: .storageModeShared)! }
         metalView = view; view.device = device; view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float; view.sampleCount = highQuality && main[4] != nil ? 4:1; view.framebufferOnly = true
         view.clearColor = MTLClearColor(red: 0.25, green: 0.35, blue: 0.42, alpha: 1)
-        lightMatrix = Self.orthographic(left: -65, right: 65, bottom: -65, top: 65, near: 1, far: 220) * Self.lookAt(eye: sun * 100, target: .zero)
+        lightMatrix = Self.makeLightMatrix(map:map)
+        shellGroundColliders=map.groundedSupportSurfaces
         buildScenery()
+    }
+
+    /// Prepare fallible GPU resources first. The synchronous MainActor commit
+    /// leaves no mixed old/new world if an asset fails to decode or upload.
+    func setMap(_ next: MapDefinition) throws {
+        guard next.resources.soldierAsset != nil else {
+            throw RenderError.unavailable("Karte \(next.id): Für einen spielbaren Einsatz fehlt die Soldatenmodell-Ressource.")
+        }
+        try next.validateGameplay()
+        let replacement = try autoreleasepool { () -> ([MTLTexture], SkinnedSoldierRenderer?, Mesh, MTLBuffer,VegetationResources,SpotResources,NativeShallowWaterRenderer.Resources) in
+            let resourcesChanged = next.resources != map.resources
+            let materials = resourcesChanged
+                ? try Self.loadTextures(device: device, root: textureRoot, highQuality: highQuality, resources: next.resources)
+                : textures
+            let character: SkinnedSoldierRenderer?
+            if next.resources.soldierAsset == map.resources.soldierAsset,
+               next.resources.assetDirectory == map.resources.assetDirectory { character = skinnedSoldiers }
+            else if let file = next.resources.soldierAsset {
+                character = try SkinnedSoldierRenderer(device: device, library: library,
+                    assetURL: textureRoot.appendingPathComponent(next.resources.assetDirectory).appendingPathComponent(file),
+                    highQuality: highQuality)
+            } else { character = nil }
+            let terrain = try Self.makeMesh(device: device, name: "Active map \(next.id) heightfield",
+                                           vertices: NativeMapGeometry.vertices(map: next))
+            let appearance = try Self.makeAppearanceBuffer(device: device, map: next)
+            let vegetation=try Self.makeVegetation(device:device,root:textureRoot,map:next,firstMesh:baseMeshCount)
+            let spots=try Self.makeSpotResources(device:device,map:next)
+            let water=try NativeShallowWaterRenderer.makeResources(device:device,map:next)
+            return (materials, character, terrain, appearance, vegetation,spots,water)
+        }
+        map = next; textures = replacement.0; skinnedSoldiers = replacement.1
+        meshes=Array(meshes.prefix(baseMeshCount))+replacement.4.meshes
+        meshes[7] = replacement.2; appearanceBuffer = replacement.3
+        vegetationBatches=replacement.4.batches;vegetationAlpha=replacement.4.alpha
+        spotResources=replacement.5
+        shallowWater.replace(replacement.6)
+        shellGroundColliders = next.groundedSupportSurfaces
+        lightMatrix = Self.makeLightMatrix(map: next)
+        // Submitted command buffers retain only the resources they still use.
+        // No registry, hidden second map, or previous scenery cache is retained.
+        scenery.removeAll(keepingCapacity: false); forest.removeAll(keepingCapacity: false)
+        reset(); visualTime = 0
+        buildScenery()
+    }
+
+    private static func makeLightMatrix(map: MapDefinition) -> simd_float4x4 {
+        let e = map.environment, extent = e.shadowExtent
+        let light = simd_normalize(e.sunDirection)
+        return orthographic(left: -extent, right: extent, bottom: -extent, top: extent, near: 1, far: e.shadowDepth)
+            * lookAt(eye: e.shadowTarget + light * e.shadowDistance, target: e.shadowTarget)
+    }
+
+    private static func makeAppearanceBuffer(device: MTLDevice, map: MapDefinition) throws -> MTLBuffer {
+        let appearance = map.scenery.terrainAppearance
+        guard appearance.regions.count <= 8 else { throw RenderError.unavailable("Karte \(map.id): Höchstens acht Gelände-Materialmasken sind erlaubt.") }
+        let fields=NativeMapAppearance.fields(appearance)
+        assert(fields.count*MemoryLayout<SIMD4<Float>>.stride==NativeMapAppearance.byteCount)
+        guard let buffer = device.makeBuffer(bytes: fields, length: fields.count * MemoryLayout<SIMD4<Float>>.stride, options: .storageModeShared) else {
+            throw RenderError.unavailable("Geländematerialien der Karte \(map.id) konnten nicht angelegt werden.")
+        }
+        buffer.label = "Active map terrain appearance (560 bytes)"
+        return buffer
     }
 
     func setQuality(_ high: Bool) throws {
         guard high != highQuality else { return }
         // Prepare all profile resources before changing any live binding. A
         // failed file/decode/upload leaves the old profile fully operational.
-        let replacement=try autoreleasepool { () -> ([MTLTexture],SkinnedSoldierRenderer.MaterialSet,MTLTexture) in
-            let world=try Self.loadTextures(device:device,root:textureRoot,highQuality:high)
-            let soldiers=try skinnedSoldiers.prepareMaterials(highQuality:high)
+        let replacement=try autoreleasepool { () -> ([MTLTexture],SkinnedSoldierRenderer.MaterialSet?,MTLTexture) in
+            let world=try Self.loadTextures(device:device,root:textureRoot,highQuality:high,resources:map.resources)
+            let soldiers=try skinnedSoldiers?.prepareMaterials(highQuality:high)
             let near=try Self.makeNearShadow(device:device,highQuality:high)
             return (world,soldiers,near)
         }
         // This synchronous MainActor transaction cannot interleave with draw.
         // Submitted command buffers retain old resources until their GPU work
         // completes; there is no permanent second profile or shadow-map cache.
-        textures=replacement.0;skinnedSoldiers.installMaterials(replacement.1);nearShadowTexture=replacement.2
+        textures=replacement.0
+        if let materials=replacement.1 { skinnedSoldiers?.installMaterials(materials) }
+        nearShadowTexture=replacement.2
         highQuality = high; currentScale = high ? 1 : 0.82
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { relayTerminalCount=0; shallowWater.reset(); weatherWarningCount=0;reconMarkerCount=0;breachChargeVisualCount=0;operatorVisualParts=0;clearGlassCount=0;activeBreachCount=0;breachFrameCount=0;smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
+        for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
+            decoyPulseTimes[event.id]=event.hearing?.time ?? simulation.elapsed
+        }
         // Only hit owners need surface extraction. These are the exact cached
         // mesh0 parts used to draw ribs, warning paint, slats and window trims.
         let hitOwners=Set(events.compactMap { $0.surfaceImpact?.obstacleID })
@@ -294,6 +478,7 @@ final class NativeRenderer {
             }
         }
         combatEffects.handle(events:events,simulation:simulation,highQuality:highQuality,surfaceBoxes:surfaceBoxes)
+        shallowWater.handle(events:events,simulation:simulation)
         if events.contains(where: { $0.kind == .shot }) {
             // Events arrive before draw/advanceEffects. A newly approached wall
             // must affect this shot's visual muzzle and ejection port already.
@@ -349,7 +534,7 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0)) Instanzen · \(scene.main.count + scene.glass.count * max(1,shallowWater.resources.layers+1) + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + scene.spotDrawCount + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + shallowWater.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -373,7 +558,8 @@ final class NativeRenderer {
         encode(command: command, descriptor: pass, samples: samples, slot: slot, scene: scene)
         command.commit(); command.waitUntilCompleted(); inflight.signal()
         if let error = command.error { throw error }
-        guard skinnedSoldiers.invalidPoseCount == 0, skinnedSoldiers.capacityDropCount == 0 else {
+        guard (skinnedSoldiers?.invalidPoseCount ?? 0) == 0, (skinnedSoldiers?.capacityDropCount ?? 0) == 0,
+              simulation.enemies.isEmpty || skinnedSoldiers != nil else {
             throw RenderError.unavailable("Soldatenprüfung: ungültige oder nicht ausgegebene Skelettposen.")
         }
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
@@ -419,7 +605,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1
+                visible = scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0); draws = scene.main.count + scene.glass.count * max(1,shallowWater.resources.layers+1) + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + scene.spotDrawCount + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + shallowWater.drawCallCount + 1
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }
@@ -454,18 +640,18 @@ final class NativeRenderer {
             result[name]=Double(bytes)/1_048_576
         }
         account("landscape",(Array(0...8)+Array(14...19)).map { textures[$0] })
-        account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] })
+        account("foliage",([9]+Array(11...13)+Array(20...22)).map { textures[$0] } + (vegetationAlpha.map { [$0] } ?? []))
         account("sky",[textures[23]])
-        account("soldiers",skinnedSoldiers.materialTextures)
+        account("soldiers",(skinnedSoldiers?.materialTextures ?? []))
         account("weapons",Array(25...30).map { textures[$0] })
-        account("shadows",[shadowTexture,nearShadowTexture,weaponShadowTexture])
+        account("shadows",[shadowTexture,nearShadowTexture,weaponShadowTexture]+spotResources.textures)
         result["renderTargets"]=Double(renderTargetBytes)/1_048_576
         result["total"]=result.values.reduce(0,+)
         return result
     }
     var textureDimensions:[String:[Int]] {
         var seen=Set<ObjectIdentifier>(),result:[String:[Int]]=[:]
-        for resource in textures+skinnedSoldiers.materialTextures where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
+        for resource in textures+(skinnedSoldiers?.materialTextures ?? [])+(vegetationAlpha.map { [$0] } ?? []) where seen.insert(ObjectIdentifier(resource as AnyObject)).inserted {
             result[resource.label ?? "unlabelled"]=[resource.width,resource.height]
         }
         return result
@@ -482,10 +668,17 @@ final class NativeRenderer {
     private struct PreparedScene {
         var instances: [GPUInstance]
         var main: [RenderBatch]
+        var glass:[RenderBatch]
+        var glassDepths:[Float]
         var shadows: [RenderBatch]
         var nearShadows: [RenderBatch]
         var weapon: [RenderBatch]
         var weaponShadows: [RenderBatch]
+        var spotShadows:[[RenderBatch]]
+        var spotVolumes:[SpotShadowVolume]
+        var spotlights:[WorldSpotlightState]
+        var smoke:GPUWorldSmoke
+        var spotDrawCount:Int { spotlights.indices.reduce(0) { $0 + (spotlights[$1].enabled && spotlights[$1].power>0 ? spotShadows[$1].count+1:0) } }
         var weaponLightMatrix: simd_float4x4
         var nearVolume: DirectionalShadowVolume
         var uniforms: GPUUniforms
@@ -497,9 +690,11 @@ final class NativeRenderer {
     }
     private func prepare(simulation: CombatSimulation, mode: NativeRenderMode, size: SIMD2<Float>, deltaTime: Float) -> PreparedScene {
         let p = simulation.player
+        displayedCamouflagePattern=simulation.loadout.camouflage
+        camouflageClothingInstances=0
         var eye = simulation.eyePosition
         var yaw = p.yaw, pitch = p.pitch
-        if mode == .menu { eye = SIMD3(12, 6.5, 33); let dir = simd_normalize(SIMD3<Float>(-3, 2, -8) - eye); yaw = atan2(-dir.x, -dir.z); pitch = asin(dir.y) }
+        if mode == .menu { eye = map.scenery.menuEye; let dir = simd_normalize(map.scenery.menuTarget - eye); yaw = atan2(-dir.x, -dir.z); pitch = asin(dir.y) }
         let bob: Float = simulation.isMoving && p.grounded && mode == .playing ? sin(visualTime * (simulation.isSprinting ? 14 : 10)) * (p.prone ? 0.009 : 0.027) : 0
         eye.y += bob
         yaw += sin(visualTime * 53) * shake * 0.012; pitch += cos(visualTime * 67) * shake * 0.013 + recoil * 0.012
@@ -511,13 +706,15 @@ final class NativeRenderer {
         let targetFOV: Float = aiming ? aimedFOV : readyFOV
         smoothFOV += (targetFOV - smoothFOV) * min(1, max(deltaTime, 0.001) * 14)
         let view = Self.lookAt(eye: eye, target: eye + forward)
-        let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: 450)
+        let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: map.environment.viewDistance)
         let vp = projection * view
         let shadowResolution = highQuality ? 2048 : 1024
         // Use the unshaken camera for a stable grid: recoil must not move shadows.
         let nearVolume = DirectionalShadowVolume.near(eye: mode == .menu ? eye : simulation.eyePosition,
             forward: mode == .menu ? forward : viewDirection(yaw: p.yaw, pitch: p.pitch), sun: sun, resolution: shadowResolution)
         let farVolume = DirectionalShadowVolume(matrix: lightMatrix)
+        let spotlights=simulation.spotlights
+        let spotVolumes=spotlights.map { SpotShadowVolume(light:$0) }
         var all = scenery
         let solidIDs=Set(simulation.coverDebris.compactMap(\.solidObstacleID))
         let activeIDs=Set(simulation.obstacles.filter { !$0.destroyed }.map(\.id))
@@ -525,6 +722,9 @@ final class NativeRenderer {
         let debrisIDs=Set(simulation.coverDebris.map(\.sourceObstacleID))
         debrisCache=debrisCache.filter { debrisIDs.contains($0.key) }
         damagedCoverCount=0;solidDebrisCount=0
+        activeBreachCount=simulation.breaches.filter { !$0.isOpen }.count
+        let frameIDs=Set(map.breaches.flatMap(\.frameObstacleIDs))
+        breachFrameCount=simulation.obstacles.filter { !$0.destroyed && frameIDs.contains($0.id) }.count
         for obstacle in simulation.obstacles where !obstacle.destroyed {
             let rubble=solidIDs.contains(obstacle.id)
             all.append(contentsOf:coverItems(obstacle,isRubble:rubble))
@@ -534,7 +734,48 @@ final class NativeRenderer {
         activeLevelItemCount=staticLevelDetailCount+coverCache.values.reduce(0) { $0+$1.items.filter(\.levelAddition).count }
         assert(activeLevelItemCount<=96,"Authored level details exceeded the fixed instance budget.")
         appendCoverDebris(to:&all,simulation:simulation)
-        for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) }
+        appendAcousticProps(to:&all,simulation:simulation)
+        appendAlarmProps(to:&all,simulation:simulation)
+        appendDeviceProps(to:&all,simulation:simulation)
+        weatherWarningCount=0
+        for source in map.environment.smokeEmitters {
+            guard let point=source.warningIndicatorPosition else { continue }
+            let warning=simulation.smokeWarnings.first { $0.emitterID==source.id }
+            if let warning,simulation.elapsed>=warning.beginsAt && simulation.elapsed<warning.startsAt { weatherWarningCount+=1 }
+            for part in NativeWeatherGeometry.lenses(position:map.grounded(point),warning:warning,time:simulation.elapsed) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
+        let marks=simulation.visibleReconMarks
+        reconMarkerCount=marks.count;breachChargeVisualCount=simulation.breachCharges.count;operatorVisualParts=0
+        for mark in marks.prefix(ReconMark.maximumCount) {
+            for part in NativeOperatorGeometry.marker(mark,eye:eye,time:simulation.elapsed) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+                operatorVisualParts+=1
+            }
+        }
+        for charge in simulation.breachCharges.prefix(BreachChargeState.maximumCount) {
+            for part in NativeOperatorGeometry.charge(charge) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+                operatorVisualParts+=1
+            }
+        }
+        assert(operatorVisualParts<=NativeOperatorGeometry.maximumMarkerParts+NativeOperatorGeometry.maximumChargeParts)
+        smokeVolumeCount=simulation.smokeVolumes.count
+        smokeGrenadeVisualCount=simulation.smokeGrenades.count
+        smokeDensities=simulation.smokeVolumes.map(\.density)
+        let smokeLighting=simulation.smokeVolumes.map { volume -> SIMD2<Float> in
+            let light=simulation.lightSample(at:volume.position)
+            return SIMD2(light.directSun*map.environment.sunIntensity,light.artificial)
+        }
+        let smoke=GPUWorldSmoke(volumes:simulation.smokeVolumes,lighting:smokeLighting)
+        for grenade in simulation.smokeGrenades {
+            for part in NativeSmokeGeometry.grenade(position:grenade.position) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,
+                    material:part.material,shadow:part.castsShadow)
+            }
+        }
+        if skinnedSoldiers != nil { for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) } }
         for grenade in simulation.grenades {
             appendItem(to: &all, mesh: 1, position: grenade.position, scale: SIMD3(0.085, 0.105, 0.085), color: SIMD3(0.18, 0.23, 0.12), material: SIMD4(0.48, 0.6, 0, 0))
             appendItem(to: &all, mesh: 0, position: grenade.position + SIMD3(0, 0.1, 0), scale: SIMD3(0.06, 0.07, 0.04), color: SIMD3(0.34, 0.34, 0.29), material: SIMD4(0.28, 0.85, 0, 0))
@@ -553,9 +794,23 @@ final class NativeRenderer {
             appendTransformed(to: &all, mesh: 2, transform: pose * Self.translation(SIMD3(0,-length*0.503,0)) * Self.scale(SIMD3(radius*0.4,0.0006,radius*0.4)), color: SIMD3(0.42,0.36,0.22), material: SIMD4(0.4,0.85,0,13), shadow: false)
         }
         for tracer in tracers { appendBeam(to: &all, from: tracer.start, to: tracer.end, width: tracer.hostile ? 0.013 : 0.008, color: tracer.hostile ? SIMD3(1, 0.23, 0.045) : SIMD3(1, 0.77, 0.3), emissive: 5) }
-        appendMissionVisuals(to: &all, status: simulation.missionStatus, terrain: simulation.terrain)
+        appendMissionVisuals(to: &all, status: simulation.missionStatus, operation: simulation.operationStatus, terrain: simulation.terrain)
+        relayTerminalCount=0
+        if let operation=simulation.operationStatus {
+            for stage in operation.stages where stage.kind == .relayGroup {
+                for target in stage.targets.prefix(2) {
+                    guard let id=target.ownerObstacleID,let owner=simulation.obstacles.first(where: { $0.id==id && !$0.destroyed }) else { continue }
+                    for part in NativeRelayVisual.parts(target:target,owner:owner) {
+                        appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+                    }
+                    relayTerminalCount+=1
+                }
+            }
+        }
         var worldByMesh = [[GPUInstance]](repeating: [], count: meshes.count), shadowByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var nearByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
+        var glassItems:[RenderItem]=[]
+        var spotsByMesh=[[[GPUInstance]]](repeating:[[GPUInstance]](repeating:[],count:meshes.count),count:spotlights.count)
         // Conservative sphere frustum checks keep tall trees and nearby cover
         // visible. Scope narrows the horizontal cone without rebuilding scenery.
         let aspect = size.x / max(size.y, 1); let halfAngle = atan(tan(smoothFOV * .pi / 360) * max(aspect, 1)) + 0.2
@@ -564,12 +819,12 @@ final class NativeRenderer {
         // cast foliage silhouettes without resubmitting the dense visible LOD.
         for tree in forest {
             let offset = tree.center - eye, distance = simd_length(offset)
-            let visibleTree = distance < tree.radius + 7 || (distance < 360 + tree.radius && simd_dot(offset,forward) + tree.radius > distance*cosCone)
+            let visibleTree = distance < tree.radius + 7 || (distance < map.environment.viewDistance * 0.8 + tree.radius && simd_dot(offset,forward) + tree.radius > distance*cosCone)
             if visibleTree {
                 let lod = distance < (highQuality ? 85 : 60) ? 0 : distance < (highQuality ? 155 : 125) ? 1 : 2
                 for item in tree.levels[lod] {
                     let delta = item.center-eye, range = simd_length(delta)
-                    if range < item.radius+7 || (range < 360+item.radius && simd_dot(delta,forward)+item.radius > range*cosCone) {
+                    if range < item.radius+7 || (range < map.environment.viewDistance * 0.8+item.radius && simd_dot(delta,forward)+item.radius > range*cosCone) {
                         worldByMesh[item.mesh].append(item.instance)
                     }
                 }
@@ -587,6 +842,14 @@ final class NativeRenderer {
                     if nearVolume.intersects(center:item.center,radius:item.radius+0.25) { nearByMesh[item.mesh].append(item.instance) }
                 }
             }
+            for index in spotlights.indices where spotlights[index].enabled && spotlights[index].power>0 {
+                let volume=spotVolumes[index]
+                if volume.intersects(center:tree.center,radius:tree.radius+0.3) {
+                    for item in tree.levels[1] where item.shadow && volume.intersects(center:item.center,radius:item.radius+0.25) {
+                        spotsByMesh[index][item.mesh].append(item.instance)
+                    }
+                }
+            }
         }
         for item in all {
             if item.shadow {
@@ -594,9 +857,21 @@ final class NativeRenderer {
                 let shadowRadius = item.radius + 0.25
                 if farVolume.intersects(center: item.center, radius: shadowRadius) { shadowByMesh[item.mesh].append(item.instance) }
                 if nearVolume.intersects(center: item.center, radius: shadowRadius) { nearByMesh[item.mesh].append(item.instance) }
+                // The large terrain uses a cached, exact local patch instead.
+                if item.mesh != 7 {
+                    for index in spotlights.indices where spotlights[index].enabled && spotlights[index].power>0 {
+                        if (spotlights[index].ownerObstacleID == nil || item.ownerID != spotlights[index].ownerObstacleID),
+                           spotVolumes[index].intersects(center:item.center,radius:shadowRadius) {
+                            spotsByMesh[index][item.mesh].append(item.instance)
+                        }
+                    }
+                }
             }
             let offset = item.center - eye, distance = simd_length(offset)
-            if distance < item.radius + 7 || (distance < 360 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) { worldByMesh[item.mesh].append(item.instance) }
+            if distance < item.radius + 7 || (distance < map.environment.viewDistance * 0.8 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) {
+                if item.instance.material.w == NativeBreachGeometry.clearGlassMaterial { glassItems.append(item) }
+                else { worldByMesh[item.mesh].append(item.instance) }
+            }
         }
         var weaponByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var weaponCastersByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
@@ -609,13 +884,14 @@ final class NativeRenderer {
             // Use the same unshaken pose as the actual shot/ejection event.
             for item in weapon(simulation: simulation, eye: simulation.eyePosition, yaw: p.yaw, pitch: p.pitch) {
                 weaponByMesh[item.mesh].append(item.instance)
+                if item.instance.material.w == 30 || item.instance.material.w == 31 { camouflageClothingInstances+=1 }
                 // Flash, reticle and transmissive scope glass cannot cast an
                 // opaque shadow across the hand or receiver.
                 if item.instance.material.z<=0 && Int(item.instance.material.w+0.5) != 12 { weaponCastersByMesh[item.mesh].append(item.instance) }
             }
         }
         var instances: [GPUInstance] = []
-        instances.reserveCapacity(worldByMesh.reduce(0) { $0+$1.count } + shadowByMesh.reduce(0) { $0+$1.count } + nearByMesh.reduce(0) { $0+$1.count } + weaponByMesh.reduce(0) { $0+$1.count } + weaponCastersByMesh.reduce(0) { $0+$1.count })
+        instances.reserveCapacity(worldByMesh.reduce(0) { $0+$1.count } + shadowByMesh.reduce(0) { $0+$1.count } + nearByMesh.reduce(0) { $0+$1.count } + weaponByMesh.reduce(0) { $0+$1.count } + weaponCastersByMesh.reduce(0) { $0+$1.count } + spotsByMesh.reduce(0) { $0+$1.reduce(0) { $0+$1.count } })
         func batches(_ source: [[GPUInstance]]) -> [RenderBatch] {
             var result: [RenderBatch] = []
             for mesh in source.indices where !source[mesh].isEmpty {
@@ -626,11 +902,20 @@ final class NativeRenderer {
         }
         farShadowInstanceCount = shadowByMesh.reduce(0) { $0+$1.count }
         nearShadowInstanceCount = nearByMesh.reduce(0) { $0+$1.count }
+        spotShadowInstanceCounts=spotsByMesh.map { $0.reduce(0) { $0+$1.count } }
+        spotLightPowers=spotlights.map { $0.enabled ? $0.power:0 }
         let shadows = batches(shadowByMesh), nearShadows = batches(nearByMesh)
+        let spotBatches=spotsByMesh.map { batches($0) }
         let visible = worldByMesh.reduce(0) { $0 + $1.count } + weaponByMesh.reduce(0) { $0+$1.count }, main = batches(worldByMesh), weaponBatches=batches(weaponByMesh), weaponShadowBatches=batches(weaponCastersByMesh)
-        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
+        glassItems.sort { simd_dot($0.center-eye,forward)>simd_dot($1.center-eye,forward) }
+        clearGlassCount=glassItems.count
+        let glassBatches=glassItems.map { item -> RenderBatch in
+            let batch=RenderBatch(mesh:item.mesh,offset:instances.count,count:1);instances.append(item.instance);return batch
+        }
+        let glassDepths=glassItems.map { simd_dot($0.center-eye,forward) }
+        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, map.environment.sunIntensity), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
                                   shadowParameters: SIMD4(1 / Float(shadowResolution), DirectionalShadowVolume.nearWidth, DirectionalShadowVolume.nearDepth, 0.30))
-        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
+        return PreparedScene(instances: instances, main: main, glass:glassBatches,glassDepths:glassDepths,shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,spotShadows:spotBatches,spotVolumes:spotVolumes,spotlights:spotlights,smoke:smoke,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible+glassBatches.count,
                              enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
     }
     private func encode(command: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, samples: Int, slot: Int, scene: PreparedScene) {
@@ -641,9 +926,11 @@ final class NativeRenderer {
         }
         // The frame semaphore has granted ownership of this slot before any
         // joint upload. Main and shadow passes share the exact same pose.
-        skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
+        skinnedSoldiers?.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders,
+            spotVolumes:scene.spotlights.indices.map { scene.spotlights[$0].enabled && scene.spotlights[$0].power>0 ? scene.spotVolumes[$0]:nil })
         let effectsEye=SIMD3(scene.uniforms.eyeTime.x,scene.uniforms.eyeTime.y,scene.uniforms.eyeTime.z)
         combatEffects.prepare(slot:slot,eye:effectsEye,forward:cameraForward,terrain:scene.terrain,obstacles:scene.obstacles+shellGroundColliders)
+        shallowWater.prepare(slot:slot)
         let requiredBytes = scene.instances.count * MemoryLayout<GPUInstance>.stride
         if requiredBytes > buffers[slot].length, let grown = device.makeBuffer(length: requiredBytes + 4096 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) {
             buffers[slot] = grown
@@ -655,9 +942,9 @@ final class NativeRenderer {
         let shadowPass = MTLRenderPassDescriptor(); shadowPass.depthAttachment.texture = shadowTexture; shadowPass.depthAttachment.loadAction = .clear; shadowPass.depthAttachment.storeAction = .store; shadowPass.depthAttachment.clearDepth = 1
         if let encoder = command.makeRenderCommandEncoder(descriptor: shadowPass) {
             encoder.label = "Sun shadow map"; encoder.setRenderPipelineState(shadowPipeline); encoder.setDepthStencilState(depthState); encoder.setCullMode(.none); encoder.setDepthBias(0.001, slopeScale: 1.5, clamp: 0.01)
-            encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
+            encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.shadows, encoder: encoder, buffer: instanceBuffer)
-            skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot)
+            skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot)
             encoder.endEncoding()
         }
         let nearTexture = nearShadowTexture
@@ -670,10 +957,34 @@ final class NativeRenderer {
             // setVertexBytes owns a copy; never overwrite uniforms used by the far pass.
             var nearUniform = uniform; nearUniform.lightViewProjection = uniform.nearLightViewProjection
             encoder.setVertexBytes(&nearUniform, length: MemoryLayout<GPUUniforms>.stride, index: 2)
-            encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
+            encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1); encoder.setFragmentSamplerState(sampler, index: 0)
             drawBatches(scene.nearShadows, encoder: encoder, buffer: instanceBuffer)
-            skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot, near: true)
+            skinnedSoldiers?.encodeShadow(encoder: encoder, slot: slot, near: true)
             encoder.endEncoding()
+        }
+        for index in scene.spotlights.indices where scene.spotlights[index].enabled && scene.spotlights[index].power>0 {
+            guard spotResources.textures.indices.contains(index),spotResources.terrain.indices.contains(index) else { continue }
+            let pass=MTLRenderPassDescriptor();pass.depthAttachment.texture=spotResources.textures[index]
+            pass.depthAttachment.loadAction = .clear;pass.depthAttachment.storeAction = .store;pass.depthAttachment.clearDepth=1
+            if let encoder=command.makeRenderCommandEncoder(descriptor:pass) {
+                encoder.label="Shared world lamp \(scene.spotlights[index].id) shadows"
+                encoder.setRenderPipelineState(shadowPipeline);encoder.setDepthStencilState(depthState);encoder.setCullMode(.none)
+                // Receiver-plane correction supplies the bias at the exact four
+                // sampled texel centres; avoid a large perspective raster bias.
+                encoder.setDepthBias(0,slopeScale:0,clamp:0)
+                var lightUniform=uniform;lightUniform.lightViewProjection=scene.spotVolumes[index].matrix
+                encoder.setVertexBytes(&lightUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
+                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1)
+                encoder.setFragmentSamplerState(sampler,index:0)
+                var identity=GPUInstance(model:matrix_identity_float4x4,normal0:SIMD4(1,0,0,0),normal1:SIMD4(0,1,0,0),normal2:SIMD4(0,0,1,0),tint:SIMD4(repeating:1),material:SIMD4(1,0,0,1))
+                let terrain=spotResources.terrain[index]
+                encoder.setVertexBuffer(terrain.vertices,offset:0,index:0)
+                encoder.setVertexBytes(&identity,length:MemoryLayout<GPUInstance>.stride,index:1)
+                encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:terrain.count)
+                drawBatches(scene.spotShadows[index],encoder:encoder,buffer:instanceBuffer)
+                skinnedSoldiers?.encodeSpotShadow(encoder:encoder,slot:slot,light:index)
+                encoder.endEncoding()
+            }
         }
         if !scene.weapon.isEmpty {
             let weaponPass=MTLRenderPassDescriptor();weaponPass.depthAttachment.texture=weaponShadowTexture
@@ -684,12 +995,17 @@ final class NativeRenderer {
                 encoder.setDepthBias(0,slopeScale:0.65,clamp:0.00015)
                 var weaponUniform=uniform;weaponUniform.lightViewProjection=scene.weaponLightMatrix
                 encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
-                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentSamplerState(sampler,index:0)
+                encoder.setFragmentTexture(textures[21],index:0);encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:1);encoder.setFragmentSamplerState(sampler,index:0)
                 drawBatches(scene.weaponShadows,encoder:encoder,buffer:instanceBuffer)
                 encoder.endEncoding()
             }
         }
         guard let encoder = command.makeRenderCommandEncoder(descriptor: descriptor), let pipeline = pipelines[samples], let skyPipeline = skyPipelines[samples] else { return }
+        encoder.setFragmentBuffer(appearanceBuffer,offset:0,index:4)
+        var smoke=scene.smoke
+        // The copied fragment block survives all material rebindings, including
+        // soldier texture slots, viewmodel uniforms and transparent effects.
+        encoder.setFragmentBytes(&smoke,length:MemoryLayout<GPUWorldSmoke>.stride,index:6)
         encoder.label = "Atmosphere and instanced world"; encoder.setCullMode(.none)
         encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 2)
         encoder.setFragmentTexture(textures[23], index: 23); encoder.setFragmentSamplerState(sampler, index: 0)
@@ -698,10 +1014,19 @@ final class NativeRenderer {
         for (index, texture) in textures.enumerated() { encoder.setFragmentTexture(texture, index: index) }
         encoder.setFragmentTexture(shadowTexture, index: 10); encoder.setFragmentTexture(nearTexture, index: 24)
         encoder.setFragmentTexture(scene.weapon.isEmpty ? shadowTexture:weaponShadowTexture,index:31)
+        encoder.setFragmentTexture(vegetationAlpha ?? textures[21],index:32)
+        encoder.setFragmentTexture(spotResources.textures.first ?? shadowTexture,index:33)
+        encoder.setFragmentTexture(spotResources.textures.count>1 ? spotResources.textures[1]:shadowTexture,index:34)
+        var worldLighting=GPUWorldLighting(lights:scene.spotlights)
+        encoder.setFragmentBytes(&worldLighting,length:MemoryLayout<GPUWorldLighting>.stride,index:5)
         var weaponLight=matrix_identity_float4x4
         encoder.setFragmentBytes(&weaponLight,length:MemoryLayout<simd_float4x4>.stride,index:3)
         encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
-        drawBatches(scene.main, encoder: encoder, buffer: instanceBuffer)
+        // Opaque terrain fills depth before the many alpha-tested forest cards.
+        // Hidden foliage then fails depth without shading behind entire hills;
+        // geometry, LOD, shadows and later transparent passes stay identical.
+        drawBatches(scene.main.filter { $0.mesh == 7 }, encoder: encoder, buffer: instanceBuffer)
+        drawBatches(scene.main.filter { $0.mesh != 7 }, encoder: encoder, buffer: instanceBuffer)
         if !scene.weapon.isEmpty {
             var weaponUniform=uniform;weaponUniform.viewport.z=1
             encoder.setVertexBytes(&weaponUniform,length:MemoryLayout<GPUUniforms>.stride,index:2)
@@ -713,9 +1038,33 @@ final class NativeRenderer {
             encoder.setVertexBuffer(uniformBuffer,offset:0,index:2)
             encoder.setFragmentBuffer(uniformBuffer,offset:0,index:2)
         }
-        skinnedSoldiers.encodeMain(encoder: encoder, samples: samples, slot: slot)
-        skinnedSoldiers.encodeContacts(encoder: encoder, samples: samples, slot: slot)
-        combatEffects.encode(encoder:encoder,samples:samples,slot:slot,farShadow:shadowTexture,nearShadow:nearTexture,shadowSampler:shadowSampler)
+        skinnedSoldiers?.encodeMain(encoder: encoder, samples: samples, slot: slot)
+        skinnedSoldiers?.encodeContacts(encoder: encoder, samples: samples, slot: slot)
+        let layers=shallowWater.resources.layers
+        // A plane may intersect a particle/pane, so partition actual fragments
+        // by eye-ray crossing count. Sundkai's equal-height pools need two
+        // inexpensive transparent intervals, with one surface draw between.
+        for layer in stride(from:layers,through:0,by:-1) {
+            var water=GPUShallowWater(zones:shallowWater.resources.zones,layer:layers==0 ? -1:layer)
+            encoder.setFragmentBytes(&water,length:MemoryLayout<GPUShallowWater>.stride,index:7)
+            combatEffects.encode(encoder:encoder,samples:samples,slot:slot,farShadow:shadowTexture,nearShadow:nearTexture,shadowSampler:shadowSampler,
+                transparentDepths:scene.glassDepths,includeDecals:layer==layers,resetDrawCount:layer==layers) { index in
+                    guard let glassPipeline=self.glassPipelines[samples] else { return }
+                    encoder.setRenderPipelineState(glassPipeline);encoder.setDepthStencilState(self.glassDepthState);encoder.setCullMode(.none)
+                    encoder.setVertexBuffer(uniformBuffer,offset:0,index:2);encoder.setFragmentBuffer(uniformBuffer,offset:0,index:2)
+                    encoder.setFragmentTexture(self.textures[23],index:23);encoder.setFragmentSamplerState(self.sampler,index:0)
+                    self.drawBatches([scene.glass[index]],encoder:encoder,buffer:instanceBuffer)
+                }
+            if layer>0 {
+                water.counts.y=Float(layer-1)
+                encoder.setFragmentBytes(&water,length:MemoryLayout<GPUShallowWater>.stride,index:7)
+                encoder.setVertexBuffer(uniformBuffer,offset:0,index:2);encoder.setFragmentBuffer(uniformBuffer,offset:0,index:2)
+                encoder.setFragmentTexture(textures[23],index:23)
+                encoder.setFragmentTexture(shadowTexture,index:10);encoder.setFragmentTexture(nearTexture,index:24)
+                encoder.setFragmentSamplerState(sampler,index:0);encoder.setFragmentSamplerState(shadowSampler,index:1)
+                shallowWater.encode(encoder:encoder,samples:samples,slot:slot)
+            }
+        }
         encoder.endEncoding()
     }
     private func drawBatches(_ batches: [RenderBatch], encoder: MTLRenderCommandEncoder, buffer: MTLBuffer) {
@@ -723,14 +1072,19 @@ final class NativeRenderer {
     }
 
     private func buildScenery() {
-        var items: [RenderItem] = []; var rng = SeededRandom(seed: 183)
+        var items: [RenderItem] = []
+        let definition=map.scenery
         let metal = SIMD3<Float>(0.17, 0.20, 0.19), concrete = SIMD3<Float>(0.61, 0.63, 0.59)
-        appendItem(to: &items, position: SIMD3(0, 0.005, 0), scale: SIMD3(12, 0.02, 91), color: SIMD3(0.8, 0.84, 0.86), material: SIMD4(1, 0, 0, 6), shadow: false)
-        for z in stride(from: Float(-39), through: 39, by: 7) { appendItem(to: &items, position: SIMD3(0, 0.0155, z), scale: SIMD3(0.14, 0.001, 2.8), color: SIMD3(0.69, 0.64, 0.43), material: SIMD4(0.9, 0, 0, 0), shadow: false) }
-        for x: Float in [-6.2, 6.2] { appendItem(to: &items, position: SIMD3(x, 0.04, 0), scale: SIMD3(0.3, 0.08, 85), color: concrete, material: SIMD4(0.9, 0, 0, 2)) }
+        for box in definition.boxes where box.ownerID==nil { appendMapBox(box,to:&items) }
+        for source in map.environment.smokeEmitters {
+            guard let point=source.warningIndicatorPosition else { continue }
+            for part in NativeWeatherGeometry.housing(position:map.grounded(point)) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
         // Mesh fence: fine metal wires cast real shadows and remain legible when
         // the player approaches; all wires share a single instanced draw call.
-        func grounded(_ p: SIMD3<Float>) -> SIMD3<Float> { SIMD3(p.x, Self.terrainHeight(p.x,p.z), p.z) }
+        func grounded(_ p: SIMD3<Float>) -> SIMD3<Float> { map.grounded(p) }
         func fence(_ flatStart: SIMD3<Float>, _ flatEnd: SIMD3<Float>) {
             let start = grounded(flatStart), end = grounded(flatEnd)
             let direction = simd_normalize(end - start); let length = simd_distance(start, end)
@@ -745,16 +1099,20 @@ final class NativeRenderer {
                 appendBeam(to: &items, from: b, to: right, width: 0.009, color: SIMD3(0.32, 0.36, 0.31), shadow: false)
             }
         }
-        for x: Float in [-38, 38] { for z in stride(from: Float(-42), to: 42, by: 6) { fence(SIMD3(x, 0, z), SIMD3(x, 0, z + 6)) } }
-        for z: Float in [-42, 42] { for x in stride(from: Float(-38), to: 34, by: 6) where abs(x + 3) > 7 { fence(SIMD3(x, 0, z), SIMD3(x + 6, 0, z)) } }
-        for x: Float in [-10, 10] {
-            let floor = Self.terrainHeight(x,-39)
-            appendItem(to: &items, position: SIMD3(x, floor+3.8, -39), scale: SIMD3(0.8, 7.6, 0.8), color: concrete, material: SIMD4(0.9, 0, 0, 2))
-            appendItem(to: &items, position: SIMD3(x, floor+0.5, -39), scale: SIMD3(1.5, 1, 1.5), color: concrete, material: SIMD4(0.9, 0, 0, 2))
+        for segment in definition.fences { fence(segment.start,segment.end) }
+        if let gate=definition.extractionGate {
+            for x:Float in [-10,10] {
+                let p=grounded(gate+SIMD3(x,0,0))
+                appendItem(to:&items,position:p+SIMD3(0,3.8,0),scale:SIMD3(0.8,7.6,0.8),color:concrete,material:SIMD4(0.9,0,0,2))
+                appendItem(to:&items,position:p+SIMD3(0,0.5,0),scale:SIMD3(1.5,1,1.5),color:concrete,material:SIMD4(0.9,0,0,2))
+            }
+            let p=grounded(gate)
+            appendItem(to:&items,position:p+SIMD3(0,6.9,0),scale:SIMD3(20,1.1,0.7),color:SIMD3(0.24,0.29,0.22),material:SIMD4(0.7,0.5,0,0))
+            for x in stride(from:Float(-7.5),through:7.5,by:1.5) where abs(x)>3 {
+                appendItem(to:&items,position:p+SIMD3(x,6.9,0.36),scale:SIMD3(0.8,0.08,0.02),color:SIMD3(0.9,0.71,0.33),material:SIMD4(0.4,0,0.3,0),shadow:false)
+            }
         }
-        appendItem(to: &items, position: SIMD3(0, 6.9, -39), scale: SIMD3(20, 1.1, 0.7), color: SIMD3(0.24, 0.29, 0.22), material: SIMD4(0.7, 0.5, 0, 0))
-        for x in stride(from: Float(-7.5), through: 7.5, by: 1.5) where abs(x)>3 { appendItem(to: &items, position: SIMD3(x, 6.9, -38.64), scale: SIMD3(0.8, 0.08, 0.02), color: SIMD3(0.9, 0.71, 0.33), material: SIMD4(0.4, 0, 0.3, 0), shadow: false) }
-        for flat: SIMD3<Float> in [SIMD3(-32, 0, -36), SIMD3(32, 0, 33)] {
+        for flat in definition.watchtowers {
             let p = grounded(flat)
             for dx: Float in [-1.7, 1.7] { for dz: Float in [-1.7, 1.7] { appendItem(to: &items, position: p + SIMD3(dx, 3, dz), scale: SIMD3(0.22, 6, 0.22), color: metal) } }
             appendItem(to: &items, position: p + SIMD3(0, 5.5, 0), scale: SIMD3(4.2, 0.25, 4.2), color: metal)
@@ -765,53 +1123,49 @@ final class NativeRenderer {
             for y in stride(from: Float(0.4), through: 5.4, by: 0.38) { appendItem(to: &items, position: p + SIMD3(0, y, 2.2), scale: SIMD3(1.1, 0.08, 0.12), color: metal) }
             for dx: Float in [-1.7, 1.7] { appendBeam(to: &items, from: p + SIMD3(dx, 0.3, -1.7), to: p + SIMD3(dx, 5.4, 1.7), width: 0.10, color: metal) }
         }
-        for flat: SIMD3<Float> in [SIMD3(-8, 0, 25), SIMD3(9, 0, -17), SIMD3(-11, 0, -31), SIMD3(28, 0, 11)] {
+        for flat in definition.lightPoles {
             let p = grounded(flat)
             appendItem(to: &items, mesh: 2, position: p + SIMD3(0, 4.8, 0), scale: SIMD3(0.075, 9.6, 0.075), color: metal)
             appendItem(to: &items, position: p + SIMD3(0.55, 9.2, 0), scale: SIMD3(1.2, 0.1, 0.12), color: metal)
-            appendItem(to: &items, position: p + SIMD3(1, 9.1, 0), scale: SIMD3(0.8, 0.09, 0.45), color: SIMD3(1, 0.82, 0.52), material: SIMD4(0.5, 0, 2.4, 0))
+            appendItem(to: &items, position: p + SIMD3(1, 9.1, 0), scale: SIMD3(0.8, 0.09, 0.45), color: SIMD3(0.32, 0.33, 0.28), material: SIMD4(0.65, 0.2, 0, 0))
         }
         appendItem(to: &items, mesh: 7, position: .zero, scale: SIMD3(repeating: 1), color: SIMD3(0.92, 0.94, 0.88), material: SIMD4(1, 0, 0, 1), shadow: true)
-        forest.removeAll(keepingCapacity: true)
-        for index in 0..<230 {
-            let a = Float(index) * 2.3999632 + rng.next() * 0.4
-            let radius: Float = index < 105 ? 55 + rng.next() * 50 : 105 + rng.next() * 100
-            let x = cos(a) * radius, z = sin(a) * radius
-            if abs(x) < 41 && abs(z) < 47 { continue }
-            let p = SIMD3<Float>(x, Self.terrainHeight(x, z), z)
-            forest.append(buildTree(position: p, height: 12 + rng.next() * 15, seed: UInt64(index + 421)))
+        forest=definition.trees.map { tree in
+            tree.kind == .mangrove ? buildMangrove(position:map.grounded(tree.position),height:tree.height,seed:tree.seed):
+                buildTree(position:map.grounded(tree.position),height:tree.height,seed:tree.seed)
         }
-        for i in 0..<25 {
-            let a = Float(i) / 25 * .pi * 2, r: Float = 174 + rng.next() * 50
-            let s = SIMD3<Float>(16 + rng.next() * 20, 11 + rng.next() * 19, 18 + rng.next() * 24)
-            appendItem(to: &items, mesh: 8, position: SIMD3(cos(a) * r, Self.terrainHeight(cos(a) * r, sin(a) * r) - s.y * 0.42, sin(a) * r), scale: s, color: SIMD3(0.86, 0.91, 0.88), material: SIMD4(1, 0, 0, 3), yaw: a, shadow: false)
+        for sign in definition.signs where sign.ownerID==nil {
+            let start=items.count
+            appendLevelSign(to:&items,transform:Self.translation(sign.position)*Self.rotationY(sign.yaw),width:sign.width,materialID:sign.materialID)
+            for index in start..<items.count { items[index].levelAddition=true }
         }
-        for _ in 0..<42 {
-            let a = rng.next() * .pi * 2, r: Float = 45 + rng.next() * 45
-            let x = cos(a) * r, z = sin(a) * r
-            if abs(x) < 40 && abs(z) < 45 { continue }
-            let s: Float = 0.7 + rng.next() * 2.8
-            appendItem(to: &items, mesh: 8, position: SIMD3(x, Self.terrainHeight(x, z) + s * 0.24, z), scale: SIMD3(s * 1.4, s, s), color: SIMD3(0.83, 0.88, 0.79), material: SIMD4(1, 0, 0, 3), yaw: a)
+        staticLevelDetailCount=items.filter(\.levelAddition).count
+        for batch in vegetationBatches {
+            let brush=batch.kind == .brush
+            appendItem(to:&items,mesh:batch.mesh,position:.zero,scale:SIMD3(repeating:1),
+                color:brush ? SIMD3(0.62,0.72,0.46):SIMD3(0.17,0.195,0.105),
+                material:SIMD4(0.95,0.82,0,brush ? 28:29),shadow:true)
         }
-        for _ in 0..<250 {
-            let x = (rng.next() - 0.5) * 130, z = (rng.next() - 0.5) * 130, s = 0.08 + rng.next() * 0.38
-            if abs(x) < 6 { continue }
-            appendItem(to: &items, mesh: 8, position: SIMD3(x, Self.terrainHeight(x, z) + s * 0.2, z), scale: SIMD3(s, s * 0.5, s * 0.8), color: SIMD3(0.6, 0.62, 0.55), material: SIMD4(1, 0, 0, 3), shadow: false)
-        }
-        for _ in 0..<1700 {
-            var x = (rng.next() - 0.5) * 120; if abs(x) < 7 { x += x < 0 ? -8 : 8 }; let z = (rng.next() - 0.5) * 120
-            let s = 0.25 + rng.next() * 0.6, tone = 0.62 + rng.next() * 0.55
-            appendItem(to: &items, mesh: 4, position: SIMD3(x, Self.terrainHeight(x, z), z), scale: SIMD3(0.6 + rng.next(), s * 0.6, 1), color: SIMD3(0.26, 0.33, 0.15) * tone, material: SIMD4(1, 0, 0, 8), yaw: rng.next() * .pi * 2, shadow: false)
-        }
-        let levelStart=items.count
-        appendLevelGroundDetails(to:&items)
-        staticLevelDetailCount=items.count-levelStart
-        for index in levelStart..<items.count { items[index].levelAddition=true }
-        scenery = items
+        scenery=items
     }
 
-    private static func terrainHeight(_ x: Float, _ z: Float) -> Float {
-        TerrainProfile.battlefield.height(x: x, z: z)
+    private func appendMapBox(_ box:MapVisualBox,to items:inout [RenderItem],owner:Obstacle?=nil) {
+        let mesh:Int
+        switch box.mesh { case .box:mesh=0;case .rock:mesh=8;case .grass:mesh=4;case .dome:mesh=NativeCoastalGeometry.domeMesh;case .water:mesh=NativeCoastalGeometry.waterMesh }
+        let position=owner.map { $0.position+box.position } ?? (box.grounded ? map.grounded(box.position):box.position)
+        var material=box.material
+        // Store the physical half-width in the asphalt material's unused metal
+        // channel. Its edge dirt now follows this road, including rotated roads.
+        if Int(material.w+0.5)==6 { material.y=box.size.x*0.5 }
+        if box.replacesOwnerBody,owner?.damageStage == .damaged {
+            material.w=owner?.kind == .container ? 17:19
+        }
+        appendItem(to:&items,mesh:mesh,position:position,scale:box.size,color:box.color,material:material,yaw:box.yaw,shadow:box.castsShadow)
+        if box.mesh == .water {
+            // Wave motion is in world metres, independent of the box's scale.
+            items[items.count-1].radius+=NativeCoastalGeometry.waterMaximumDisplacement
+        }
+        items[items.count-1].levelAddition=box.levelDetail
     }
 
     private func buildTree(position: SIMD3<Float>, height: Float, seed: UInt64) -> ForestTree {
@@ -869,6 +1223,57 @@ final class NativeRenderer {
         return ForestTree(center: position + SIMD3(0, height * 0.5, 0), radius: height * 0.65, levels: levels)
     }
 
+    private func buildMangrove(position:SIMD3<Float>,height:Float,seed:UInt64)->ForestTree {
+        var levels:[[RenderItem]]=[]
+        for lod in 0..<3 {
+            var random=SeededRandom(seed:seed),parts:[RenderItem]=[]
+            let bark=SIMD3<Float>(0.65,0.63,0.52),base=Self.translation(position)
+            @MainActor func wood(_ from:SIMD3<Float>,_ to:SIMD3<Float>,radius:Float) {
+                let delta=to-from,length=simd_length(delta)
+                guard length>0.01 else { return }
+                let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:delta/length))
+                appendTransformed(to:&parts,mesh:5,transform:base*Self.translation(from)*rotation*Self.scale(SIMD3(radius,length,radius)),
+                    color:bark,material:SIMD4(0.95,0,length,5),shadow:true)
+            }
+            // Exposed stilt roots and multiple forks are entirely outside the
+            // arena. Their tips sample real terrain instead of floating above it.
+            for root in 0..<5 {
+                let angle=Float(root)*1.256637+Float(seed%17)*0.12
+                let radial=SIMD3<Float>(cos(angle),0,sin(angle)),tip=radial*(height*0.23)
+                let terrainY=map.terrain.height(x:position.x+tip.x,z:position.z+tip.z)-position.y
+                let start=SIMD3<Float>(0,height*0.27,0),bend=radial*(height*0.13)+SIMD3(0,height*0.15,0)
+                wood(SIMD3(tip.x,terrainY-0.04,tip.z),bend,radius:height*0.018)
+                wood(bend,start,radius:height*0.024)
+            }
+            wood(SIMD3(0,-0.04,0),SIMD3(height*0.035,height*0.60,0),radius:height*0.029)
+            let branches=8,twigs=[8,6,4][lod]
+            for branch in 0..<branches {
+                let angle=Float(branch)*2.3999632+random.next()*0.25
+                let radial=SIMD3<Float>(cos(angle),0,sin(angle))
+                let side=SIMD3<Float>(-radial.z,0,radial.x)
+                let root=SIMD3<Float>(height*0.02,height*(0.32+Float(branch%3)*0.12),0)
+                let tip=radial*(height*(0.22+random.next()*0.09))+SIMD3(0,height*(0.67+random.next()*0.16),0)
+                let bend=simd_mix(root,tip,SIMD3(repeating:0.5))+SIMD3(0,height*0.08,0)
+                wood(root,bend,radius:height*0.018);wood(bend,tip,radius:height*0.010)
+                for twig in 0..<twigs {
+                    let fraction=0.30+Float(twig)/Float(max(1,twigs-1))*0.70
+                    let spread=side*((twig%2==0 ? -1:1)*height*(0.065+random.next()*0.075))
+                    let origin=simd_mix(bend,tip,SIMD3(repeating:fraction)),end=origin+spread+SIMD3(0,height*0.06,0)
+                    if lod<2 { wood(origin,end,radius:height*0.003) }
+                    let direction=simd_normalize(radial*0.2+side*(twig%2==0 ? -0.7:0.7)+SIMD3(0,0.6,0))
+                    let orientation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:direction))*Self.rotationY(random.next()*3.1)
+                    let size=height*(0.080+random.next()*0.017)*(lod==2 ? 1.18:1)
+                    appendTransformed(to:&parts,mesh:NativeMangroveGeometry.leafMesh,
+                        transform:base*Self.translation(end)*orientation*Self.scale(SIMD3(repeating:size)),
+                        color:SIMD3<Float>(0.90,0.98,0.87)*(0.87+random.next()*0.18),
+                        material:SIMD4(0.94,0.76,0,4),shadow:true)
+                }
+            }
+            levels.append(parts)
+        }
+        return ForestTree(center:position+SIMD3(0,height*0.5,0),radius:height*0.70,levels:levels)
+    }
+
     /// Signs share the existing box draw batch. Only the shallow metal plate
     /// and its fittings cast shadows; text is a material on that same surface.
     private func appendLevelSign(to items:inout [RenderItem],transform:simd_float4x4,width:Float,materialID:Float) {
@@ -882,74 +1287,18 @@ final class NativeRenderer {
         }
     }
 
-    private func appendLevelGroundDetails(to items:inout [RenderItem]) {
-        // The existing evacuation gantry supplies the support and silhouette.
-        appendLevelSign(to:&items,transform:Self.translation(SIMD3(0,6.9,-38.624)),width:4.8,materialID:23)
-        let amber=SIMD3<Float>(0.70,0.51,0.19),blue=SIMD3<Float>(0.28,0.49,0.55),ivory=SIMD3<Float>(0.74,0.78,0.62)
-        func stripe(_ a:SIMD2<Float>,_ b:SIMD2<Float>,width:Float,color:SIMD3<Float>) {
-            let delta=b-a,length=simd_length(delta),center=(a+b)*0.5
-            appendItem(to:&items,position:SIMD3(center.x,0.0162,center.y),scale:SIMD3(width,0.001,length),color:color,material:SIMD4(0.96,0,0,0),yaw:atan2(delta.x,delta.y),shadow:false)
-        }
-        for (position,direction,word,color):(SIMD2<Float>,SIMD2<Float>,Float,SIMD3<Float>) in [
-            (SIMD2(-2.7,25.3),SIMD2(-1,0),21,amber),
-            (SIMD2(2.7,12.1),SIMD2(1,0),22,blue),
-            (SIMD2(0,-28),SIMD2(0,-1),23,ivory)
-        ] {
-            appendItem(to:&items,position:SIMD3(position.x,0.0162,position.y),scale:SIMD3(2.5,0.001,0.7),color:SIMD3(repeating:1),material:SIMD4(0.97,0,0,word),shadow:false)
-            let base=position+SIMD2<Float>(0,-1.6),tip=base+direction*0.65,side=SIMD2(-direction.y,direction.x)
-            stripe(base-direction*0.55,tip,width:0.14,color:color)
-            stripe(tip,tip-direction*0.44+side*0.34,width:0.14,color:color)
-            stripe(tip,tip-direction*0.44-side*0.34,width:0.14,color:color)
-        }
-        // Worn loading/service bay paint stays entirely on the flat asphalt.
-        for (side,start,color):(Float,Float,SIMD3<Float>) in [(-1,19.8,amber),(1,6.9,blue)] {
-            for index in 0..<3 {
-                let z=start+Float(index)*2
-                stripe(SIMD2(side*3.9,z),SIMD2(side*5.75,z),width:0.075,color:color)
-            }
-            stripe(SIMD2(side*5.75,start),SIMD2(side*5.75,start+4),width:0.075,color:color)
-        }
-        for x:Float in [-2.8,2.8] { for z:Float in [-32.8,-37.2] {
-            stripe(SIMD2(x,z),SIMD2(x-(x<0 ? -0.8:0.8),z),width:0.13,color:ivory)
-            stripe(SIMD2(x,z),SIMD2(x,z+(z < -35 ? 0.8:-0.8)),width:0.13,color:ivory)
-        } }
-    }
-
-    private func authoredCoverID(_ obstacle:Obstacle)->Int? {
-        guard GameMap.obstacles.indices.contains(obstacle.id) else { return nil }
-        let source=GameMap.obstacles[obstacle.id]
-        return source.kind == obstacle.kind && source.size == obstacle.size && source.position.x == obstacle.position.x && source.position.z == obstacle.position.z ? obstacle.id:nil
-    }
-
     private func appendOwnerLevelDetails(to items:inout [RenderItem],obstacle:Obstacle) {
-        guard let id=authoredCoverID(obstacle) else { return }
-        let start=items.count,p=obstacle.position,s=obstacle.size
-        func sign(_ offset:SIMD3<Float>,width:Float,word:Float,yaw:Float=0) {
-            appendLevelSign(to:&items,transform:Self.translation(p+offset)*Self.rotationY(yaw),width:width,materialID:word)
+        // A fixture may reuse an ID with unrelated geometry. Only the actual
+        // authored owner receives its relative signs and attached paint.
+        guard let source=map.obstacles.first(where:{ $0.id==obstacle.id }),
+              source.kind==obstacle.kind,source.size==obstacle.size,
+              source.position.x==obstacle.position.x,source.position.z==obstacle.position.z else { return }
+        for box in map.scenery.boxes where box.ownerID==obstacle.id && !box.replacesOwnerBody { appendMapBox(box,to:&items,owner:obstacle) }
+        for sign in map.scenery.signs where sign.ownerID==obstacle.id {
+            let start=items.count
+            appendLevelSign(to:&items,transform:Self.translation(obstacle.position+sign.position)*Self.rotationY(sign.yaw),width:sign.width,materialID:sign.materialID)
+            for index in start..<items.count { items[index].levelAddition=true }
         }
-        switch id {
-        case 2:
-            sign(SIMD3(0,1.72,s.z*0.5+0.10),width:2.5,word:21)
-            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.8,word:21,yaw:.pi/2)
-        case 4:
-            sign(SIMD3(-2.2,1.72,s.z*0.5+0.085),width:3.0,word:21)
-        case 3:
-            sign(SIMD3(2.4,1.72,s.z*0.5+0.083),width:3.1,word:22)
-            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.7,word:22,yaw:.pi/2)
-        case 11:
-            // The near maintenance crate identifies the hollow before the
-            // more distant service container comes into view.
-            sign(SIMD3(0,s.y*0.58,s.z*0.5+0.085),width:2.25,word:22)
-            for x:Float in [-s.x*0.38,s.x*0.38] {
-                appendItem(to:&items,position:p+SIMD3(x,s.y*0.5,s.z*0.5+0.052),scale:SIMD3(0.14,s.y*0.9,0.004),color:SIMD3(0.18,0.35,0.42),material:SIMD4(0.94,0,0,0),shadow:false)
-            }
-        case 0:
-            appendItem(to:&items,position:p+SIMD3(s.x*0.25,2.35,s.z*0.5+0.012),scale:SIMD3(2.3,0.56,0.003),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,21),shadow:false)
-        case 1:
-            appendItem(to:&items,position:p+SIMD3(-s.x*0.5-0.002,6.35,3),scale:SIMD3(0.003,0.56,2.0),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,24),shadow:false)
-        default:break
-        }
-        for index in start..<items.count { items[index].levelAddition=true }
     }
 
     private func buildLevelProp(_ obstacle:Obstacle,kind:LevelProp)->[RenderItem] {
@@ -974,7 +1323,17 @@ final class NativeRenderer {
 
     private func coverItems(_ obstacle:Obstacle,isRubble:Bool)->[RenderItem] {
         if let cached=coverCache[obstacle.id],cached.stage == obstacle.damageStage,
-           cached.isRubble == isRubble,cached.position == obstacle.position,cached.size == obstacle.size { return cached.items }
+           cached.isRubble == isRubble,cached.size == obstacle.size {
+            if cached.position == obstacle.position { return cached.items }
+            // Axis-aligned gates translate their cached geometry and attached
+            // decals with the current collider; a moving door is not a new mesh.
+            let delta=obstacle.position-cached.position
+            let moved=cached.items.map { original -> RenderItem in
+                var item=original;item.center+=delta;item.instance.model.columns.3+=SIMD4(delta,0);return item
+            }
+            coverCache[obstacle.id]=CoverVisual(stage:cached.stage,isRubble:isRubble,position:obstacle.position,size:obstacle.size,items:moved)
+            return moved
+        }
         if coverCache[obstacle.id] != nil { combatEffects.removeDecals(obstacleID:obstacle.id) }
         var items:[RenderItem]
         if isRubble {
@@ -984,9 +1343,80 @@ final class NativeRenderer {
             items=[]
             appendItem(to:&items,position:obstacle.position+SIMD3(0,obstacle.size.y*0.5,0),scale:obstacle.size,
                 color:SIMD3(0.61,0.61,0.55),material:SIMD4(0.98,0,0,19))
-        } else if let prop=GameMap.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
+        } else if let breach=map.breaches.first(where:{ $0.ownerObstacleID==obstacle.id }) {
+            items=[]
+            for part in NativeBreachGeometry.parts(obstacle:obstacle,definition:breach) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        } else if map.breaches.contains(where:{ $0.frameObstacleIDs.contains(obstacle.id) }) {
+            items=[]
+            for part in NativeBreachGeometry.frame(obstacle:obstacle) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        } else if let replacement=map.scenery.boxes.first(where:{ $0.ownerID==obstacle.id && $0.replacesOwnerBody }),
+                  let source=map.obstacles.first(where: { $0.id==obstacle.id }),source.kind==obstacle.kind,source.size==obstacle.size,
+                  source.position.x==obstacle.position.x,source.position.z==obstacle.position.z {
+            items=[];appendMapBox(replacement,to:&items,owner:obstacle)
+            appendOwnerLevelDetails(to:&items,obstacle:obstacle)
+        } else if let device=map.environment.devices.first(where:{ $0.ownerObstacleID==obstacle.id }) { items=buildDeviceCover(obstacle,kind:device.kind) }
+        else if let prop=map.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
         else { items=buildCover(obstacle) }
+        for index in items.indices { items[index].ownerID=obstacle.id }
         coverCache[obstacle.id]=CoverVisual(stage:obstacle.damageStage,isRubble:isRubble,position:obstacle.position,size:obstacle.size,items:items)
+        return items
+    }
+
+    private func buildDeviceCover(_ obstacle:Obstacle,kind:WorldDeviceKind)->[RenderItem] {
+        var items:[RenderItem]=[];let p=obstacle.position,s=obstacle.size
+        let metal=SIMD3<Float>(0.22,0.27,0.235)
+        let material:SIMD4<Float>=SIMD4(0.70,0.20,0,obstacle.damageStage == .damaged ? 17:15)
+        appendItem(to:&items,position:p+SIMD3(0,s.y*0.5,0),scale:s,color:metal,material:material)
+        if kind == .maintenanceSwitch {
+            appendItem(to:&items,position:p+SIMD3(0,s.y*0.65,s.z*0.5+0.008),scale:SIMD3(s.x*0.8,s.y*0.45,0.016),color:SIMD3(0.09,0.12,0.13),material:SIMD4(0.7,0.1,0,15),shadow:false)
+            for x:Float in [-0.13,0.13] {
+                appendItem(to:&items,position:p+SIMD3(x,s.y*0.68,s.z*0.5+0.018),scale:SIMD3(0.13,0.04,0.016),color:SIMD3(0.72,0.52,0.17),material:SIMD4(0.8,0,0,0),shadow:false)
+            }
+        } else if kind == .generator {
+            for side:Float in [-1,1] {
+                appendItem(to:&items,position:p+SIMD3(0,s.y*0.51,side*(s.z*0.5+0.002)),scale:SIMD3(s.x*0.75,s.y*0.42,0.004),color:SIMD3(0.09,0.12,0.105),material:SIMD4(0.9,0.1,0,27),shadow:false)
+            }
+            appendItem(to:&items,position:p+SIMD3(0,s.y-0.12,s.z*0.5+0.003),scale:SIMD3(s.x*0.85,0.07,0.004),color:SIMD3(0.63,0.44,0.12),material:SIMD4(0.9,0,0,0),shadow:false)
+        } else {
+            for x in stride(from:-s.x*0.5+0.6,through:s.x*0.5-0.3,by:1.2) {
+                for side:Float in [-1,1] {
+                    appendItem(to:&items,position:p+SIMD3(x,s.y*0.5,side*(s.z*0.5+0.013)),scale:SIMD3(0.055,s.y-0.08,0.026),color:metal*0.7,material:material)
+                }
+            }
+            for side:Float in [-1,1] {
+                appendItem(to:&items,position:p+SIMD3(0,0.18,side*(s.z*0.5+0.002)),scale:SIMD3(s.x-0.12,0.12,0.004),color:SIMD3(0.69,0.47,0.13),material:SIMD4(0.95,0,0,0),shadow:false)
+            }
+        }
+        if let alarm=map.environment.alarm,
+           map.environment.devices.first(where:{ $0.id==alarm.radioDeviceID })?.ownerObstacleID==obstacle.id {
+            for part in NativeAlarmGeometry.module(position:map.grounded(alarm.radioPosition)) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
+        // Derive a short physical exhaust connection from the same authored
+        // source used by Core. It stays in the owning cover cache on damage,
+        // translation or destruction; it is never a separate floating prop.
+        for source in map.environment.smokeEmitters {
+            guard let deviceID=source.powerDeviceID,
+                  map.environment.devices.first(where:{ $0.id==deviceID })?.ownerObstacleID==obstacle.id else { continue }
+            let aperture=map.grounded(source.position)
+            var attachment=aperture
+            attachment.y=min(p.y+s.y-0.06,max(p.y+0.06,aperture.y))
+            if abs((aperture.x-p.x)/s.x)>abs((aperture.z-p.z)/s.z) {
+                attachment.x=p.x+(aperture.x<p.x ? -1:1)*s.x*0.5
+            } else { attachment.z=p.z+(aperture.z<p.z ? -1:1)*s.z*0.5 }
+            let delta=aperture-attachment,length=simd_length(delta)
+            guard length>0.02,length<0.6 else { continue }
+            let orientation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:delta/length))
+            appendTransformed(to:&items,mesh:10,transform:Self.translation((aperture+attachment)*0.5)*orientation*Self.scale(SIMD3(0.039,length,0.039)),
+                color:SIMD3(0.19,0.22,0.20),material:SIMD4(0.65,0.45,0,15))
+            appendTransformed(to:&items,mesh:10,transform:Self.translation(attachment+delta/length*0.011)*orientation*Self.scale(SIMD3(0.063,0.02,0.063)),
+                color:SIMD3(0.25,0.28,0.25),material:SIMD4(0.7,0.35,0,15))
+        }
         return items
     }
 
@@ -1009,10 +1439,13 @@ final class NativeRenderer {
                     case .barrel:
                         mesh=index==0 ? 8:9;size=SIMD3(0.28+rng.next()*0.18,0.035,0.19+rng.next()*0.13)
                         color=SIMD3(0.31,0.16,0.09);material=SIMD4(0.89,0.3,0,20)
-                    case .container:
+                    case .container,.accessPanel:
                         mesh=9;size=SIMD3(0.64+rng.next()*0.31,0.032,0.26+rng.next()*0.16)
                         color=debris.sourceObstacleID%2==0 ? SIMD3(0.34,0.22,0.14):SIMD3(0.18,0.29,0.27)
                         material=SIMD4(0.85,0.35,0,17)
+                    case .glass:
+                        mesh=3;size=SIMD3(0.12+rng.next()*0.18,0.14+rng.next()*0.16,1)
+                        color=SIMD3(0.38,0.55,0.51);material=SIMD4(0.22,0.25,0,35)
                     case .barrier,.bunker:
                         mesh=8;size=SIMD3(0.22+rng.next()*0.15,0.065,0.17+rng.next()*0.12)
                         color=SIMD3(0.56,0.56,0.49);material=SIMD4(1,0,0,19)
@@ -1033,8 +1466,8 @@ final class NativeRenderer {
                 let x=debris.position.x+fragment.offset.x,z=debris.position.z+fragment.offset.y
                 var support=SIMD3<Float>(x,simulation.terrain.height(x:x,z:z),z)
                 var normal=simulation.terrain.normal(x:x,z:z)
-                if abs(x)<=6,abs(z)<=45.5,support.y<0.015 { support.y=0.015;normal=SIMD3(0,1,0) }
-                let extent=max(fragment.size.x,fragment.size.z)*fade*0.75
+                let glassFragment=debris.kind == .glass
+                let extent=(glassFragment ? max(fragment.size.x,fragment.size.y):max(fragment.size.x,fragment.size.z))*fade*0.75
                 for box in supportBoxes where !box.destroyed {
                     let top=box.position.y+box.size.y
                     if top>support.y,top<=debris.position.y+0.1,
@@ -1046,8 +1479,9 @@ final class NativeRenderer {
                 let bounds=meshes[fragment.mesh],size=fragment.size*fade
                 let bottom=(bounds.boundsCenter.y-bounds.halfExtents.y)*size.y
                 let orientation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:normal))*Self.rotationY(fragment.yaw)
-                let transform=Self.translation(support+normal*(0.001-bottom))*orientation*Self.scale(size)
-                appendTransformed(to:&items,mesh:fragment.mesh,transform:transform,color:fragment.color,material:fragment.material)
+                let surfaceRotation=glassFragment ? Self.rotationX(-.pi/2):matrix_identity_float4x4
+                let transform=Self.translation(support+normal*(glassFragment ? 0.003:0.001-bottom))*orientation*surfaceRotation*Self.scale(size)
+                appendTransformed(to:&items,mesh:fragment.mesh,transform:transform,color:fragment.color,material:fragment.material,shadow:!glassFragment)
                 decorativeDebrisCount+=1
             }
         }
@@ -1059,6 +1493,11 @@ final class NativeRenderer {
         let metal = SIMD3<Float>(0.18, 0.23, 0.22), concrete = SIMD3<Float>(0.66, 0.67, 0.62)
         func box(_ position: SIMD3<Float>, _ scale: SIMD3<Float>, _ color: SIMD3<Float>, material: SIMD4<Float> = SIMD4(0.65, 0.3, 0, 0)) { appendItem(to: &out, position: p + position, scale: scale, color: color, material: material) }
         switch obstacle.kind {
+        case .accessPanel,.glass:
+            for part in NativeBreachGeometry.fallbackParts(obstacle:obstacle) {
+                appendTransformed(to:&out,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+            return out
         case .container:
             let color: SIMD3<Float> = obstacle.id % 2 == 0 ? SIMD3(0.46, 0.24, 0.13) : SIMD3(0.19, 0.35, 0.34)
             box(SIMD3(0, s.y * 0.5, 0), s, color, material: SIMD4(0.65, 0.62, 0, 0))
@@ -1115,11 +1554,92 @@ final class NativeRenderer {
         }
         if damaged {
             let materialID:Float
-            switch obstacle.kind { case .crate:materialID=18;case .barrier,.bunker:materialID=19;case .barrel:materialID=20;case .container:materialID=17 }
+            switch obstacle.kind { case .crate:materialID=18;case .barrier,.bunker:materialID=19;case .barrel:materialID=20;case .container,.accessPanel:materialID=17;case .glass:materialID=NativeBreachGeometry.opaqueGlassMaterial }
             for index in out.indices { out[index].instance.material.w=materialID }
         }
         appendOwnerLevelDetails(to:&out,obstacle:obstacle)
         return out
+    }
+
+    private func appendAcousticProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        let start=items.count
+        noiseEmitterVisualCount=0;noiseDecoyVisualCount=0
+        let activeIDs=Set(simulation.decoys.map(\.id))
+        decoyPulseTimes=decoyPulseTimes.filter { activeIDs.contains($0.key) }
+        // Lamps are physically attached to existing machinery. They neither add
+        // false cover nor turn a remote global state into a screen-space cue.
+        for emitter in simulation.noiseEmitters {
+            guard let ownerID=emitter.ownerObstacleID,
+                  let owner=simulation.obstacles.first(where:{ $0.id==ownerID && !$0.destroyed }) else { continue }
+            noiseEmitterVisualCount+=1
+            for side:Float in [-1,1] {
+                let position=owner.position+SIMD3(0,owner.size.y*0.72,side*(owner.size.z*0.5+0.009))
+                appendItem(to:&items,position:position,scale:SIMD3(0.12,0.075,0.016),color:SIMD3(0.045,0.053,0.048),material:SIMD4(0.8,0.1,0,10))
+                appendItem(to:&items,mesh:1,position:position+SIMD3(0,0,side*0.011),scale:SIMD3(0.026,0.019,0.008),
+                    color:emitter.enabled ? SIMD3(0.31,0.52,0.14):SIMD3(0.045,0.06,0.035),
+                    material:SIMD4(0.4,0,emitter.enabled ? 0.55:0,0),shadow:false)
+            }
+        }
+        // The Core centre rests one 9 cm collision radius above its support.
+        // A rounded 18 cm device uses that same lower envelope on ground/roofs.
+        for decoy in simulation.decoys {
+            noiseDecoyVisualCount+=1
+            let position=decoy.position
+            let pulse=decoyPulseTimes[decoy.id].map { simulation.elapsed-$0<0.18 } ?? false
+            appendItem(to:&items,mesh:1,position:position,scale:SIMD3(0.084,0.09,0.084),color:SIMD3(0.14,0.21,0.23),material:SIMD4(0.68,0.2,0,15))
+            appendItem(to:&items,mesh:2,position:position,scale:SIMD3(0.085,0.035,0.085),color:SIMD3(0.027,0.037,0.04),material:SIMD4(0.87,0,0,10))
+            appendItem(to:&items,mesh:2,position:position+SIMD3(0,0.074,0),scale:SIMD3(0.033,0.015,0.033),color:SIMD3(0.22,0.24,0.20),material:SIMD4(0.6,0.5,0,9))
+            appendItem(to:&items,mesh:1,position:position+SIMD3(0,0.085,0),scale:SIMD3(0.012,0.004,0.012),
+                color:pulse ? SIMD3(0.9,0.43,0.06):SIMD3(0.12,0.065,0.025),material:SIMD4(0.4,0,pulse ? 1.1:0,0),shadow:false)
+        }
+        noisePropInstances=items.count-start
+        assert(noisePropInstances<=NoiseEmitterState.maximumCount*4+NoiseDecoyState.maximumCount*4)
+    }
+
+    private func appendAlarmProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        let start=items.count;alarmReporterVisualCount=0
+        guard let alarm=map.environment.alarm else { alarmPropInstances=0;return }
+        if let device=simulation.devices.first(where:{ $0.id==alarm.radioDeviceID }),!device.destroyed,
+           simulation.obstacles.contains(where:{ $0.id==device.ownerObstacleID && !$0.destroyed }) {
+            let part=NativeAlarmGeometry.moduleIndicator(position:map.grounded(alarm.radioPosition),powered:simulation.alarmStatus.radioPowered)
+            appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+        }
+        for enemy in simulation.enemies.lazy.filter({ $0.health>0 }).prefix(NativeAlarmGeometry.maximumReporters) {
+            let pending=simulation.pendingContactReports.first { $0.enemyID==enemy.id }
+            let justSent=simulation.contactReports.contains { $0.enemyID==enemy.id && simulation.elapsed-$0.transmittedAt>=0 && simulation.elapsed-$0.transmittedAt<0.35 }
+            if pending != nil { alarmReporterVisualCount+=1 }
+            for part in NativeAlarmGeometry.reporter(enemy:enemy,progress:pending?.progress,
+                radio:pending.map { $0.radioAtStart && !$0.radioCancelled } ?? false,transmitted:justSent) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
+        alarmPropInstances=items.count-start
+        assert(alarmPropInstances<=NativeAlarmGeometry.maximumReporters*NativeAlarmGeometry.reporterPartCount+1)
+    }
+
+    private func appendDeviceProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        for device in simulation.devices where device.kind == .maintenanceSwitch && !device.destroyed {
+            guard let owner = simulation.obstacles.first(where: { $0.id == device.ownerObstacleID && !$0.destroyed }) else { continue }
+            for (index,on) in [device.enabled,!device.enabled].enumerated() {
+                let color: SIMD3<Float> = device.blockedByActor ? SIMD3(0.8,0.24,0.08) : on ? SIMD3(0.22,0.65,0.35) : SIMD3(0.3,0.08,0.05)
+                appendItem(to:&items,mesh:1,position:owner.position+SIMD3(index == 0 ? -0.13:0.13,owner.size.y*0.51,owner.size.z*0.5+0.022),scale:SIMD3(0.035,0.035,0.014),color:color,material:SIMD4(0.5,0,on ? 0.7:0.1,0),shadow:false)
+            }
+        }
+        for light in simulation.spotlights {
+            let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,0,-1),to:light.direction))
+            let base=Self.translation(light.position)*rotation
+            appendTransformed(to:&items,mesh:9,transform:base*Self.translation(SIMD3(0,0,0.13))*Self.scale(SIMD3(0.43,0.22,0.25)),color:SIMD3(0.10,0.13,0.12),material:SIMD4(0.7,0.15,0,15))
+            appendTransformed(to:&items,mesh:0,transform:base*Self.translation(SIMD3(0,0,-0.004))*Self.scale(SIMD3(0.34,0.15,0.008)),
+                color:light.enabled ? light.color:SIMD3(0.09,0.10,0.085),material:SIMD4(0.4,0,light.enabled ? light.power*3:0,0),shadow:false)
+        }
+        for definition in map.environment.devices where definition.kind == .serviceGate && definition.controllerID == nil {
+            for point in definition.interactionPoints {
+                let p=map.grounded(point)+SIMD3(0,0.9,0)
+                appendItem(to:&items,position:p,scale:SIMD3(0.12,0.28,0.12),color:SIMD3(0.13,0.17,0.15),material:SIMD4(0.8,0.1,0,15))
+                appendItem(to:&items,position:p-SIMD3(0,0.45,0),scale:SIMD3(0.06,0.9,0.06),color:SIMD3(0.12,0.15,0.13),material:SIMD4(0.8,0.1,0,15))
+                appendTransformed(to:&items,mesh:2,transform:Self.translation(p+SIMD3(0,0,0.085))*Self.rotationX(.pi/2)*Self.scale(SIMD3(0.075,0.025,0.075)),color:SIMD3(0.55,0.38,0.11),material:SIMD4(0.7,0.4,0,9))
+            }
+        }
     }
 
     private func soldierWeapon(_ enemy: EnemyState, time: Double) -> [RenderItem] {
@@ -1166,16 +1686,17 @@ final class NativeRenderer {
         guard let parts=weaponParts[kind] else { return [] }
         let base=weaponTransform(simulation:simulation,eye:eye,yaw:yaw,pitch:pitch)
         var out:[RenderItem]=[]; out.reserveCapacity(parts.fixed.count+parts.magazine.count+parts.leftHand.count+parts.rightHand.count+12)
-        func transformed(_ group:[RenderItem],_ matrix:simd_float4x4) {
+        func transformed(_ group:[RenderItem],_ matrix:simd_float4x4,clothing:Bool=false) {
             for item in group {
                 let tint=item.instance.tint
-                appendTransformed(to:&out,mesh:item.mesh,transform:matrix*item.instance.model,color:SIMD3(tint.x,tint.y,tint.z),material:item.instance.material,shadow:false)
+                let material=clothing ? NativeCamouflageAppearance.material(item.instance.material,pattern:simulation.loadout.camouflage):item.instance.material
+                appendTransformed(to:&out,mesh:item.mesh,transform:matrix*item.instance.model,color:SIMD3(tint.x,tint.y,tint.z),material:material,shadow:false)
             }
         }
         let reload=reloadPose(simulation), leftPose=base*reload.supportHandTransform
-        transformed(parts.fixed,base); transformed(parts.rightHand,base)
+        transformed(parts.fixed,base); transformed(parts.rightHand,base,clothing:true)
         transformed(parts.magazine,base*reload.magazineTransform)
-        transformed(parts.leftHand,leftPose)
+        transformed(parts.leftHand,leftPose,clothing:true)
         transformed(parts.chargingHandle,base*Self.translation(SIMD3(0,0,reload.slideOffset)))
         // Hands follow their grip points; the sleeves connect those wrists to
         // elbows below the camera, instead of moving a rigid arm as one object.
@@ -1187,7 +1708,8 @@ final class NativeRenderer {
             guard length>0.001 else { return }
             let start=end+simd_normalize(towardsElbow)*length
             let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:(end-start)/length))
-            appendTransformed(to:&out,mesh:14,transform:Self.translation((start+end)*0.5)*rotation*Self.scale(SIMD3(0.032,length,0.029)),color:SIMD3(0.24,0.27,0.20),material:SIMD4(0.94,0,0,16),shadow:false)
+            let cloth=NativeCamouflageAppearance.material(SIMD4(0.94,0,0,16),pattern:simulation.loadout.camouflage)
+            appendTransformed(to:&out,mesh:14,transform:Self.translation((start+end)*0.5)*rotation*Self.scale(SIMD3(0.032,length,0.029)),color:SIMD3(0.24,0.27,0.20),material:cloth,shadow:false)
             appendTransformed(to:&out,mesh:2,transform:Self.translation(end)*rotation*Self.scale(SIMD3(0.023,0.023,0.021)),color:SIMD3(0.08,0.10,0.075),material:SIMD4(0.9,0,0,10),shadow:false)
         }
         forearm(wrist:SIMD3(-0.040,-0.054,-0.281),pose:leftPose,elbow:SIMD3(-0.14,-0.57,0.04),maximumLength:0.34)
@@ -1315,6 +1837,7 @@ final class NativeRenderer {
         else { weaponWallBlend += (target-weaponWallBlend)*(1-exp(-dt*12)) }
         updateEffects(deltaTime: dt, terrain: simulation.terrain)
         combatEffects.step(deltaTime:dt,simulation:simulation)
+        shallowWater.step(deltaTime:dt)
         shotAge += dt
         shellCollisionCache.removeAll(keepingCapacity: true)
         shellCollisionCache.append(contentsOf: simulation.obstacles)
@@ -1341,8 +1864,15 @@ final class NativeRenderer {
         for i in tracers.indices { tracers[i].life -= deltaTime }; tracers.removeAll { $0.life <= 0 }
     }
 
-    private func appendMissionVisuals(to items: inout [RenderItem], status: MissionStatus, terrain: TerrainProfile) {
+    private func appendMissionVisuals(to items: inout [RenderItem], status: MissionStatus, operation: OperationStatus?, terrain: TerrainProfile) {
         missionPropCount=0; missionRingCount=0; missionPropShadowCount=0
+        operationMarkerIDs.removeAll(keepingCapacity:true)
+        if status.kind == .operation, status.phase == .extract, let operation {
+            missionVisual=nil
+            appendOperationExits(to:&items,status:operation,terrain:terrain)
+            return
+        }
+        operationExitVisuals.removeAll(keepingCapacity:true)
         guard let position=status.objectivePosition, status.objectiveRadius>0,
               status.phase != .waves, status.phase != .completed else {
             missionVisual=nil
@@ -1352,8 +1882,9 @@ final class NativeRenderer {
             missionVisual?.position != position || missionVisual?.radius != status.objectiveRadius ||
             missionVisual?.terrain != terrain {
             var props:[RenderItem]=[], ring:[RenderItem]=[]
-            if status.phase == .collectData || status.phase == .activateRadio || status.phase == .holdRadio {
-                let local=missionProp(dataCase:status.phase == .collectData)
+            let preparingRelay = status.phase == .prepareOperation && operation?.stages.first(where: { $0.active })?.kind == .relayGroup
+            if (status.phase == .collectData || status.phase == .prepareOperation || status.phase == .activateRadio || status.phase == .holdRadio) && !preparingRelay {
+                let local=missionProp(dataCase:status.phase == .collectData || status.phase == .prepareOperation)
                 let normal=terrain.normal(x:position.x,z:position.z)
                 var support=missionSurfacePoint(position,terrain:terrain)
                 // Keep the authoritative objective height when a mission is
@@ -1405,6 +1936,47 @@ final class NativeRenderer {
             items.append(item)
         }
         missionRingCount=visual.ring.count
+    }
+
+    private func appendOperationExits(to items: inout [RenderItem], status: OperationStatus, terrain: TerrainProfile) {
+        assert(status.extractions.count<=NativeOperationVisual.maximumExits,"Operation exit count exceeded its authored limit.")
+        let exits=status.extractions.filter(\.unlocked)
+        let sameGeometry=operationExitVisuals.count==exits.count && zip(operationExitVisuals,exits).allSatisfy { cached,exit in
+            cached.id==exit.id && cached.position==exit.position && cached.radius==exit.radius &&
+                cached.routeKind==exit.routeKind && cached.terrain==terrain
+        }
+        if !sameGeometry {
+            operationExitVisuals=exits.map { exit in
+                let geometry=NativeOperationVisual.geometry(position:exit.position,radius:exit.radius,
+                    routeKind:exit.routeKind,terrain:terrain,supportSurfaces:shellGroundColliders)
+                @MainActor func convert(_ parts:[SoldierPart])->[RenderItem] {
+                    var result:[RenderItem]=[];result.reserveCapacity(parts.count)
+                    for part in parts {
+                        appendTransformed(to:&result,mesh:part.mesh,transform:part.transform,
+                            color:part.color,material:part.material,shadow:part.castsShadow)
+                    }
+                    return result
+                }
+                return OperationExitVisual(id:exit.id,position:exit.position,radius:exit.radius,routeKind:exit.routeKind,
+                    terrain:terrain,props:convert(geometry.props),ring:convert(geometry.ring))
+            }
+        }
+        for (visual,exit) in zip(operationExitVisuals,exits) {
+            items.append(contentsOf:visual.props)
+            missionPropCount+=visual.props.count
+            missionPropShadowCount+=visual.props.filter(\.shadow).count
+            for (index,var item) in visual.ring.enumerated() {
+                let appearance=NativeOperationVisual.ringAppearance(exit:exit,segment:index)
+                item.instance.tint=SIMD4(appearance.color,1)
+                item.instance.material.z=appearance.emission
+                items.append(item)
+            }
+            missionRingCount+=visual.ring.count
+            operationMarkerIDs.append(exit.id)
+        }
+        assert(missionPropCount<=NativeOperationVisual.maximumExits*NativeOperationVisual.propPartsPerExit &&
+               missionRingCount<=NativeOperationVisual.maximumExits*NativeOperationVisual.segmentsPerExit,
+               "Operation marker geometry exceeded its fixed instance budget.")
     }
 
     private func missionSurfacePoint(_ point:SIMD3<Float>,terrain:TerrainProfile)->SIMD3<Float> {
@@ -1489,7 +2061,7 @@ final class NativeRenderer {
     private static func rotationX(_ angle: Float) -> simd_float4x4 { let c = cos(angle), s = sin(angle); return simd_float4x4(columns: (SIMD4(1, 0, 0, 0), SIMD4(0, c, s, 0), SIMD4(0, -s, c, 0), SIMD4(0, 0, 0, 1))) }
     private static func rotationZ(_ angle: Float) -> simd_float4x4 { let c=cos(angle),s=sin(angle); return simd_float4x4(columns:(SIMD4(c,s,0,0),SIMD4(-s,c,0,0),SIMD4(0,0,1,0),SIMD4(0,0,0,1))) }
     private static func lookAt(eye: SIMD3<Float>, target: SIMD3<Float>) -> simd_float4x4 {
-        let z = simd_normalize(eye - target), x = simd_normalize(simd_cross(SIMD3<Float>(0, 1, 0), z)), y = simd_cross(z, x)
+        let z = simd_normalize(eye - target), x = DirectionalShadowVolume.rightVector(for: z), y = simd_cross(z, x)
         return simd_float4x4(columns: (SIMD4(x.x, y.x, z.x, 0), SIMD4(x.y, y.y, z.y, 0), SIMD4(x.z, y.z, z.z, 0), SIMD4(-simd_dot(x, eye), -simd_dot(y, eye), -simd_dot(z, eye), 1)))
     }
     private static func perspective(fov: Float, aspect: Float, near: Float, far: Float) -> simd_float4x4 {
@@ -1500,7 +2072,7 @@ final class NativeRenderer {
         simd_float4x4(columns: (SIMD4(2 / (right - left), 0, 0, 0), SIMD4(0, 2 / (top - bottom), 0, 0), SIMD4(0, 0, 1 / (near - far), 0), SIMD4(-(right + left) / (right - left), -(top + bottom) / (top - bottom), near / (near - far), 1)))
     }
 
-    private static func makeMeshes(device: MTLDevice) throws -> [Mesh] {
+    private static func makeMeshes(device: MTLDevice, map: MapDefinition) throws -> [Mesh] {
         var cube: [GPUVertex] = []
         let faces: [(SIMD3<Float>, SIMD3<Float>, SIMD3<Float>)] = [
             (SIMD3(0, 0, 1), SIMD3(1, 0, 0), SIMD3(0, 1, 0)), (SIMD3(0, 0, -1), SIMD3(-1, 0, 0), SIMD3(0, 1, 0)),
@@ -1540,34 +2112,8 @@ final class NativeRenderer {
             return GPUVertex(position: p, normal: simd_normalize(SIMD3(cos(a), 0.11, sin(a))), uv: SIMD2(u, t))
         }
         for y in 0..<8 { for x in 0..<12 { for uv in corners { trunk.append(trunkVertex((Float(x) + uv.x) / 12, (Float(y) + uv.y) / 8)) } } }
-        // Atlas UV polygon lies entirely inside the black alpha island around
-        // the photographed twig. A full rectangle would expose opaque cone UVs.
-        let outline: [SIMD2<Float>] = [SIMD2(30,100),SIMD2(850,100),SIMD2(990,500),SIMD2(920,1300),SIMD2(855,1540),SIMD2(650,1810),SIMD2(390,1825),SIMD2(360,1800),SIMD2(250,1740),SIMD2(190,1680),SIMD2(155,1500),SIMD2(119,1310),SIMD2(30,1000)]
-        func twigVertex(_ pixel: SIMD2<Float>) -> GPUVertex {
-            let t = (1810 - pixel.y) / 1625, x = (pixel.x - 550) / 1625
-            let z = sin(t * .pi) * 0.055 + x * x * 0.16
-            return GPUVertex(position: SIMD3(x,t,z), normal: simd_normalize(SIMD3(-x*0.25,-cos(t * .pi)*0.1,1)), uv: pixel / SIMD2(1024,2048))
-        }
-        var twig: [GPUVertex] = []
-        for i in outline.indices { twig.append(contentsOf: [twigVertex(SIMD2(540,950)),twigVertex(outline[i]),twigVertex(outline[(i+1)%outline.count])]) }
-        // A one-metre grid across the playable area shares the collision
-        // heightfield's diagonal. Wider cells outside the arena join the same
-        // coordinate rows, so the transition has no cracks or separate skirts.
-        let axis = Array(stride(from: Float(-220), to: -48, by: 4))
-            + Array(stride(from: Float(-48), through: 48, by: 1))
-            + Array(stride(from: Float(52), through: 220, by: 4))
-        var terrain: [GPUVertex] = []
-        terrain.reserveCapacity((axis.count-1)*(axis.count-1)*6)
-        func terrainVertex(_ x: Float, _ z: Float) -> GPUVertex {
-            GPUVertex(position: SIMD3(x, terrainHeight(x,z), z),
-                      normal: TerrainProfile.battlefield.normal(x: x, z: z),
-                      uv: SIMD2(x,z)*0.01)
-        }
-        for z in 0..<(axis.count-1) { for x in 0..<(axis.count-1) {
-            let a=terrainVertex(axis[x],axis[z]), b=terrainVertex(axis[x+1],axis[z])
-            let c=terrainVertex(axis[x+1],axis[z+1]), d=terrainVertex(axis[x],axis[z+1])
-            terrain.append(contentsOf:[a,d,b,b,d,c])
-        } }
+        let twig=NativeVegetationGeometry.photographicTwigVertices()
+        let terrain=NativeMapGeometry.vertices(map:map)
         var rock: [GPUVertex] = []
         func rockPoint(_ u: Float, _ v: Float) -> SIMD3<Float> {
             let p = sphereVertex(u,v).position
@@ -1585,19 +2131,70 @@ final class NativeRenderer {
                 for (p,uv) in [(p0,uv0),(p1,uv1),(p2,uv2)] { let nn=simd_dot(n,p)<0 ? -n : n; rock.append(GPUVertex(position:p,normal:simd_normalize(nn*0.5+simd_normalize(p)*0.5),uv:uv)) }
             }
         } }
-        let named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Shared battlefield heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
-        return try named.map { name, vertices in
-            guard let buffer = device.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<GPUVertex>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Metal-Geometrie konnte nicht angelegt werden.") }
-            var low=SIMD3<Float>(repeating:.infinity),high=SIMD3<Float>(repeating:-.infinity)
-            for vertex in vertices { low=simd_min(low,vertex.position); high=simd_max(high,vertex.position) }
-            buffer.label = name; return Mesh(vertices: buffer, count: vertices.count, boundsCenter:(low+high)*0.5, halfExtents:(high-low)*0.5)
+        var named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Active map heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
+        assert(named.count==NativeCoastalGeometry.domeMesh)
+        named.append(("Coastal radome hemisphere",NativeCoastalGeometry.domeVertices()))
+        named.append(("Coastal sea wave grid",NativeCoastalGeometry.waterVertices()))
+        assert(named.count==NativeMangroveGeometry.leafMesh)
+        named.append(("Photographic broadleaf cluster",NativeMangroveGeometry.clusterVertices()))
+        return try named.map { try makeMesh(device:device,name:$0.0,vertices:$0.1) }
+    }
+    private static func makeMesh(device:MTLDevice,name:String,vertices:[GPUVertex])throws->Mesh {
+        guard !vertices.isEmpty,let buffer=device.makeBuffer(bytes:vertices,length:vertices.count*MemoryLayout<GPUVertex>.stride,options:.storageModeShared) else {
+            throw RenderError.unavailable("Metal-Geometrie \(name) konnte nicht angelegt werden.")
         }
+        var low=SIMD3<Float>(repeating:.infinity),high=SIMD3<Float>(repeating:-.infinity)
+        for vertex in vertices { low=simd_min(low,vertex.position);high=simd_max(high,vertex.position) }
+        buffer.label=name
+        return Mesh(vertices:buffer,count:vertices.count,boundsCenter:(low+high)*0.5,halfExtents:(high-low)*0.5)
+    }
+
+    private static func makeSpotResources(device:MTLDevice,map:MapDefinition)throws->SpotResources {
+        guard MemoryLayout<GPUWorldLight>.stride==128,MemoryLayout<GPUWorldLighting>.stride==272 else {
+            throw RenderError.unavailable("Metal-Lichtdaten besitzen ein ungültiges Speicherlayout.")
+        }
+        var textures:[MTLTexture]=[],terrain:[Mesh]=[]
+        for light in map.environment.spotlights {
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:SpotShadowVolume.resolution,height:SpotShadowVolume.resolution,mipmapped:false)
+            descriptor.storageMode = .private;descriptor.usage=[.renderTarget,.shaderRead]
+            guard let texture=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Schattenkarte der Lampe \(light.id) konnte nicht angelegt werden.") }
+            texture.label="512 shared world lamp \(light.id) shadows";textures.append(texture)
+            terrain.append(try makeMesh(device:device,name:"Exact terrain under lamp \(light.id)",
+                vertices:NativeMapGeometry.shadowPatch(map:map,center:map.grounded(light.position),range:light.range)))
+        }
+        return SpotResources(textures:textures,terrain:terrain)
+    }
+
+    private static func makeVegetation(device:MTLDevice,root:URL,map:MapDefinition,firstMesh:Int)throws->VegetationResources {
+        let zones=NativeVegetationGeometry.meshes(map:map)
+        var buffers:[Mesh]=[],batches:[VegetationBatch]=[]
+        for zone in zones {
+            guard !zone.vertices.isEmpty else {
+                throw RenderError.unavailable("Karte \(map.id): Vegetationszone \(zone.id) erzeugt keine sichtbaren Pflanzen. Bitte Ausdehnung und Pflanzenhöhe prüfen.")
+            }
+            let index=firstMesh+buffers.count
+            buffers.append(try makeMesh(device:device,name:"Gameplay foliage \(zone.id)",vertices:zone.vertices))
+            batches.append(VegetationBatch(id:zone.id,kind:zone.kind,mesh:index,plants:zone.plantCount))
+        }
+        var alpha:MTLTexture?
+        if zones.contains(where:{ $0.kind == .brush }) {
+            guard let path=map.resources.texturePaths[21],map.resources.texturePaths[9] != nil else {
+                throw RenderError.unavailable("Karte \(map.id): Buschzonen benötigen eine fotografische Blattfarbe und Alphamaske.")
+            }
+            let crop=map.resources.textureCrops[21].map { NativeTextureCrop(normalizedX:Double($0.x),normalizedY:Double($0.y),width:Double($0.z),height:Double($0.w)) }
+            // Gameplay coverage is a fixed profile in BOTH quality modes. The
+            // colour/normal maps may use the usual profile without changing holes.
+            alpha=try autoreleasepool { try NativeTextureLoader(device:device,highQuality:false).load(
+                url:root.appendingPathComponent(map.resources.assetDirectory).appendingPathComponent(path),srgb:false,origin:.topLeft,crop:crop) }
+            alpha?.label="Gameplay foliage fixed coverage"
+        }
+        return VegetationResources(meshes:buffers,batches:batches,alpha:alpha)
     }
 
     private static func resolveTextureRoot(assetRoot:URL?)throws->URL {
         let cwd=URL(fileURLWithPath:FileManager.default.currentDirectoryPath)
         let candidates=[assetRoot,Bundle.main.resourceURL?.appendingPathComponent("Assets"),cwd.appendingPathComponent("native/Assets"),cwd.appendingPathComponent("Assets")].compactMap { $0 }
-        guard let root=candidates.first(where: { FileManager.default.fileExists(atPath:$0.appendingPathComponent("textures/pine/alpha.jpg").path) }) else {
+        guard let root=candidates.first(where: { FileManager.default.fileExists(atPath:$0.path) }) else {
             throw RenderError.unavailable("Fotografische Landschaftstexturen fehlen. Bitte native/scripts/build-app.sh ausführen.")
         }
         return root
@@ -1609,34 +2206,36 @@ final class NativeRenderer {
         guard let result=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Nahschattenpuffer konnte nicht angelegt werden.") }
         result.label="Active stabilized near shadows \(resolution)";return result
     }
-    private static func loadTextures(device:MTLDevice,root:URL,highQuality:Bool)throws->[MTLTexture] {
+    private static func loadTextures(device:MTLDevice,root:URL,highQuality:Bool,resources:MapResourceReferences)throws->[MTLTexture] {
         let loader=NativeTextureLoader(device:device,highQuality:highQuality)
-        func load(_ path:String,color:Bool)throws->MTLTexture {
-            try autoreleasepool {
+        func fallback(_ bytes:[UInt8],label:String)throws->MTLTexture {
+            let descriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
+            descriptor.usage=[.shaderRead];descriptor.storageMode = .shared
+            guard let texture=device.makeTexture(descriptor:descriptor) else { throw RenderError.unavailable("Neutrale Materialtextur konnte nicht angelegt werden.") }
+            bytes.withUnsafeBytes { texture.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:4) }
+            texture.label=label;return texture
+        }
+        let white=try fallback([255,255,255,255],label:"Neutral material"),normal=try fallback([128,128,255,255],label:"Neutral normal")
+        let sky=try fallback([92,112,130,255],label:"Neutral sky")
+        let normals:Set<Int>=[1,4,7,12,15,18,20,26,29]
+        let colors:Set<Int>=[0,3,6,9,11,14,17,23,25,28]
+        var result=(0..<31).map { $0==23 ? sky:normals.contains($0) ? normal:white }
+        var loaded:[String:MTLTexture]=[:]
+        for (slot,path) in resources.texturePaths.sorted(by:{ $0.key<$1.key }) {
+            guard (0..<31).contains(slot),slot != 10,slot != 24 else { throw RenderError.unavailable("Ungültiger Karten-Texturslot \(slot).") }
+            let color=colors.contains(slot),rectangle=resources.textureCrops[slot]
+            let crop=rectangle.map { NativeTextureCrop(normalizedX:Double($0.x),normalizedY:Double($0.y),width:Double($0.z),height:Double($0.w)) }
+            let key="\(color)-\(String(describing:rectangle))-\(path)"
+            if let existing=loaded[key] { result[slot]=existing;continue }
+            let texture:MTLTexture=try autoreleasepool {
                 do {
-                    let crop:NativeTextureCrop?=path.hasPrefix("textures/pine/") ? .pineAtlasIsland:nil
-                    let texture=try loader.load(url:root.appendingPathComponent(path),srgb:color,origin:.topLeft,crop:crop)
+                    let texture=try loader.load(url:root.appendingPathComponent(resources.assetDirectory).appendingPathComponent(path),srgb:color,origin:.topLeft,crop:crop)
                     texture.label=path;return texture
                 } catch { throw RenderError.unavailable("Textur \(path) konnte nicht geladen werden: \(error.localizedDescription)") }
             }
+            loaded[key]=texture;result[slot]=texture
         }
-        var result: [MTLTexture] = []
-        for folder in ["forest-earth", "floor", "forest-rock"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg", color: file == "color")) }
-        }
-        result.append(try load("textures/pine/color.jpg", color: true)) // 9
-        result.append(result[0]) // 10 is replaced by the native depth shadow map.
-        for folder in ["forest-bark", "forest-ground", "asphalt"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg", color: file == "color")) }
-        }
-        for file in ["normal", "alpha", "roughness"] { result.append(try load("textures/pine/\(file).jpg", color: false)) }
-        // High retains original sky pixels; Balanced decodes at half dimensions
-        // before creating any Metal texture, just like every other photo map.
-        result.append(try load("environment/sunrise.jpg",color:true)) // 23
-        result.append(result[0]) // 24 is replaced by the near depth shadow map.
-        for folder in ["weapon-metal", "weapon-fabric"] {
-            for file in ["color", "normal", "roughness"] { result.append(try load("textures/\(folder)/\(file).jpg",color:file == "color")) }
-        }
+        result[10]=result[0];result[24]=result[0]
         return result
     }
 }

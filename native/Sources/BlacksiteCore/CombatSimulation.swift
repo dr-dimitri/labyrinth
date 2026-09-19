@@ -4,14 +4,32 @@ import simd
 /// Deterministic combat rules. Rendering and native input remain outside this type.
 /// Call exclusively on the game thread; wall-clock deltas are integrated at 120 Hz.
 public final class CombatSimulation {
+    public let map: MapDefinition
     public let terrain: TerrainProfile
     public let missionKind: MissionKind
+    public let loadout: LoadoutDefinition
     public private(set) var player: PlayerState
     public private(set) var enemies: [EnemyState]
     public private(set) var obstacles: [Obstacle]
     public private(set) var coverDebris: [CoverDebrisState] = []
+    var breachOpeningTimes: [Int: Double] = [:]
+    public private(set) var reconMarks: [ReconMark] = []
+    public private(set) var breachCharges: [BreachChargeState] = []
+    public private(set) var breachChargeCount = 0
+    private var reconReadyAt: Double = 0
     public private(set) var grenades: [GrenadeState] = []
+    public private(set) var smokeGrenades: [SmokeGrenadeState] = []
+    public private(set) var smokeVolumes: [SmokeVolumeState] = []
+    public private(set) var smokeGrenadeCount = 2
     public private(set) var supplies: [SupplyState] = []
+    public private(set) var pendingContactReports: [PendingContactReport] = []
+    public private(set) var contactReports: [ContactReport] = []
+    public private(set) var devices: [WorldInteractableState] = []
+    public private(set) var spotlights: [WorldSpotlightState] = []
+    public private(set) var noiseEmitters: [NoiseEmitterState] = []
+    public private(set) var decoys: [NoiseDecoyState] = []
+    public private(set) var hearingStimuli: [HearingStimulus] = []
+    public private(set) var noiseDecoyCount: Int = 2
     public private(set) var weapons: [WeaponKind: WeaponState] = [
         .rifle: WeaponState(kind: .rifle), .sniper: WeaponState(kind: .sniper)
     ]
@@ -19,6 +37,7 @@ public final class CombatSimulation {
     public private(set) var grenadeCount = 4
     public private(set) var kills = 0
     public private(set) var score = 0
+    public private(set) var runStatistics = RunStatistics()
     public private(set) var wave: Int
     public private(set) var elapsed: Double = 0
     public private(set) var state: MatchState = .active
@@ -27,12 +46,13 @@ public final class CombatSimulation {
     public private(set) var isMoving = false
     public private(set) var intermission: Float = 1.4
     public private(set) var extractionProgress: Float = 0
+    public private(set) var selectedExtractionID: String?
     public private(set) var pendingReinforcements = 0
     public var remainingEnemies: Int { aliveCount + pendingReinforcements }
     public var extractionReady: Bool {
         switch missionKind {
         case .waves: return wave == 3 && remainingEnemies == 0
-        case .recoverData: return missionPhase == .extract || missionPhase == .completed
+        case .recoverData, .operation: return missionPhase == .extract || missionPhase == .completed
         case .secureRadio: return false
         }
     }
@@ -41,46 +61,85 @@ public final class CombatSimulation {
     public var isHidden: Bool {
         aliveCount > 0 && !enemies.contains { $0.health > 0 && $0.seesPlayer } && elapsed - lastShot > 1.5
     }
+    public var concealmentStatus: ConcealmentStatus {
+        let sample = environmentSample(at: player.position)
+        let matches = loadout.camouflage.matches(sample.camouflageGround)
+        let reason: ConcealmentReason
+        if loadout.camouflage == .none { reason = .noSuit }
+        else if !player.grounded || climbing != nil { reason = .airborne }
+        else if elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration { reason = .recentShot }
+        else if !matches { reason = .unsuitableGround }
+        else if let movement = concealmentMotion.reason { reason = movement }
+        else if concealmentMotion.settleProgress < 1 { reason = .settling }
+        else { reason = .ready }
+        let strength: Float = reason == .ready ? (player.prone ? 1 : 0.4) * concealmentMotion.turnStrength : 0
+        return ConcealmentStatus(pattern: loadout.camouflage, surfaceMaterial: sample.surfaceMaterial,
+            camouflageGround: sample.camouflageGround, matchesGround: matches,
+            settleProgress: concealmentMotion.settleProgress, localStrength: strength, reason: reason)
+    }
     public var mantleAvailable: Bool { state == .active && climbing == nil && player.grounded && mantleTarget() != nil }
     public var climbProgress: Float? { climbing.map { $0.progress / 0.75 } }
-    public var extractionPosition: SIMD3<Float> { groundedPoint(GameMap.extraction) }
+    public var extractionPosition: SIMD3<Float> {
+        if let exit = presentedOperationExtraction { return map.grounded(exit.position) }
+        return groundedPoint(map.extraction)
+    }
     private var insideExtraction: Bool {
-        horizontalDistance(player.position, extractionPosition) < GameMap.extractionRadius && player.grounded &&
+        horizontalDistance(player.position, extractionPosition) < map.extractionRadius && player.grounded &&
             abs(player.position.y - extractionPosition.y) < 0.2
     }
     private var radioContested: Bool {
-        enemies.contains { $0.health > 0 && horizontalDistance($0.position, GameMap.radioSite) <= 5 }
+        enemies.contains { $0.health > 0 && horizontalDistance($0.position, map.radioSite) <= 5 }
     }
     private var groundedAtRadio: Bool {
-        player.grounded && climbing == nil && abs(player.position.y - groundedPoint(GameMap.radioSite).y) <= 2.5
+        player.grounded && climbing == nil && abs(player.position.y - groundedPoint(map.radioSite).y) <= 2.5
+    }
+    public var missionContextAvailable: Bool {
+        if hasRequiredOperationStages {
+            return state == .active && operationDefinitions.contains { stage in
+                stage.targets.contains { !completedOperationTargets.contains($0.id) && simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+            }
+        }
+        return missionInteractionAvailable
     }
     public var missionInteractionAvailable: Bool {
-        guard state == .active, missionPhase == .collectData || missionPhase == .activateRadio,
+        if hasRequiredOperationStages, activeRequiredStage != nil {
+            guard state == .active, missionPhase != .holdRadio, !operationInteractionLatch,
+                  let target = nearestRequiredTarget else { return false }
+            return requiredTargetInterruption(target) == nil
+        }
+        guard state == .active, missionPhase == .prepareOperation || missionPhase == .collectData || missionPhase == .activateRadio,
               player.grounded, climbing == nil else { return false }
-        let target = groundedPoint(missionPhase == .collectData ? GameMap.dataSite : GameMap.radioSite)
+        let target = groundedPoint(missionPhase == .activateRadio ? map.radioSite : map.dataSite)
         return simd_distance(player.position, target) <= 1.6
     }
     public var missionStatus: MissionStatus {
+        if hasRequiredOperationStages, let status = requiredOperationMissionStatus { return status }
         let phase: MissionPhase = state == .won ? .completed : missionKind == .waves ? (extractionReady ? .extract : .waves) : missionPhase
         let target: SIMD3<Float>?, radius: Float, progress: Float, required: Float
         var interruption: MissionInterruption?
         switch phase {
         case .waves:
             target = nil; radius = 0; progress = Float(kills); required = 21
-        case .collectData, .activateRadio:
-            target = groundedPoint(phase == .collectData ? GameMap.dataSite : GameMap.radioSite)
-            radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .collectData ? 0.8 : 1
+        case .prepareOperation, .activateRelays, .collectData, .activateRadio:
+            target = groundedPoint(phase == .activateRadio ? map.radioSite : map.dataSite)
+            radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .activateRadio ? 1 : 0.8
             if !player.grounded || climbing != nil { interruption = .notGrounded }
             else if !missionInteractionAvailable { interruption = .outOfRange }
             else if !interactionHeld { interruption = .interactionReleased }
         case .extract:
-            target = extractionPosition; radius = GameMap.extractionRadius; progress = extractionProgress; required = 3
-            if !player.grounded || climbing != nil { interruption = .notGrounded }
-            else if !insideExtraction { interruption = .outOfRange }
+            if let exit = presentedOperationExtraction {
+                let snapshot = extractionSnapshot(exit)
+                target = snapshot.position; radius = snapshot.radius; progress = snapshot.progress
+                required = snapshot.requiredProgress; interruption = snapshot.interruption
+            } else {
+                target = extractionPosition; radius = map.extractionRadius; progress = extractionProgress; required = 3
+                if !player.grounded || climbing != nil { interruption = .notGrounded }
+                else if !insideExtraction { interruption = .outOfRange }
+            }
         case .holdRadio:
-            target = groundedPoint(GameMap.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
+            target = groundedPoint(map.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
             if !groundedAtRadio { interruption = .notGrounded }
-            else if horizontalDistance(player.position, GameMap.radioSite) > radius { interruption = .outOfRange }
+            else if horizontalDistance(player.position, map.radioSite) > radius { interruption = .outOfRange }
             else if radioContested { interruption = .contested }
         case .completed:
             target = nil; radius = 0; progress = 1; required = 1
@@ -89,19 +148,45 @@ public final class CombatSimulation {
         return MissionStatus(kind: missionKind, phase: phase, objectivePosition: target, objectiveRadius: radius,
                              distance: target.map { phase == .holdRadio ? horizontalDistance(player.position, $0) : simd_distance(player.position, $0) },
                              progress: progress, requiredProgress: required, interruption: interruption,
-                             interactionAvailable: missionInteractionAvailable)
+                             interactionAvailable: missionInteractionAvailable,
+                             extractionID: missionKind == .operation ? (phase == .completed ? selectedExtractionID : phase == .extract ? presentedOperationExtraction?.id : nil) : nil)
     }
 
     let difficulty: Difficulty
     private var seed: UInt64
+    private let weatherSeed: UInt64
     private var accumulator: Double = 0
     private var nextID = 100
+    private var nextHearingID = 1
+    private var nextContactReportID = 1
+    private var escalationReport: ContactReport?
+    private var assignedGuardIDs: [Int] = []
+    private var alarmReinforcementsCommitted = 0
+    private var pendingAlarmReinforcements = 0
+    private var playerHeardEscalation = false
+    private var deviceInteractionLatch = false
+    private var activeDeviceID: Int?
+    private var deviceInteractionTicks = 0
+    private var deviceInputHeld = false
+    private var cachedLightTime: Double = -1
+    private var cachedLightFactor: Float = 1
+    private var playerStepDistance: Float = 0
+    private var decoyCooldown: Float = 0
     private var grenadeCooldown: Float = 0
+    private var smokeCooldown: Float = 0
+    private var smokeEmitterCycles: [Int: Int] = [:]
+    private var smokeWarningCycles: [Int: Int] = [:]
+    public private(set) var smokeWarnings: [SmokeWarning] = []
     private var lastShot: Double = -20
+    private var concealmentMotion = ConcealmentMotion()
     private var extractionAnnounced = false
     private var missionPhase: MissionPhase
     private var missionStarted = false
     private var missionProgressTicks = 0
+    private var operationStageIndex = 0
+    private var completedOperationTargets = Set<String>()
+    private var activeOperationTargetID: String?
+    private var operationInteractionLatch = false
     private var interactionHeld = false
     private var reinforcementTimer: Float = 0
     private var reinforcementCursor = 0
@@ -112,51 +197,124 @@ public final class CombatSimulation {
     private var brains: [Int: EnemyBrain] = [:]
     private var navigationDirty = true
     // Reuse BFS work buffers. Only the output path is allocated per route request.
-    private let navWidth = 39, navDepth = 43
-    private var navigation = [Bool](repeating: false, count: 39 * 43)
-    private var navigationHeights = [Float](repeating: 0, count: 39 * 43)
-    private var navigationLinks = [UInt8](repeating: 0, count: 39 * 43)
-    private var navigationComponents = [Int](repeating: 0, count: 39 * 43)
-    private var visited = [UInt32](repeating: 0, count: 39 * 43)
-    private var previous = [Int](repeating: -1, count: 39 * 43)
+    private let navWidth: Int, navDepth: Int
+    private let navSpacing: Float = 2
+    private var navigation: [Bool]
+    private var navigationHeights: [Float]
+    private var navigationLinks: [UInt8]
+    private var navigationComponents: [Int]
+    private var visited: [UInt32]
+    private var previous: [Int]
     private var searchGeneration: UInt32 = 0
     private var searchQueue = [Int]()
 
-    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile = .battlefield,
-                            mission: MissionKind = .waves) {
-        self.init(difficulty: difficulty, seed: seed, world: GameMap.obstacles,
-                  startingPlayer: PlayerState(), startingEnemies: [], startingWave: 0, terrain: terrain, mission: mission)
+    public convenience init(map: MapDefinition = .blacksite, difficulty: Difficulty = .normal, seed: UInt64 = 1745,
+                            terrainOverride: TerrainProfile? = nil, mission: MissionKind = .waves, loadout: LoadoutDefinition = .init()) {
+        let selected = terrainOverride.map { map.withTerrain($0) } ?? map
+        self.init(difficulty: difficulty, seed: seed, world: selected.obstacles,
+                  startingEnemies: [], startingWave: 0, terrain: selected.terrain, mission: mission, map: selected, loadout: loadout)
     }
 
-    /// A complete scenario also permits isolated rule tests and visual previews.
-    /// Obstacle base y values are offsets above the terrain. Grounded actors
-    /// initialized at y=0 settle onto it; explicit nonzero actor heights remain absolute.
+    /// Compatibility for existing callers which explicitly selected a profile.
+    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile,
+                            mission: MissionKind = .waves, loadout: LoadoutDefinition = .init()) {
+        self.init(map: .blacksite, difficulty: difficulty, seed: seed, terrainOverride: terrain, mission: mission, loadout: loadout)
+    }
+
+    /// Explicit actor heights remain world-space. Omitted actors use the map's
+    /// authored start. Legacy isolated worlds retain their flat default profile.
     public init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, world: [Obstacle],
-                startingPlayer: PlayerState = PlayerState(), startingEnemies: [EnemyState] = [], startingWave: Int = 0,
-                terrain: TerrainProfile = .flat, mission: MissionKind = .waves) {
-        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
-        missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
+                startingPlayer: PlayerState? = nil, startingEnemies: [EnemyState] = [], startingWave: Int = 0,
+                terrain: TerrainProfile? = nil, mission: MissionKind = .waves, map: MapDefinition? = nil,
+                loadout: LoadoutDefinition = .init()) {
+        let selected = map ?? MapDefinition.blacksite.withoutVegetation()
+        let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
+        self.map = selected.withTerrain(terrain)
+        // Preserve the nonthrowing legacy initializer. Frontends can reject an
+        // unsupported selection using supportsMission; direct callers get the
+        // documented data-recovery fallback and an honest effective missionKind.
+        let mission = selected.supportsMission(mission) ? mission : .recoverData
+        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.weatherSeed = seed; self.terrain = terrain; missionKind = mission
+        self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
+        smokeGrenadeCount = loadout.smokeGrenades; breachChargeCount = loadout.breachCharges
+        weapons[.rifle]?.reserve = loadout.rifleReserve; weapons[.sniper]?.reserve = loadout.sniperReserve
+        missionPhase = mission == .waves ? .waves : mission == .secureRadio ? .activateRadio : mission == .operation ? .prepareOperation : .collectData
+        navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
+        navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
+        let cells = navWidth * navDepth
+        navigation = [Bool](repeating: false, count: cells)
+        navigationHeights = [Float](repeating: 0, count: cells)
+        navigationLinks = [UInt8](repeating: 0, count: cells)
+        navigationComponents = [Int](repeating: 0, count: cells)
+        visited = [UInt32](repeating: 0, count: cells)
+        previous = [Int](repeating: -1, count: cells)
         obstacles = world.map { box in
             var grounded = Obstacle(id: box.id, kind: box.kind,
                                     position: box.position + SIMD3(0, terrain.height(x: box.position.x, z: box.position.z), 0), size: box.size)
             grounded.health = box.health; grounded.destroyed = box.destroyed
             return grounded
         }
-        player = startingPlayer; enemies = startingEnemies; wave = mission == .waves ? startingWave : 0
+        player = startingPlayer ?? selected.playerStart
+        if startingPlayer == nil { player.position = self.map.grounded(player.position) }
+        enemies = startingEnemies; wave = mission == .waves ? startingWave : 0
         if player.grounded && abs(player.position.y) < 0.001 { player.position.y = terrain.height(x: player.position.x, z: player.position.z) }
         for index in enemies.indices where enemies[index].grounded && abs(enemies[index].position.y) < 0.001 {
             enemies[index].position.y = terrain.height(x: enemies[index].position.x, z: enemies[index].position.z)
         }
+        noiseEmitters = selected.environment.noiseEmitters.compactMap { definition in
+            if let owner = definition.ownerObstacleID, !obstacles.contains(where: { $0.id == owner && !$0.destroyed }) { return nil }
+            return NoiseEmitterState(id: definition.id, position: definition.position + SIMD3(0, terrain.height(x: definition.position.x, z: definition.position.z), 0),
+                enabled: definition.enabled, strength: definition.strength, range: definition.range, ownerObstacleID: definition.ownerObstacleID)
+        }
+        devices = selected.environment.devices.compactMap { definition in
+            guard let owner = obstacles.first(where: { $0.id == definition.ownerObstacleID }) else { return nil }
+            var state = WorldInteractableState(id: definition.id, kind: definition.kind, ownerObstacleID: definition.ownerObstacleID,
+                interactionPoints: definition.interactionPoints.map { self.map.grounded($0) }, closedPosition: owner.position)
+            if definition.kind == .generator { state.enabled = definition.initiallyEnabled; state.powered = definition.initiallyEnabled }
+            if definition.kind == .maintenanceSwitch {
+                let openA = definition.linkedGateIDs.first.flatMap { id in selected.environment.devices.first { $0.id == id } }?.initiallyOpen ?? false
+                state.enabled = openA; state.gateProgress = openA ? 1 : 0; state.targetOpen = openA
+            }
+            if definition.initiallyOpen { state.gateProgress = 1; state.targetOpen = true }
+            return state
+        }
+        for definition in selected.environment.devices where definition.initiallyOpen {
+            if let index = obstacles.firstIndex(where: { $0.id == definition.ownerObstacleID }) {
+                let old = obstacles[index]
+                var opened = Obstacle(id: old.id,kind: old.kind,position: old.position+definition.openOffset,size: old.size)
+                opened.health = old.health; opened.destroyed = old.destroyed
+                obstacles[index] = opened
+            }
+        }
+        spotlights = selected.environment.spotlights.map { definition in
+            WorldSpotlightState(id: definition.id, position: self.map.grounded(definition.position),
+                direction: simd_normalize(definition.direction), range: definition.range, innerCos: definition.innerCos,
+                outerCos: definition.outerCos, power: definition.power, color: definition.color, ownerObstacleID: definition.ownerObstacleID)
+        }
+        synchronizeDestroyedDevices()
+        synchronizeDevicePower()
+        concealmentMotion.resetPose(player)
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
+        smokeGrenades.reserveCapacity(SmokeVolumeState.maximumCount); smokeVolumes.reserveCapacity(SmokeVolumeState.maximumCount)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
+        reconMarks.reserveCapacity(ReconMark.maximumCount); breachCharges.reserveCapacity(BreachChargeState.maximumCount)
+        hearingStimuli.reserveCapacity(64); decoys.reserveCapacity(NoiseDecoyState.maximumCount)
+        pendingContactReports.reserveCapacity(4); contactReports.reserveCapacity(16); assignedGuardIDs.reserveCapacity(2)
         pendingCoverDebris.reserveCapacity(world.count)
         for box in obstacles { nextID = max(nextID, box.id + 1) }
+        for emitter in noiseEmitters { nextID = max(nextID, emitter.id + 1) }
+        for emitter in selected.environment.smokeEmitters { nextID = max(nextID, emitter.id + 1) }
+        for device in devices { nextID = max(nextID, device.id + 1) }
+        for light in spotlights { nextID = max(nextID, light.id + 1) }
         for enemy in enemies {
             brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02,
                                          patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
             nextID = max(nextID, enemy.id + 1)
         }
+        // Authored initial outages/openings are briefing conditions, not
+        // actions the player performed during this run.
+        runStatistics = RunStatistics()
     }
 
     private func groundedPoint(_ p: SIMD3<Float>) -> SIMD3<Float> { SIMD3(p.x, terrain.height(x: p.x, z: p.z), p.z) }
@@ -168,6 +326,7 @@ public final class CombatSimulation {
     }
 
     private func emit(_ event: GameEvent) {
+        runStatistics.record(event, map: map)
         // A paused renderer must not let undrained effects grow without bound.
         if events.count >= 1024 { events.removeFirst(256) }
         events.append(event)
@@ -196,12 +355,14 @@ public final class CombatSimulation {
         guard state == .active, player.grounded, climbing == nil else { return }
         if player.prone && blocked(player.position, height: 1.72, radius: 0.32) { return }
         player.prone.toggle()
+        concealmentMotion.interrupt()
     }
 
     @discardableResult public func jump() -> Bool {
         guard state == .active, climbing == nil, player.grounded, player.stamina >= 12 else { return false }
         if player.prone { toggleProne(); return false }
         player.verticalVelocity = 6.8; player.grounded = false; player.stamina -= 12
+        concealmentMotion.interrupt()
         emit(GameEvent(kind: .jump, position: player.position))
         return true
     }
@@ -209,6 +370,7 @@ public final class CombatSimulation {
     @discardableResult public func mantle() -> Bool {
         guard state == .active, climbing == nil, player.grounded, let target = mantleTarget() else { return false }
         climbing = ClimbState(from: player.position, to: target.position, obstacleID: target.obstacleID)
+        concealmentMotion.interrupt()
         player.prone = false; player.verticalVelocity = 0; isAiming = false; isSprinting = false
         emit(GameEvent(kind: .climb, position: player.position, endPosition: target.position))
         return true
@@ -236,8 +398,8 @@ public final class CombatSimulation {
     }
 
     func blocked(_ position: SIMD3<Float>, height: Float = 1.72, radius: Float = 0.32) -> Bool {
-        if position.x < GameMap.minimum.x + radius || position.x > GameMap.maximum.x - radius ||
-            position.z < GameMap.minimum.z + radius || position.z > GameMap.maximum.z - radius { return true }
+        if position.x < map.minimum.x + radius || position.x > map.maximum.x - radius ||
+            position.z < map.minimum.z + radius || position.z > map.maximum.z - radius { return true }
         for box in obstacles where !box.destroyed {
             let low = box.minimum, high = box.maximum
             if position.y < high.y - 0.025 && position.y + height > low.y + 0.025 &&
@@ -263,11 +425,12 @@ public final class CombatSimulation {
     }
 
     func wallHit(origin: SIMD3<Float>, direction: SIMD3<Float>, maximumDistance: Float = 150,
-                 padding: Float = 0, excludingObstacle: Int? = nil) -> RayHit {
+                 padding: Float = 0, excludingObstacle: Int? = nil, purpose: WorldRayPurpose = .physical) -> RayHit {
         var closest = RayHit(distance: maximumDistance)
         let pad = SIMD3<Float>(repeating: padding)
         for index in obstacles.indices where !obstacles[index].destroyed && index != excludingObstacle {
             let box = obstacles[index]
+            if purpose == .sight && !blocksSight(box) { continue }
             if var hit = rayBox(origin: origin, direction: direction, minimum: box.minimum - pad, maximum: box.maximum + pad),
                hit.distance < closest.distance {
                 hit.obstacleIndex = index; closest = hit
@@ -306,7 +469,8 @@ public final class CombatSimulation {
         guard weapon.ammo > 0 else { reload(); return false }
         weapon.ammo -= 1; weapon.cooldown = activeWeapon.fireInterval; weapons[activeWeapon] = weapon
         lastShot = elapsed
-        hearNoise(at: player.position, radius: 38)
+        concealmentMotion.interrupt()
+        let hearing = recordHearing(kind: .gunshot, position: eyePosition, strength: 1, range: 44, source: .player)
         let spread: Float = isAiming ? (activeWeapon == .sniper ? 0.0002 : 0.0017) : (activeWeapon == .sniper ? 0.021 : 0.009)
         let direction = viewDirection(yaw: player.yaw + (random() - 0.5) * spread,
                                       pitch: player.pitch + (random() - 0.5) * spread)
@@ -327,12 +491,13 @@ public final class CombatSimulation {
             hitPoint = muzzle + corrected * hit.distance
         }
         let surfaceImpact = makeSurfaceImpact(for: hit, at: hitPoint)
+        let water = waterImpact(from: muzzle,to: hitPoint)
         let damage = activeWeapon.damage * (hit.headshot ? 2.4 : 1)
         if let index = hit.enemyIndex { damageEnemy(index: index, amount: damage, headshot: hit.headshot, from: eye) }
         if let index = hit.obstacleIndex { damageCover(index: index, amount: activeWeapon.damage) }
         emit(GameEvent(kind: .shot, position: muzzle, endPosition: hitPoint,
                        amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon,
-                       surfaceImpact: surfaceImpact))
+                       surfaceImpact: surfaceImpact, hearing: hearing, waterImpact: water))
         return true
     }
 
@@ -343,6 +508,7 @@ public final class CombatSimulation {
         if var brain = brains[id] {
             investigate(source ?? player.position, enemy: &enemies[index], brain: &brain)
             brain.hurt = 0.3; brain.suppression = 1.8
+            brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6; brain.lastOwnContactTime = elapsed
             brains[id] = brain
         }
         if enemies[index].health <= 0 {
@@ -371,6 +537,16 @@ public final class CombatSimulation {
         let box = obstacles[index]
         pendingCoverDebris.append(box)
         emit(GameEvent(kind: .coverDestroyed, position: box.position + SIMD3(0, box.size.y * 0.5, 0), id: box.id))
+        if let definition = map.breaches.first(where: { $0.ownerObstacleID == box.id }) {
+            breachOpeningTimes[box.id] = elapsed
+            let snapshot = BreachState(ownerObstacleID: box.id,kind: definition.kind,visibility: definition.visibility,
+                damageStage: .destroyed,position: box.position,size: box.size,openedAt: elapsed)
+            let point = box.position + SIMD3(0,box.size.y*0.5,0)
+            let hearing = recordHearing(kind: .breakage,position: point,
+                surface: definition.kind == .glass ? .glass : .metal,strength: 0.9,
+                range: definition.kind == .glass ? 20 : 26,source: .world,sourceID: box.id)
+            emit(GameEvent(kind: .breachOpened,position: point,id: box.id,hearing: hearing,breach: snapshot))
+        }
         return box.kind == .barrel ? box.position + SIMD3(0, 0.55, 0) : nil
     }
 
@@ -385,9 +561,9 @@ public final class CombatSimulation {
         for box in pendingCoverDebris {
             let lifetime: Double
             switch box.kind {
-            case .crate: lifetime = 12
+            case .crate, .glass: lifetime = 12
             case .barrel: lifetime = 8
-            case .container: lifetime = 15
+            case .container, .accessPanel: lifetime = 15
             case .barrier: lifetime = 20
             case .bunker: continue
             }
@@ -418,6 +594,7 @@ public final class CombatSimulation {
                                                size: box.size, createdAt: elapsed, lifetime: lifetime, solidObstacleID: solidID))
         }
         pendingCoverDebris.removeAll(keepingCapacity: true)
+        synchronizeDestroyedDevices()
     }
 
     private func removeCoverDebris(at index: Int) {
@@ -454,8 +631,9 @@ public final class CombatSimulation {
         // Iterative queue prevents deep recursion and ensures every barrel detonates once.
         var pending = [position], next = 0
         while next < pending.count {
-            let center = pending[next] + SIMD3<Float>(0, 0.18, 0); next += 1
-            hearNoise(at: center, radius: 30)
+            let detonation = pending[next]
+            let center = detonation + SIMD3<Float>(0, 0.18, 0); next += 1
+            let hearing = recordHearing(kind: .explosion, position: center, strength: 1, range: 34, source: .world)
             for index in enemies.indices where enemies[index].health > 0 {
                 let target = EnemyPose(enemies[index]).bodyCenter
                 let distance = simd_distance(center, target)
@@ -474,7 +652,7 @@ public final class CombatSimulation {
             for (index, amount) in hits {
                 if let barrel = applyCoverDamage(index: index, amount: amount) { pending.append(barrel) }
             }
-            emit(GameEvent(kind: .explosion, position: center, amount: 8))
+            emit(GameEvent(kind: .explosion, position: center, amount: 8, hearing: hearing, waterImpact: submergedExplosionSurface(at: detonation)))
         }
         finishCoverDestruction()
     }
@@ -498,7 +676,10 @@ public final class CombatSimulation {
         guard state == .active else { return }
         elapsed += 1.0 / 120.0
         updateCoverDebris()
+        hearingStimuli.removeAll { elapsed - $0.time > 8 }
+        let beforePlayer = player
         updatePlayer(dt, input: input)
+        updatePlayerFootsteps(from: beforePlayer, dt: dt)
         for kind in WeaponKind.allCases {
             guard var weapon = weapons[kind] else { continue }
             weapon.cooldown = max(0, weapon.cooldown - dt)
@@ -513,10 +694,20 @@ public final class CombatSimulation {
         }
         grenadeCooldown = max(0, grenadeCooldown - dt)
         if input.fire { fire() }
+        if loadout.camouflage != .none {
+            concealmentMotion.observe(player: player, sprinting: isSprinting, climbing: climbing != nil,
+                matchesGround: loadout.camouflage.matches(environmentSample(at: player.position).camouflageGround),
+                recentShot: elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration)
+        }
         updateGrenades(dt)
+        updateClassGadgets(dt)
+        updateDecoys(dt)
+        updateSmoke(dt)
         guard state == .active else { return }
         updateEnemies(dt)
         guard state == .active else { return }
+        updateDevices(dt, input: input)
+        updateContactReports()
         collectSupplies()
         updateReinforcementRetries(dt)
         if missionKind == .waves { updateWaves(dt) }
@@ -534,7 +725,8 @@ public final class CombatSimulation {
         if player.exhausted && player.stamina >= 25 { player.exhausted = false }
         isSprinting = input.sprint && !player.prone && !isAiming && !player.exhausted &&
             player.stamina > 1 && forward > 0 && length > 0 && climbing == nil
-        let speed: Float = player.prone ? 1.65 : isSprinting ? 7.5 : isAiming ? 2.8 : 4.7
+        let drySpeed: Float = player.prone ? 1.65 : isSprinting ? 7.5 : isAiming ? 2.8 : 4.7
+        let speed = drySpeed * (waterContact(at: player.position, grounded: player.grounded && climbing == nil)?.movementMultiplier ?? 1)
         let before = player.position
         if length > 0 && climbing == nil {
             let denominator = max(1, length)
@@ -575,8 +767,12 @@ public final class CombatSimulation {
                 }
             }
             if player.position.y <= floor {
-                if !player.grounded && player.verticalVelocity < -4 { emit(GameEvent(kind: .land, position: player.position)) }
-                player.position.y = floor; player.verticalVelocity = 0; player.grounded = true
+                player.position.y = floor
+                let water = waterContact(at: player.position)
+                if !player.grounded && (player.verticalVelocity < -4 || (water != nil && player.verticalVelocity < -0.5)) {
+                    emitLanding(at: player.position,velocity: player.verticalVelocity,water: water,source: .player)
+                }
+                player.verticalVelocity = 0; player.grounded = true
             } else { player.grounded = false }
         }
         if elapsed - player.lastHit > 5.5 { player.health = min(100, player.health + dt * 8) }
@@ -586,26 +782,8 @@ public final class CombatSimulation {
         var index = 0
         while index < grenades.count {
             var grenade = grenades[index]
-            grenade.fuse -= dt; grenade.velocity.y -= 13 * dt
-            var remaining = dt
-            for _ in 0..<3 {
-                let speed = simd_length(grenade.velocity)
-                if speed < 0.0001 || remaining < 0.0001 { break }
-                let direction = grenade.velocity / speed
-                let hit = wallHit(origin: grenade.position, direction: direction, maximumDistance: speed * remaining, padding: 0.09)
-                grenade.position += direction * max(0, hit.distance - 0.002)
-                if hit.obstacleIndex == nil && !hit.hitGround { break }
-                remaining -= hit.distance / speed
-                grenade.velocity = (grenade.velocity - 1.5 * simd_dot(grenade.velocity, hit.normal) * hit.normal) * 0.72
-                grenade.position += hit.normal * 0.004
-            }
-            if grenade.position.x < -37.91 || grenade.position.x > 37.91 {
-                grenade.position.x = clamp(grenade.position.x, -37.91, 37.91); grenade.velocity.x *= -0.45
-            }
-            if grenade.position.z < -41.91 || grenade.position.z > 41.91 {
-                grenade.position.z = clamp(grenade.position.z, -41.91, 41.91); grenade.velocity.z *= -0.45
-            }
-            grenade.position.y = max(terrain.height(x: grenade.position.x, z: grenade.position.z) + 0.09, grenade.position.y)
+            grenade.fuse -= dt
+            advanceThrowable(position: &grenade.position, velocity: &grenade.velocity, dt: dt)
             if grenade.fuse <= 0 {
                 grenades.remove(at: index); explode(at: grenade.position)
             } else { grenades[index] = grenade; index += 1 }
@@ -634,7 +812,7 @@ public final class CombatSimulation {
         if wave < 3 {
             if intermission <= 0 {
                 intermission = 7; player.health = min(100, player.health + 25)
-                grenadeCount = min(4, grenadeCount + 2)
+                grenadeCount = min(loadout.fragmentationGrenades, grenadeCount + 2)
                 if var rifle = weapons[.rifle] { rifle.reserve = min(300, rifle.reserve + 60); weapons[.rifle] = rifle }
                 if var sniper = weapons[.sniper] { sniper.reserve = min(50, sniper.reserve + 10); weapons[.sniper] = sniper }
                 emit(GameEvent(kind: .waveCleared, position: player.position, count: wave))
@@ -663,9 +841,16 @@ public final class CombatSimulation {
             missionStarted = true
             emit(GameEvent(kind: .missionPhaseChanged, position: missionStatus.objectivePosition ?? player.position,
                            missionPhase: missionPhase))
-            queueMissionReinforcements(missionKind == .recoverData ? 4 : 3)
+            queueMissionReinforcements(missionKind == .secureRadio ? 3 : 4)
         }
+        if hasRequiredOperationStages { updateRequiredOperation(input: input); return }
         switch missionPhase {
+        case .activateRelays: break
+        case .prepareOperation:
+            if missionInteractionAvailable && input.interact {
+                changeMissionPhase(to: .collectData)
+                missionProgressTicks = 1
+            }
         case .collectData, .activateRadio:
             missionProgressTicks = missionInteractionAvailable && input.interact ? missionProgressTicks + 1 : 0
             let required = missionPhase == .collectData ? 96 : 120
@@ -679,11 +864,12 @@ public final class CombatSimulation {
                 }
             }
         case .extract:
+            if missionKind == .operation { updateOperationExtraction(); return }
             missionProgressTicks = insideExtraction ? min(360, missionProgressTicks + 1) : 0
             extractionProgress = Float(missionProgressTicks)/120
             if missionProgressTicks == 360 { finishObjectiveMission() }
         case .holdRadio:
-            guard groundedAtRadio, horizontalDistance(player.position, GameMap.radioSite) <= 5, !radioContested else { return }
+            guard groundedAtRadio, horizontalDistance(player.position, map.radioSite) <= 5, !radioContested else { return }
             missionProgressTicks = min(5400, missionProgressTicks + 1)
             if missionProgressTicks == 1800 || missionProgressTicks == 3600 { queueMissionReinforcements(2) }
             if missionProgressTicks == 5400 { finishObjectiveMission() }
@@ -734,7 +920,7 @@ public final class CombatSimulation {
             if distance < nearest && !blocked(point, height: 2, radius: 0.45) { nearest = distance; combatCell = index }
         }
         guard let combatCell else { return }
-        let component = navigationComponents[combatCell], candidates = GameMap.reinforcementEntries
+        let component = navigationComponents[combatCell], candidates = map.spawnCandidates
         // One bounded pass per retry; no random relaxation of the safety rules.
         for attempt in 0..<candidates.count {
             guard pendingReinforcements > 0 else { break }
@@ -746,14 +932,20 @@ public final class CombatSimulation {
                   let cell = navigationCell(at: position), navigationComponents[cell] == component,
                   reinforcementIsHidden(at: position) else { continue }
             let offset = deployedThisWave
+            let alarmArrival = pendingAlarmReinforcements > 0
             var enemy = EnemyState(id: allocateID(), position: position, health: missionKind == .waves ? Float(90 + wave * 10) : 100)
             let staging: SIMD3<Float>
-            if missionKind == .waves {
-                staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+            if alarmArrival, let alarm = map.environment.alarm, !alarm.returnGuardPosts.isEmpty {
+                let post = groundedPoint(alarm.returnGuardPosts[(alarmReinforcementsCommitted - pendingAlarmReinforcements) % alarm.returnGuardPosts.count])
+                staging = hasReachableRoute(from: position, to: post) ? post : groundedPoint(map.waveStaging[offset % map.waveStaging.count])
+            } else if missionKind == .waves {
+                staging = groundedPoint(map.waveStaging[offset % map.waveStaging.count])
+            } else if !map.patrolAnchors.isEmpty {
+                staging = groundedPoint(map.patrolAnchors[offset % map.patrolAnchors.count])
             } else {
                 // Authored objectives are public tactical destinations. Arrivals
                 // do not acquire knowledge of an unseen player's live position.
-                let anchor = missionKind == .secureRadio ? GameMap.radioSite : missionPhase == .collectData ? GameMap.dataSite : GameMap.extraction
+                let anchor = missionKind == .secureRadio ? map.radioSite : (missionPhase == .prepareOperation || missionPhase == .collectData) ? map.dataSite : map.extraction
                 let angle = Float(offset) * 2.39996
                 let candidate = groundedPoint(anchor + SIMD3(sin(angle)*1.8,0,cos(angle)*1.8))
                 staging = !blocked(candidate, height: 1.96, radius: 0.4) ? candidate : groundedPoint(anchor)
@@ -767,8 +959,11 @@ public final class CombatSimulation {
             brain.side = offset.isMultiple(of: 2) ? -1 : 1
             brains[enemy.id] = brain
             pendingReinforcements -= 1; deployedThisWave += 1
+            if alarmArrival { pendingAlarmReinforcements -= 1 }
             emit(GameEvent(kind: .reinforcementsArrived, position: position, endPosition: player.position,
-                           amount: 1, id: enemy.id, count: wave))
+                           amount: 1, id: enemy.id, count: wave,
+                           contactReport: alarmArrival ? escalationReport : nil,
+                           alarmReportID: alarmArrival ? escalationReport?.id : nil))
         }
         reinforcementCursor = (reinforcementCursor + 7) % candidates.count
     }
@@ -781,7 +976,7 @@ public final class CombatSimulation {
         let facing = viewDirection(yaw: player.yaw, pitch: player.pitch)
         let projectedExtent = abs(facing.x) * extent.x + abs(facing.y) * extent.y + abs(facing.z) * extent.z
         if simd_dot(center - eyePosition, facing) + projectedExtent < -0.1 { return true }
-        for box in obstacles where !box.destroyed {
+        for box in obstacles where !box.destroyed && blocksSight(box) {
             var hidden = true
             for corner in 0..<8 {
                 let point = center + SIMD3<Float>(corner & 1 == 0 ? -extent.x : extent.x,
@@ -819,6 +1014,14 @@ private struct EnemyBrain {
     var searchingInPlace = false
     var stuckTime: Float = 0
     var patrolAnchor: SIMD3<Float>
+    var successfulReports = 0
+    var reportCooldownUntil: Double = -20
+    var lastReceivedReportID = 0
+    var lastOwnContactTime: Double = -20
+    var guardPost: SIMD3<Float>?
+    var hearingPriority = 0
+    var priorityUntil: Double = -20
+    var stepDistance: Float = 0
     var patrolYaw: Float
     var patrolGoal: SIMD3<Float>?
     var patrolIndex = 0
@@ -840,13 +1043,13 @@ private struct EnemyBrain {
 
 extension CombatSimulation {
     private func gridKey(_ position: SIMD3<Float>) -> Int {
-        let x = clamp(Int(((position.x + 38) / 2).rounded()), 0, navWidth - 1)
-        let z = clamp(Int(((position.z + 42) / 2).rounded()), 0, navDepth - 1)
+        let x = clamp(Int(((position.x - map.minimum.x) / navSpacing).rounded()), 0, navWidth - 1)
+        let z = clamp(Int(((position.z - map.minimum.z) / navSpacing).rounded()), 0, navDepth - 1)
         return z * navWidth + x
     }
 
     private func navigationPoint(_ index: Int) -> SIMD3<Float> {
-        SIMD3(-38 + Float(index % navWidth) * 2, navigationHeights[index], -42 + Float(index / navWidth) * 2)
+        SIMD3(map.minimum.x + Float(index % navWidth) * navSpacing, navigationHeights[index], map.minimum.z + Float(index / navWidth) * navSpacing)
     }
 
     private func navigationSegmentIsOpen(from: SIMD3<Float>, to: SIMD3<Float>) -> Bool {
@@ -870,7 +1073,7 @@ extension CombatSimulation {
     private func rebuildNavigationIfNeeded() {
         guard navigationDirty else { return }
         for index in navigation.indices {
-            let point = groundedPoint(SIMD3(-38 + Float(index % navWidth) * 2, 0, -42 + Float(index / navWidth) * 2))
+            let point = groundedPoint(SIMD3(map.minimum.x + Float(index % navWidth) * navSpacing, 0, map.minimum.z + Float(index / navWidth) * navSpacing))
             navigationHeights[index] = point.y
             navigation[index] = blocked(point + SIMD3(0, 1.09, 0), height: 0.87, radius: 0.48) ||
                 terrain.normal(x: point.x, z: point.z).y < 0.72
@@ -946,7 +1149,7 @@ extension CombatSimulation {
         }
         var result: [SIMD3<Float>] = [], current = found
         while current != start {
-            result.append(SIMD3(-38 + Float(current % navWidth) * 2, navigationHeights[current], -42 + Float(current / navWidth) * 2))
+            result.append(SIMD3(map.minimum.x + Float(current % navWidth) * navSpacing, navigationHeights[current], map.minimum.z + Float(current / navWidth) * navSpacing))
             current = previous[current]
         }
         if let first = result.last, !navigationSegmentIsOpen(from: groundedPoint(from), to: first) {
@@ -1027,7 +1230,11 @@ extension CombatSimulation {
             }
         }
         if enemy.position.y <= floor {
-            enemy.position.y = floor; enemy.verticalVelocity = 0; enemy.grounded = true
+            enemy.position.y = floor
+            if !enemy.grounded, enemy.verticalVelocity < -0.5, let water = waterContact(at: enemy.position) {
+                emitLanding(at: enemy.position,velocity: enemy.verticalVelocity,water: water,source: .enemy,sourceID: enemy.id)
+            }
+            enemy.verticalVelocity = 0; enemy.grounded = true
         } else { enemy.grounded = false }
     }
 
@@ -1038,17 +1245,10 @@ extension CombatSimulation {
         if enemy.awareness == .watching || brain.searchingInPlace ||
             brain.lastKnown.map({ horizontalDistance($0, target) > 2 }) != false { brain.pathTimer = 0 }
         enemy.awareness = .investigating; enemy.windup = 0
+        brain.guardPost = nil
         brain.alert = true; brain.lastKnown = target
         brain.searchAge = 0; brain.searchTimer = 0; brain.searchingInPlace = false
         brain.stuckTime = 0; brain.patrolGoal = nil
-    }
-
-    private func hearNoise(at source: SIMD3<Float>, radius: Float) {
-        for index in enemies.indices where enemies[index].health > 0 && horizontalDistance(enemies[index].position, source) < radius {
-            guard var brain = brains[enemies[index].id] else { continue }
-            investigate(source, enemy: &enemies[index], brain: &brain)
-            brains[enemies[index].id] = brain
-        }
     }
 
     private func updateAwareness(_ enemy: inout EnemyState, brain: inout EnemyBrain, dt: Float) {
@@ -1058,17 +1258,34 @@ extension CombatSimulation {
             let forward = SIMD2<Float>(sin(enemy.yaw), cos(enemy.yaw))
             // Local +Z is forward. A cheap 120-degree cone test precedes raycasts.
             let inCone = horizontal < 0.05 || simd_dot(forward, SIMD2(offset.x, offset.z)) >= horizontal * 0.5
-            brain.visualContact = horizontal < 48 && inCone && clearLine(EnemyPose(enemy).eyePosition, eyePosition)
+            brain.visualContact = horizontal < 48 && inCone && sightLine(EnemyPose(enemy).eyePosition, eyePosition)
+            let smoke = brain.visualContact && !smokeVolumes.isEmpty ? playerSmokeVisibility(from: EnemyPose(enemy).eyePosition,eyeLineIsClear: true) : SmokeVisibilitySample(opticalDepth: 0)
+            if smoke.opaque { brain.visualContact = false }
             brain.sightTimer = 0.1
             if brain.visualContact {
                 let reaction: Float = (difficulty == .easy ? 0.8 : difficulty == .hard ? 0.4 : 0.6) *
                     (horizontal < 8 ? 0.7 : 1) * (player.prone ? 1.25 : 1)
-                enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction)
+                var recognition: Float = 1
+                if enemy.detectionProgress < 1 {
+                    recognition = vegetationRecognitionFactor(from: EnemyPose(enemy).eyePosition, eyeLineIsClear: true)
+                    if loadout.camouflage != .none {
+                        recognition = ConcealmentEvaluation(status: concealmentStatus, observerDistance: simd_length(offset))
+                            .combinedRecognition(vegetation: recognition)
+                    }
+                    if cachedLightTime != elapsed {
+                        cachedLightFactor = lightSample(at: eyePosition).recognitionMultiplier
+                        cachedLightTime = elapsed
+                    }
+                    recognition = max(ConcealmentEvaluation.minimumCombinedRecognition, recognition * cachedLightFactor * smoke.transmission)
+                }
+                enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction * recognition)
                 if enemy.detectionProgress >= 1 {
                     if enemy.awareness != .engaged {
                         emit(GameEvent(kind: .enemyAlert, position: enemy.position, id: enemy.id))
                     }
                     enemy.awareness = .engaged; enemy.seesPlayer = true
+                    brain.hearingPriority = 3; brain.priorityUntil = elapsed + 6
+                    brain.lastOwnContactTime = elapsed; brain.guardPost = nil
                     brain.lastKnown = player.position; brain.searchAge = 0; brain.searchingInPlace = false
                     brain.stuckTime = 0
                 }
@@ -1113,13 +1330,18 @@ extension CombatSimulation {
             brain.path = findPath(from: enemy.position, to: goal); brain.pathIndex = 0
             brain.pathTimer = 1.2 + random() * 0.6
         }
-        let next = horizontalDistance(enemy.position, goal) < 2.6 ? goal :
+        // A nearby sound/contact may still be on the other side of a wall.
+        // Keep its detour until the final standing-body connector is open.
+        let directApproach = horizontalDistance(enemy.position, goal) < 2.6 &&
+            navigationSegmentIsOpen(from: groundedPoint(enemy.position), to: groundedPoint(goal))
+        let next = directApproach ? goal :
             (brain.pathIndex < brain.path.count ? brain.path[brain.pathIndex] : enemy.position)
         let length = horizontalDistance(enemy.position, next)
         if length < 0.2 { brain.pathIndex += 1; return }
         startUsefulJump(&enemy, brain: &brain, toward: next)
         enemy.isRunning = running && enemy.crouchAmount < 0.3
-        let speed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
+        let drySpeed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
+        let speed = drySpeed * (waterContact(at: enemy.position,grounded: enemy.grounded)?.movementMultiplier ?? 1)
         let direction = SIMD3<Float>(next.x - enemy.position.x, 0, next.z - enemy.position.z) / length
         enemy.position = moved(enemy.position, delta: direction * min(length, dt * speed),
                                height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
@@ -1163,6 +1385,13 @@ extension CombatSimulation {
             brain.holdTimer = max(0, brain.holdTimer - dt); brain.jumpCooldown = max(0, brain.jumpCooldown - dt)
             brain.coverTimer = max(0, brain.coverTimer - dt); brain.coverCooldown = max(0, brain.coverCooldown - dt)
             brain.repositionTimer -= dt; enemy.recoil *= exp(-dt * 16)
+            // A newly opaque cloud cancels stale perception immediately; the
+            // normal 10Hz cadence still handles recognition in thin/clear air.
+            if brain.visualContact && !smokeVolumes.isEmpty &&
+                smokeVisibility(from: EnemyPose(enemy).eyePosition,to: eyePosition).opaque &&
+                playerSmokeVisibility(from: EnemyPose(enemy).eyePosition).opaque {
+                brain.sightTimer = 0
+            }
             updateAwareness(&enemy, brain: &brain, dt: dt)
             let distance = horizontalDistance(enemy.position, brain.lastKnown ?? enemy.position)
             let threat = (brain.lastKnown ?? enemy.position) + SIMD3<Float>(0, 1.6, 0)
@@ -1177,6 +1406,8 @@ extension CombatSimulation {
             let seekingCover = brain.coverGoal != nil && brain.coverTimer > 0
             let nearCover = seekingCover && horizontalDistance(enemy.position, brain.coverGoal!) < 0.8
             let hurtPause = brain.hurt > 0.05 && enemy.grounded
+            let reporting = pendingContactReports.contains { $0.enemyID == enemy.id }
+            if reporting { enemy.windup = 0 }
             let wantCrouch = enemy.grounded && enemy.windup <= 0 &&
                 (hurtPause || (nearCover && brain.coverTimer > 1.25) || (brain.suppression > 0 && !seekingCover))
             enemy.crouchAmount += ((wantCrouch ? 1 : 0) - enemy.crouchAmount) * min(1, dt * 10)
@@ -1186,7 +1417,8 @@ extension CombatSimulation {
             if brain.visualContact { aim(&enemy, at: eyePosition) }
             let pose = EnemyPose(enemy)
             let needsMuzzleCheck = enemy.seesPlayer && ((enemy.windup > 0 && enemy.windup <= dt) || (enemy.windup <= 0 && brain.cooldown <= 0))
-            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && clearLine(pose.muzzlePosition, eyePosition)
+            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && sightLine(pose.muzzlePosition, eyePosition) &&
+                !smokeVisibility(from: pose.muzzlePosition,to: eyePosition).opaque
             if enemy.windup > 0 {
                 enemy.windup = max(0, enemy.windup - dt)
                 if enemy.windup == 0 {
@@ -1198,20 +1430,43 @@ extension CombatSimulation {
                         var target = eyePosition
                         if !hit { target.x += (random() > 0.5 ? 1 : -1) * (1 + random()); target.y += 0.5 }
                         let damage: Float = difficulty == .easy ? 6 : difficulty == .hard ? 13 : 9
-                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: target, amount: hit ? damage : 0, id: enemy.id))
-                        if hit { damagePlayer(amount: damage, from: pose.muzzlePosition) }
+                        let hearing = recordHearing(kind: .gunshot, position: pose.muzzlePosition, strength: 1, range: 44, source: .enemy, sourceID: enemy.id)
+                        let offset = target-pose.muzzlePosition, length = simd_length(offset)
+                        let direction = offset/max(0.001,length)
+                        let obstruction = wallHit(origin: pose.muzzlePosition,direction: direction,maximumDistance: length)
+                        let stopped = obstruction.distance < length-0.01
+                        let impactPoint = stopped ? pose.muzzlePosition+direction*obstruction.distance : target
+                        let surface = stopped ? makeSurfaceImpact(for: obstruction,at: impactPoint) : nil
+                        let water = waterImpact(from: pose.muzzlePosition,to: impactPoint)
+                        // The very shot that opens a pane ends there. Only a
+                        // later shot may cross the newly navigable aperture.
+                        if let owner = obstruction.obstacleIndex,
+                           obstacles[owner].kind == .glass || obstacles[owner].kind == .accessPanel {
+                            damageCover(index: owner,amount: damage)
+                        }
+                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: impactPoint,
+                                       amount: hit && !stopped ? damage : 0, id: enemy.id, surfaceImpact: surface, hearing: hearing, waterImpact: water))
+                        if hit && !stopped { damagePlayer(amount: damage, from: pose.muzzlePosition) }
                         enemy.recoil = 1; brain.holdTimer = 0.32
                     }
                     brain.cooldown = 1.1 + random() * 1.7
                 }
-            } else if enemy.seesPlayer && enemy.grounded && distance < 42 && brain.cooldown <= 0 &&
+            } else if !reporting && enemy.seesPlayer && enemy.grounded && distance < 42 && brain.cooldown <= 0 &&
                         !wantCrouch && enemy.crouchAmount < 0.35 && muzzleClear {
                 enemy.windup = 0.65
             }
             let pursuit = seekingCover ? brain.coverGoal! : (brain.lastKnown ?? enemy.position)
-            let before = enemy.position
+            let before = enemy.position, wasGrounded = enemy.grounded
             if enemy.windup <= 0 && brain.holdTimer <= 0 && !hurtPause && !nearCover && state == .active {
-                if !brain.alert {
+                if let post = brain.guardPost, !enemy.seesPlayer && !brain.visualContact {
+                    if horizontalDistance(enemy.position, post) > 0.8 {
+                        moveEnemy(&enemy, brain: &brain, toward: post, running: true, dt: dt)
+                    } else {
+                        brain.patrolAnchor = post; brain.searchingInPlace = false; brain.searchAge = 0
+                        brain.stuckTime = 0; enemy.awareness = .watching; brain.alert = false
+                        enemy.yaw += dt * 0.65
+                    }
+                } else if !brain.alert {
                     patrol(&enemy, brain: &brain, dt: dt)
                 } else if brain.searchingInPlace && !enemy.seesPlayer {
                     if !brain.visualContact { enemy.yaw += dt * 1.15 }
@@ -1222,7 +1477,7 @@ extension CombatSimulation {
                     let strafe = brain.side * 1.1 * dt, retreat: Float = distance < 7 ? -1.7 * dt : 0
                     let delta = SIMD3(cos(enemy.yaw) * strafe + sin(enemy.yaw) * retreat, 0,
                                       -sin(enemy.yaw) * strafe + cos(enemy.yaw) * retreat)
-                    enemy.position = moved(enemy.position, delta: delta, height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
+                    enemy.position = moved(enemy.position, delta: delta * (waterContact(at: enemy.position,grounded: enemy.grounded)?.movementMultiplier ?? 1), height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
                     if horizontalDistance(enemy.position, before) < 0.001 { brain.side *= -1 }
                 } else if brain.repositionTimer < -3.3 { brain.repositionTimer = 0.65 + random() * 0.5 }
             }
@@ -1231,12 +1486,886 @@ extension CombatSimulation {
             if enemy.isMoving { enemy.walkCycle += dt * (enemy.isRunning ? 12 : 7); brain.stuckTime = 0 }
             else if !nearCover && !hurtPause && !enemy.seesPlayer && !brain.searchingInPlace { brain.stuckTime += dt }
             applyGravity(&enemy, dt: dt)
+            if wasGrounded && enemy.grounded {
+                emitFootsteps(distance: simd_distance(before, enemy.position), accumulated: &brain.stepDistance,
+                    position: enemy.position, speed: simd_distance(before, enemy.position) / dt,
+                    lowPosture: enemy.crouchAmount > 0.6, source: .enemy, sourceID: enemy.id)
+            } else { brain.stepDistance = 0 }
             let aimTarget: Float = enemy.windup > 0 || brain.holdTimer > 0 ? 1 : enemy.seesPlayer && !enemy.isRunning ? 0.65 : 0
             enemy.aimBlend += (aimTarget - enemy.aimBlend) * min(1, dt * 12)
             if enemy.seesPlayer && !enemy.isRunning { aim(&enemy, at: eyePosition) }
             else { enemy.aimPitch += ((enemy.isRunning ? -0.38 : -0.22) - enemy.aimPitch) * min(1, dt * 8) }
             enemies[index] = enemy; brains[enemy.id] = brain
             if state != .active { return }
+        }
+    }
+}
+
+extension CombatSimulation {
+    @discardableResult public func setNoiseEmitterEnabled(id: Int, enabled: Bool) -> Bool {
+        guard state == .active, let index = noiseEmitters.firstIndex(where: { $0.id == id }),
+              noiseEmitters[index].enabled != enabled else { return false }
+        if enabled, let owner = noiseEmitters[index].ownerObstacleID,
+           !obstacles.contains(where: { $0.id == owner && !$0.destroyed }) { return false }
+        noiseEmitters[index].enabled = enabled
+        emit(GameEvent(kind: .noiseEmitterChanged, position: noiseEmitters[index].position,
+                       id: id, noiseEmitter: noiseEmitters[index]))
+        return true
+    }
+
+    @discardableResult public func throwNoiseDecoy() -> Bool {
+        guard state == .active, climbing == nil, noiseDecoyCount > 0,
+              decoys.count < NoiseDecoyState.maximumCount, decoyCooldown <= 0 else { return false }
+        let direction = viewDirection(yaw: player.yaw, pitch: player.pitch)
+        let decoy = NoiseDecoyState(id: allocateID(), position: eyePosition, velocity: direction * 12 + SIMD3(0,2.5,0))
+        decoys.append(decoy); noiseDecoyCount -= 1; decoyCooldown = 0.7
+        emit(GameEvent(kind: .decoyThrown, position: decoy.position, id: decoy.id))
+        return true
+    }
+
+    private func updatePlayerFootsteps(from before: PlayerState, dt: Float) {
+        guard before.grounded, player.grounded, climbing == nil else { playerStepDistance = 0; return }
+        let distance = simd_distance(before.position, player.position)
+        emitFootsteps(distance: distance, accumulated: &playerStepDistance, position: player.position,
+                      speed: distance / dt, lowPosture: player.prone, source: .player)
+    }
+
+    private func emitFootsteps(distance: Float, accumulated: inout Float, position: SIMD3<Float>, speed: Float,
+                               lowPosture: Bool, source: NoiseSource, sourceID: Int? = nil) {
+        guard distance.isFinite, distance > 0.000_05, distance < 0.3 else { return }
+        let stride: Float = lowPosture ? 0.95 : 1.65
+        accumulated += distance
+        guard accumulated >= stride else { return }
+        accumulated -= stride
+        let water = waterContact(at: position)
+        let surface: SurfaceSound = water != nil ? .water : standingOnGlassShards(at: position) ? .glass : environmentSample(at: position).soundSurface
+        let strength = max(water != nil ? 0.4 : 0, clamp(0.25 + speed / 10, 0.25, 1) * (lowPosture ? 0.32 : 1))
+        let soundPosition = SIMD3(position.x,water.map { $0.surfaceHeight + 0.06 } ?? position.y + 0.1,position.z)
+        let hearing = recordHearing(kind: .footstep, position: soundPosition, surface: surface,
+                        strength: strength, range: surface.stepRange, source: source, sourceID: sourceID)
+        emit(GameEvent(kind: .footstep, position: hearing.position, amount: strength,
+                       id: hearing.id, hearing: hearing))
+    }
+
+    private func emitLanding(at position: SIMD3<Float>, velocity: Float, water: WaterContact?, source: NoiseSource, sourceID: Int? = nil) {
+        let surface: SurfaceSound = water != nil ? .water : environmentSample(at: position).soundSurface
+        let soundPosition = SIMD3(position.x,water.map { $0.surfaceHeight + 0.06 } ?? position.y + 0.1,position.z)
+        let hearing = recordHearing(kind: .landing,position: soundPosition,surface: surface,
+            strength: max(water != nil ? 0.55 : 0,min(1,abs(velocity)/8)),range: surface.stepRange * 1.2,source: source,sourceID: sourceID)
+        emit(GameEvent(kind: .land,position: position,hearing: hearing))
+    }
+
+    /// A finite diagnostic history; events and AI receive the same immutable value.
+    /// Friendly footsteps/shots are audible to the player but are not hostile clues.
+    private func recordHearing(kind: HearingKind, position: SIMD3<Float>, surface: SurfaceSound? = nil,
+                               strength: Float, range: Float, source: NoiseSource, sourceID: Int? = nil) -> HearingStimulus {
+        let stimulus = HearingStimulus(id: nextHearingID, kind: kind, position: position, surface: surface,
+            time: elapsed, strength: strength, range: range, source: source, sourceID: sourceID)
+        nextHearingID += 1
+        if hearingStimuli.count >= 64 { hearingStimuli.removeFirst() }
+        hearingStimuli.append(stimulus)
+        guard source != .enemy, kind != .gust else { return stimulus }
+        let priority = kind == .gunshot || kind == .explosion ? 3 : kind == .decoy || kind == .breakage ? 2 : 1
+        for index in enemies.indices where enemies[index].health > 0 {
+            let ear = EnemyPose(enemies[index]).eyePosition
+            guard simd_distance(ear, position) < range,
+                  acousticSample(for: stimulus, listener: ear).audible,
+                  var brain = brains[enemies[index].id] else { continue }
+            enemies[index].lastHeard = HearingObservation(position: position, kind: kind, time: elapsed)
+            guard !enemies[index].seesPlayer,
+                  priority >= brain.hearingPriority || elapsed >= brain.priorityUntil else { continue }
+            investigate(position, enemy: &enemies[index], brain: &brain)
+            brain.hearingPriority = priority
+            brain.priorityUntil = elapsed + (priority == 3 ? 6 : priority == 2 ? 2.5 : 0.7)
+            brains[enemies[index].id] = brain
+        }
+        return stimulus
+    }
+
+    private func advanceThrowable(position: inout SIMD3<Float>, velocity: inout SIMD3<Float>, dt: Float) {
+        velocity.y -= 13 * dt
+        var remaining = dt
+        for _ in 0..<3 {
+            let speed = simd_length(velocity)
+            if speed < 0.0001 || remaining < 0.0001 { break }
+            let direction = velocity / speed
+            let hit = wallHit(origin: position, direction: direction, maximumDistance: speed * remaining, padding: 0.09)
+            position += direction * max(0, hit.distance - 0.002)
+            if hit.obstacleIndex == nil && !hit.hitGround { break }
+            remaining -= hit.distance / speed
+            velocity = (velocity - 1.5 * simd_dot(velocity, hit.normal) * hit.normal) * 0.72
+            position += hit.normal * 0.004
+        }
+        let low = map.minimum + SIMD3<Float>(repeating: 0.09)
+        let high = map.maximum - SIMD3<Float>(repeating: 0.09)
+        if position.x < low.x || position.x > high.x {
+            position.x = clamp(position.x, low.x, high.x); velocity.x *= -0.45
+        }
+        if position.z < low.z || position.z > high.z {
+            position.z = clamp(position.z, low.z, high.z); velocity.z *= -0.45
+        }
+        position.y = max(terrain.height(x: position.x, z: position.z) + 0.09, position.y)
+    }
+
+    private func updateDecoys(_ dt: Float) {
+        decoyCooldown = max(0, decoyCooldown - dt)
+        var index = 0
+        while index < decoys.count {
+            var decoy = decoys[index]
+            decoy.age += dt
+            if decoy.age >= decoy.lifetime { decoys.remove(at: index); continue }
+            advanceThrowable(position: &decoy.position, velocity: &decoy.velocity, dt: dt)
+            if decoy.emittedPulses < 6 && decoy.age >= 0.7 + Float(decoy.emittedPulses) * 2 {
+                decoy.emittedPulses += 1
+                let hearing = recordHearing(kind: .decoy, position: decoy.position, strength: 0.85,
+                    range: 24, source: .world, sourceID: decoy.id)
+                emit(GameEvent(kind: .decoyPulse, position: decoy.position, id: decoy.id, hearing: hearing))
+            }
+            decoys[index] = decoy; index += 1
+        }
+    }
+}
+
+extension CombatSimulation {
+    public var deviceInteractionAvailable: Bool { deviceInteractionStatus?.interactionAvailable == true }
+    /// Retains ownership of E for a reachable device while its motor is moving,
+    /// blocked, destroyed or waiting for the user to release a completed press.
+    public var deviceContextAvailable: Bool {
+        guard let status = deviceInteractionStatus else { return false }
+        return status.distance <= 1.6 && status.interruption != .occluded
+    }
+    public var deviceInteractionStatus: DeviceInteractionStatus? {
+        guard state == .active, !missionContextAvailable else { return nil }
+        var nearest: (index: Int, point: SIMD3<Float>, distance: Float)?
+        for index in devices.indices {
+            if map.environment.devices.first(where: { $0.id == devices[index].id })?.controllerID != nil { continue }
+            for point in devices[index].interactionPoints {
+                let distance = simd_distance(player.position, point)
+                if distance <= 3.5 && distance < (nearest?.distance ?? .infinity) { nearest = (index, point, distance) }
+            }
+        }
+        guard let nearest else { return nil }
+        let device = devices[nearest.index]
+        let owner = obstacles.firstIndex { $0.id == device.ownerObstacleID }
+        let visible = clearLine(eyePosition, nearest.point + SIMD3(0, 1, 0), excludingObstacle: owner)
+        let reason: DeviceInterruption?
+        if !visible { reason = .occluded }
+        else if device.destroyed { reason = .destroyed }
+        else if device.blockedByActor { reason = .blockedByActor }
+        else if device.isMoving { reason = .moving }
+        else if !player.grounded || climbing != nil { reason = .notGrounded }
+        else if nearest.distance > 1.6 { reason = .outOfRange }
+        else if deviceInteractionLatch { reason = .releaseRequired }
+        else if !deviceInputHeld { reason = .interactionReleased }
+        else { reason = nil }
+        let manual = device.kind == .serviceGate && !device.powered
+        let action: DeviceAction
+        if device.kind == .maintenanceSwitch { action = .switchBulkheads }
+        else if device.kind == .generator { action = device.enabled ? .disableGenerator : .enableGenerator }
+        else if device.gateProgress > 0 && device.gateProgress < 1 || device.isMoving {
+            action = device.targetOpen ? .openGate : .closeGate
+        } else { action = device.gateProgress >= 1 ? .closeGate : .openGate }
+        return DeviceInteractionStatus(id: device.id, kind: device.kind, action: action, enabled: device.enabled,
+            powered: device.powered, manual: manual, position: nearest.point, distance: nearest.distance,
+            progress: device.interactionProgress, requiredProgress: Float(loadout.deviceInteractionTicks(manual: manual))/120, gateProgress: device.gateProgress,
+            isMoving: device.isMoving, blockedByActor: device.blockedByActor, destroyed: device.destroyed,
+            interactionAvailable: reason == nil || reason == .interactionReleased, interruption: reason)
+    }
+
+    private func synchronizeDestroyedDevices() {
+        var changed = false
+        for index in devices.indices where !devices[index].destroyed {
+            guard let owner = obstacles.first(where: { $0.id == devices[index].ownerObstacleID }), owner.destroyed else { continue }
+            devices[index].destroyed = true; devices[index].enabled = false; devices[index].powered = false
+            devices[index].interactionProgress = 0; devices[index].isMoving = false; devices[index].blockedByActor = false
+            if devices[index].kind == .serviceGate {
+                devices[index].gateProgress = 1; devices[index].targetOpen = true
+                invalidateDeviceNavigation()
+            }
+            if devices[index].kind == .maintenanceSwitch {
+                let linked = map.environment.devices.first { $0.id == devices[index].id }?.linkedGateIDs ?? []
+                for gateIndex in devices.indices where linked.contains(devices[gateIndex].id) {
+                    devices[gateIndex].isMoving = false; devices[gateIndex].blockedByActor = false
+                }
+            }
+            if activeDeviceID == devices[index].id { activeDeviceID = nil; deviceInteractionTicks = 0 }
+            emit(GameEvent(kind: .deviceDestroyed, position: owner.position, id: devices[index].id, device: devices[index]))
+            changed = true
+        }
+        // Destruction is resolved before same-tick perception. Machine/lamp
+        // state changes only on a power transition, preserving diagnostic mutes.
+        if changed { synchronizeDevicePower() }
+    }
+
+    private func synchronizeDevicePower() {
+        for definition in map.environment.devices where definition.kind == .generator {
+            let enabled = devices.first(where: { $0.id == definition.id }).map { $0.enabled && !$0.destroyed } ?? false
+            for id in definition.noiseEmitterIDs { setNoiseEmitterEnabled(id: id, enabled: enabled) }
+            for index in spotlights.indices where definition.lightIDs.contains(spotlights[index].id) {
+                spotlights[index].enabled = enabled
+            }
+        }
+        for index in devices.indices where devices[index].kind == .serviceGate && !devices[index].destroyed {
+            let definition = map.environment.devices.first { $0.id == devices[index].id }
+            let powered: Bool
+            if let controller = definition?.controllerID {
+                powered = devices.contains { $0.id == controller && !$0.destroyed }
+            } else {
+                powered = definition?.generatorID.flatMap { id in devices.first { $0.id == id } }.map { $0.enabled && !$0.destroyed } ?? false
+            }
+            let lostMotorPower = devices[index].powered && !powered && devices[index].isMoving && !devices[index].manualMotion
+            devices[index].powered = powered
+            if lostMotorPower {
+                devices[index].isMoving = false; devices[index].blockedByActor = false
+                emit(GameEvent(kind: .gateStopped, position: devices[index].interactionPoints[0], id: devices[index].id, device: devices[index]))
+            }
+        }
+        cachedLightTime = -1
+    }
+
+    private func updateDevices(_ dt: Float, input: GameInput) {
+        deviceInputHeld = input.interact
+        if !input.interact { deviceInteractionLatch = false }
+        // Holding E through the end of an objective cannot also activate a
+        // nearby device. Release starts a new, explicit contextual action.
+        if missionContextAvailable && input.interact { deviceInteractionLatch = true }
+        if input.interact, !deviceInteractionLatch,
+           let status = deviceInteractionStatus, status.interactionAvailable,
+           let index = devices.firstIndex(where: { $0.id == status.id }) {
+            if activeDeviceID != status.id { resetDeviceInteraction(); activeDeviceID = status.id }
+            deviceInteractionTicks += 1
+            devices[index].interactionProgress = Float(deviceInteractionTicks) / 120
+            if deviceInteractionTicks >= loadout.deviceInteractionTicks(manual: status.manual) {
+                deviceInteractionLatch = true
+                if devices[index].kind == .generator {
+                    devices[index].enabled.toggle(); devices[index].powered = devices[index].enabled
+                    synchronizeDevicePower()
+                } else if devices[index].kind == .maintenanceSwitch {
+                    devices[index].targetOpen.toggle(); devices[index].isMoving = true
+                    devices[index].blockedByActor = false
+                    let linked = map.environment.devices.first { $0.id == status.id }!.linkedGateIDs
+                    for (offset, id) in linked.enumerated() {
+                        guard let gateIndex = devices.firstIndex(where: { $0.id == id && !$0.destroyed }) else { continue }
+                        devices[gateIndex].targetOpen = offset == 0 ? devices[index].targetOpen : !devices[index].targetOpen
+                        devices[gateIndex].isMoving = true; devices[gateIndex].blockedByActor = false
+                    }
+                } else {
+                    devices[index].targetOpen = status.action == .openGate
+                    devices[index].isMoving = true; devices[index].blockedByActor = false
+                    devices[index].manualMotion = status.manual
+                }
+                resetDeviceInteraction()
+                emit(GameEvent(kind: .deviceActivated, position: status.position, id: status.id, device: devices[index]))
+            }
+        } else { resetDeviceInteraction() }
+        for index in devices.indices where devices[index].kind == .maintenanceSwitch && devices[index].isMoving && !devices[index].destroyed {
+            advanceCoupledGates(index: index, dt: dt)
+        }
+        for index in devices.indices where devices[index].kind == .serviceGate && devices[index].isMoving && !devices[index].destroyed &&
+            map.environment.devices.first(where: { $0.id == devices[index].id })?.controllerID == nil {
+            advanceGate(index: index, dt: dt)
+        }
+    }
+
+    private func resetDeviceInteraction() {
+        if let id = activeDeviceID, let index = devices.firstIndex(where: { $0.id == id }) { devices[index].interactionProgress = 0 }
+        activeDeviceID = nil; deviceInteractionTicks = 0
+    }
+
+    /// One shared motor phase: if either swept collider encounters an actor,
+    /// neither gate advances. Renderer, hits and navigation read these colliders.
+    private func advanceCoupledGates(index: Int, dt: Float) {
+        guard let definition = map.environment.devices.first(where: { $0.id == devices[index].id }) else { return }
+        let progress = clamp(devices[index].gateProgress + (devices[index].targetOpen ? 1 : -1) * 0.5 * dt, 0, 1)
+        var proposals: [(device: Int, owner: Int, old: Obstacle, next: Obstacle, progress: Float)] = []
+        for (offset, id) in definition.linkedGateIDs.enumerated() {
+            guard let gateIndex = devices.firstIndex(where: { $0.id == id && !$0.destroyed }),
+                  let gate = map.environment.devices.first(where: { $0.id == id }),
+                  let owner = obstacles.firstIndex(where: { $0.id == gate.ownerObstacleID && !$0.destroyed }) else { continue }
+            let phase = offset == 0 ? progress : 1-progress
+            let old = obstacles[owner]
+            var next = Obstacle(id: old.id,kind: old.kind,position: devices[gateIndex].closedPosition + gate.openOffset * phase,size: old.size)
+            next.health = old.health; next.destroyed = old.destroyed
+            proposals.append((gateIndex,owner,obstacles[owner],next,phase))
+        }
+        let blocked = proposals.contains { gateSweepOccupied(old: $0.old, next: $0.next) }
+        if blocked {
+            if !devices[index].blockedByActor {
+                emit(GameEvent(kind: .gateBlocked, position: devices[index].interactionPoints[0], id: devices[index].id, device: {
+                    var snapshot = devices[index]; snapshot.blockedByActor = true; return snapshot
+                }()))
+            }
+            devices[index].blockedByActor = true
+            for proposal in proposals { devices[proposal.device].blockedByActor = true }
+            return
+        }
+        let finished = progress == 0 || progress == 1
+        devices[index].gateProgress = progress; devices[index].blockedByActor = false
+        devices[index].isMoving = !finished
+        if finished { devices[index].enabled = devices[index].targetOpen }
+        for proposal in proposals {
+            obstacles[proposal.owner] = proposal.next
+            devices[proposal.device].gateProgress = proposal.progress
+            devices[proposal.device].blockedByActor = false; devices[proposal.device].isMoving = !finished
+            if !navigationDirty && gateChangesNavigation(old: proposal.old, new: proposal.next) { invalidateDeviceNavigation() }
+        }
+        refreshSmokeClips()
+        if finished { emit(GameEvent(kind: .gateStopped, position: devices[index].interactionPoints[0], id: devices[index].id, device: devices[index])) }
+    }
+
+    private func gateSweepOccupied(old: Obstacle, next: Obstacle) -> Bool {
+        let low = simd_min(old.minimum, next.minimum) - SIMD3<Float>(repeating: 0.006)
+        let high = simd_max(old.maximum, next.maximum) + SIMD3<Float>(repeating: 0.006)
+        func overlaps(_ position: SIMD3<Float>, height: Float, radius: Float) -> Bool {
+            position.x + radius > low.x && position.x - radius < high.x &&
+            position.z + radius > low.z && position.z - radius < high.z &&
+            position.y + height > low.y && position.y < high.y
+        }
+        return overlaps(player.position, height: player.height, radius: 0.32) || enemies.contains {
+            $0.health > 0 && overlaps($0.position, height: EnemyPose($0).totalHeight, radius: 0.38)
+        }
+    }
+
+    private func advanceGate(index: Int, dt: Float) {
+        guard let definition = map.environment.devices.first(where: { $0.id == devices[index].id }),
+              let ownerIndex = obstacles.firstIndex(where: { $0.id == devices[index].ownerObstacleID && !$0.destroyed }) else { return }
+        let old = obstacles[ownerIndex]
+        let rate: Float = devices[index].manualMotion ? 0.25 : 0.5
+        let progress = clamp(devices[index].gateProgress + (devices[index].targetOpen ? 1 : -1) * rate * dt, 0, 1)
+        var next = Obstacle(id: old.id, kind: old.kind,
+            position: devices[index].closedPosition + definition.openOffset * progress, size: old.size)
+        next.health = old.health
+        let blocked = gateSweepOccupied(old: old, next: next)
+        if blocked {
+            if !devices[index].blockedByActor {
+                devices[index].blockedByActor = true
+                emit(GameEvent(kind: .gateBlocked, position: old.position, id: devices[index].id, device: devices[index]))
+            }
+            return
+        }
+        devices[index].blockedByActor = false; devices[index].gateProgress = progress
+        obstacles[ownerIndex] = next
+        refreshSmokeClips()
+        if !navigationDirty && gateChangesNavigation(old: old, new: next) { invalidateDeviceNavigation() }
+        if progress == 0 || progress == 1 {
+            devices[index].isMoving = false
+            emit(GameEvent(kind: .gateStopped, position: next.position, id: devices[index].id, device: devices[index]))
+        }
+    }
+
+    private func invalidateDeviceNavigation() {
+        navigationDirty = true
+        for id in brains.keys {
+            brains[id]?.pathTimer = 0; brains[id]?.path.removeAll(keepingCapacity: true)
+        }
+    }
+
+    /// Only a change to an affected cell or swept link invalidates the cached
+    /// graph. This also handles a gate on sloping/custom terrain; no hard-coded
+    /// open-fraction threshold and no full graph rebuild on every motor tick.
+    private func gateChangesNavigation(old: Obstacle, new: Obstacle) -> Bool {
+        let minX = clamp(Int(floor((old.minimum.x - 2.5 - map.minimum.x) / navSpacing)), 0, navWidth - 1)
+        let maxX = clamp(Int(ceil((old.maximum.x + 2.5 - map.minimum.x) / navSpacing)), 0, navWidth - 1)
+        let minZ = clamp(Int(floor((old.minimum.z - 2.5 - map.minimum.z) / navSpacing)), 0, navDepth - 1)
+        let maxZ = clamp(Int(ceil((old.maximum.z + 2.5 - map.minimum.z) / navSpacing)), 0, navDepth - 1)
+        func blocksCell(_ box: Obstacle, _ point: SIMD3<Float>) -> Bool {
+            point.y + 1.09 < box.maximum.y - 0.025 && point.y + 1.96 > box.minimum.y + 0.025 &&
+            point.x + 0.48 > box.minimum.x && point.x - 0.48 < box.maximum.x &&
+            point.z + 0.48 > box.minimum.z && point.z - 0.48 < box.maximum.z
+        }
+        func blocksLink(_ box: Obstacle, _ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Bool {
+            let offset = b - a, distance = simd_length(offset)
+            return rayBox(origin: a + SIMD3(0,1.09,0), direction: offset / distance,
+                minimum: box.minimum - SIMD3(0.48,0.87,0.48), maximum: box.maximum + SIMD3(0.48,-0.025,0.48))
+                .map { $0.distance <= distance } ?? false
+        }
+        for z in minZ...maxZ { for x in minX...maxX {
+            let key = z * navWidth + x, point = navigationPoint(key)
+            if blocksCell(old, point) != blocksCell(new, point) { return true }
+            if x + 1 < navWidth, blocksLink(old, point, navigationPoint(key+1)) != blocksLink(new, point, navigationPoint(key+1)) { return true }
+            if z + 1 < navDepth, blocksLink(old, point, navigationPoint(key+navWidth)) != blocksLink(new, point, navigationPoint(key+navWidth)) { return true }
+        } }
+        return false
+    }
+}
+
+extension CombatSimulation {
+    public var alarmStatus: AlarmStatus {
+        AlarmStatus(radioPowered: alarmRadioPowered, escalated: escalationReport != nil,
+            assignedGuardIDs: assignedGuardIDs, reinforcementsCommitted: alarmReinforcementsCommitted,
+            playerHeardEscalation: playerHeardEscalation)
+    }
+    private var alarmRadioPowered: Bool {
+        guard let alarm = map.environment.alarm,
+              let source = devices.first(where: { $0.id == alarm.radioDeviceID }) else { return false }
+        return source.enabled && source.powered && !source.destroyed
+    }
+    private func inRadioRange(_ point: SIMD3<Float>) -> Bool {
+        guard let alarm = map.environment.alarm else { return false }
+        return simd_distance(point, map.grounded(alarm.radioPosition)) <= alarm.radioRange
+    }
+    private func reportSnapshot(_ pending: PendingContactReport, channel: ContactReportChannel) -> ContactReport {
+        ContactReport(id: pending.id, enemyID: pending.enemyID, contactPosition: pending.contactPosition,
+            contactTime: pending.contactTime, transmittedAt: elapsed, expiresAt: pending.contactTime + 20, channel: channel)
+    }
+    private func appendReport(_ report: ContactReport) {
+        if contactReports.count >= 16 { contactReports.removeFirst() }
+        contactReports.append(report)
+    }
+
+    private func updateContactReports() {
+        guard map.environment.alarm != nil else { return }
+        contactReports.removeAll { $0.expiresAt <= elapsed }
+        var index = 0
+        while index < pendingContactReports.count {
+            var pending = pendingContactReports[index]
+            guard let enemyIndex = enemies.firstIndex(where: { $0.id == pending.enemyID }),
+                  var brain = brains[pending.enemyID] else { pendingContactReports.remove(at: index); continue }
+            let enemy = enemies[enemyIndex], source = EnemyPose(enemy).eyePosition
+            if enemy.health <= 0 || !enemy.seesPlayer || !brain.visualContact || brain.hurt > 0 ||
+                !sightLine(source, eyePosition) {
+                let report = reportSnapshot(pending, channel: pending.radioAtStart && !pending.radioCancelled ? .radio : .localShout)
+                emit(GameEvent(kind: .contactReportInterrupted, position: source, id: pending.enemyID, contactReport: report))
+                brain.reportCooldownUntil = elapsed + 2
+                brains[pending.enemyID] = brain
+                pendingContactReports.remove(at: index)
+                continue
+            }
+            if pending.radioAtStart && !pending.radioCancelled && (!alarmRadioPowered || !inRadioRange(source)) {
+                pending.radioCancelled = true
+                let hearing = recordHearing(kind: .radio, position: source, strength: 0.5, range: 12, source: .enemy, sourceID: enemy.id)
+                emit(GameEvent(kind: .contactReportInterrupted, position: source, id: enemy.id,
+                    hearing: hearing, contactReport: reportSnapshot(pending, channel: .radio)))
+            }
+            pending.ticks += 1
+            if pending.ticks < 144 { pendingContactReports[index] = pending; index += 1; continue }
+            pendingContactReports.remove(at: index)
+            brain.successfulReports += 1; brain.reportCooldownUntil = elapsed + 12
+            brains[pending.enemyID] = brain
+            let local = reportSnapshot(pending, channel: .localShout)
+            let shout = recordHearing(kind: .shout, position: source, strength: 1, range: 22, source: .enemy, sourceID: enemy.id)
+            appendReport(local)
+            emit(GameEvent(kind: .contactReportTransmitted, position: source, id: enemy.id, hearing: shout, contactReport: local))
+            deliverContactReport(local, hearing: shout)
+            if pending.radioAtStart && !pending.radioCancelled && alarmRadioPowered && inRadioRange(source) {
+                let radio = reportSnapshot(pending, channel: .radio)
+                let hearing = recordHearing(kind: .radio, position: source, strength: 0.85, range: 16, source: .enemy, sourceID: enemy.id)
+                appendReport(radio)
+                emit(GameEvent(kind: .contactReportTransmitted, position: source, id: enemy.id, hearing: hearing, contactReport: radio))
+                deliverContactReport(radio, hearing: hearing)
+                escalateAlarm(radio, source: source, hearing: hearing)
+            }
+        }
+        for enemy in enemies where enemy.health > 0 && enemy.seesPlayer {
+            guard pendingContactReports.count < 4,
+                  let brain = brains[enemy.id], brain.visualContact, brain.hurt <= 0,
+                  brain.successfulReports < 2, elapsed >= brain.reportCooldownUntil,
+                  !pendingContactReports.contains(where: { $0.enemyID == enemy.id }) else { continue }
+            let source = EnemyPose(enemy).eyePosition
+            let pending = PendingContactReport(id: nextContactReportID, enemyID: enemy.id,
+                contactPosition: player.position, contactTime: elapsed, radioAtStart: alarmRadioPowered && inRadioRange(source))
+            nextContactReportID += 1; pendingContactReports.append(pending)
+            let hearing = recordHearing(kind: pending.radioAtStart ? .radio : .shout, position: source,
+                strength: 0.7, range: pending.radioAtStart ? 16 : 20, source: .enemy, sourceID: enemy.id)
+            emit(GameEvent(kind: .contactReportStarted, position: source, id: enemy.id, hearing: hearing,
+                contactReport: reportSnapshot(pending, channel: pending.radioAtStart ? .radio : .localShout)))
+        }
+    }
+
+    private func deliverContactReport(_ report: ContactReport, hearing: HearingStimulus) {
+        guard report.expiresAt > elapsed else { return }
+        for index in enemies.indices where enemies[index].health > 0 && enemies[index].id != report.enemyID {
+            let ear = EnemyPose(enemies[index]).eyePosition
+            let delivered = report.channel == .radio ? (alarmRadioPowered && inRadioRange(ear)) : acousticSample(for: hearing, listener: ear).audible
+            guard delivered, var brain = brains[enemies[index].id], report.id > brain.lastReceivedReportID else { continue }
+            brain.lastReceivedReportID = report.id
+            // Receiving a message never becomes visual confirmation or grants
+            // firing permission. Recent own sight/damage and loud combat clues win.
+            if !enemies[index].seesPlayer && elapsed - brain.lastOwnContactTime >= 6 &&
+                (brain.hearingPriority < 3 || elapsed >= brain.priorityUntil) {
+                enemies[index].lastContactReport = report
+                let assignedPost = brain.guardPost
+                investigate(report.contactPosition, enemy: &enemies[index], brain: &brain)
+                // A newer message updates knowledge, not an existing route order.
+                // Real personal contact or a directly heard distraction can still
+                // interrupt that order through the ordinary investigate path.
+                brain.guardPost = assignedPost
+                brain.hearingPriority = 2; brain.priorityUntil = elapsed + 8
+            }
+            brains[enemies[index].id] = brain
+        }
+    }
+
+    private func escalateAlarm(_ report: ContactReport, source: SIMD3<Float>, hearing: HearingStimulus) {
+        guard escalationReport == nil, report.channel == .radio, let alarm = map.environment.alarm else { return }
+        escalationReport = report
+        playerHeardEscalation = acousticSample(for: hearing, listener: eyePosition).audible
+        // At most two currently uninvolved, informed guards receive a fixed
+        // route order. The original fighter and fresh direct witnesses keep
+        // their existing combat behaviour and are never reassigned mid-fight.
+        for rawPost in alarm.returnGuardPosts {
+            let post = map.grounded(rawPost)
+            guard assignedGuardIDs.count < 2, !blocked(post, height: 1.96, radius: 0.4) else { continue }
+            let candidates = enemies.indices.filter { index in
+                let enemy = enemies[index]
+                guard enemy.health > 0, enemy.id != report.enemyID, !enemy.seesPlayer,
+                      !assignedGuardIDs.contains(enemy.id), enemy.lastContactReport?.id == report.id,
+                      let brain = brains[enemy.id] else { return false }
+                return elapsed - brain.lastOwnContactTime >= 6 && brain.hurt <= 0
+            }.sorted { simd_distance_squared(enemies[$0].position, post) < simd_distance_squared(enemies[$1].position, post) }
+            guard let index = candidates.first(where: { hasReachableRoute(from: enemies[$0].position, to: post) }),
+                  var brain = brains[enemies[index].id] else { continue }
+            brain.guardPost = post; brain.patrolAnchor = post; brain.pathTimer = 0
+            brain.searchingInPlace = false; brain.searchAge = 0; brain.stuckTime = 0
+            brains[enemies[index].id] = brain; assignedGuardIDs.append(enemies[index].id)
+        }
+        alarmReinforcementsCommitted = alarm.reinforcementCount
+        pendingAlarmReinforcements += alarm.reinforcementCount
+        emit(GameEvent(kind: .alarmEscalated, position: source, id: report.enemyID, hearing: hearing, contactReport: report,
+                       alarmReportID: report.id))
+        queueMissionReinforcements(alarm.reinforcementCount)
+    }
+}
+
+extension CombatSimulation {
+    public var operationStatus: OperationStatus? {
+        guard missionKind == .operation, let operation = map.operation else { return nil }
+        let preparations = operation.preparations.map { definition -> OperationPreparationStatus in
+            guard let device = devices.first(where: { $0.id == definition.deviceID }) else {
+                return OperationPreparationStatus(kind: definition.kind, deviceID: definition.deviceID, completed: false, unavailable: true)
+            }
+            let completed = definition.kind == .disableRadio ? (!device.enabled || device.destroyed) : (device.gateProgress >= 1 || device.destroyed)
+            return OperationPreparationStatus(kind: definition.kind, deviceID: definition.deviceID, completed: completed, unavailable: device.destroyed && !completed)
+        }
+        return OperationStatus(preparations: preparations, extractions: operation.extractions.map(extractionSnapshot),
+                               selectedExtractionID: selectedExtractionID, stages: operationStageSnapshots, activeStageID: activeRequiredStage?.id)
+    }
+
+    private var presentedOperationExtraction: ExtractionDefinition? {
+        guard missionKind == .operation, let exits = map.operation?.extractions else { return nil }
+        if extractionReady, let active = exits.first(where: { operationExitInterruption($0) == nil }) { return active }
+        if let selected = exits.first(where: { $0.id == selectedExtractionID }), !operationExitBlocked(selected) { return selected }
+        let available = exits.filter { !operationExitBlocked($0) }
+        return (available.isEmpty ? exits : available).min {
+            horizontalDistance(player.position, $0.position) < horizontalDistance(player.position, $1.position)
+        }
+    }
+    private func operationExitBlocked(_ exit: ExtractionDefinition) -> Bool {
+        blocked(map.grounded(exit.position), height: 1.72, radius: 0.32)
+    }
+    private func operationExitInterruption(_ exit: ExtractionDefinition) -> MissionInterruption? {
+        if operationExitBlocked(exit) { return .blocked }
+        if !player.grounded || climbing != nil || abs(player.position.y - terrain.height(x: player.position.x, z: player.position.z)) >= 0.2 {
+            return .notGrounded
+        }
+        if horizontalDistance(player.position, exit.position) >= exit.radius { return .outOfRange }
+        return nil
+    }
+    private func extractionSnapshot(_ exit: ExtractionDefinition) -> ExtractionSnapshot {
+        let position = map.grounded(exit.position), reason = operationExitInterruption(exit)
+        return ExtractionSnapshot(id: exit.id, title: exit.title, detail: exit.detail, position: position, radius: exit.radius,
+            requiredProgress: exit.holdDuration, progress: selectedExtractionID == exit.id ? extractionProgress : 0,
+            distance: simd_distance(player.position, position), routeKind: exit.routeKind,
+            unlocked: extractionReady, blocked: reason == .blocked,
+            active: state == .active && missionPhase == .extract && reason == nil, interruption: reason)
+    }
+    private func updateOperationExtraction() {
+        guard let exits = map.operation?.extractions,
+              let exit = exits.first(where: { operationExitInterruption($0) == nil }) else {
+            missionProgressTicks = 0; extractionProgress = 0; return
+        }
+        if selectedExtractionID != exit.id {
+            selectedExtractionID = exit.id; missionProgressTicks = 0; extractionProgress = 0
+            emit(GameEvent(kind: .extractionSelected, position: map.grounded(exit.position), extractionID: exit.id))
+        }
+        let requiredTicks = Int((exit.holdDuration * 120).rounded(.up))
+        missionProgressTicks = min(requiredTicks, missionProgressTicks + 1)
+        extractionProgress = min(exit.holdDuration, Float(missionProgressTicks) / 120)
+        if missionProgressTicks == requiredTicks { finishObjectiveMission() }
+    }
+}
+
+extension CombatSimulation {
+    @discardableResult public func throwSmokeGrenade() -> Bool {
+        // Emitter slots stay reserved between cycles, so a timed source cannot
+        // evict a player's cloud or exceed the actual four-volume optical cap.
+        let reserved = map.environment.smokeEmitters.count + smokeGrenades.count + smokeVolumes.filter { $0.sourceEmitterID == nil }.count
+        guard state == .active, climbing == nil, smokeGrenadeCount > 0,
+              smokeCooldown <= 0, reserved < SmokeVolumeState.maximumCount else { return false }
+        let direction = viewDirection(yaw: player.yaw,pitch: clamp(player.pitch+0.18,-0.9,1.2))
+        let grenade = SmokeGrenadeState(id: allocateID(),position: eyePosition,velocity: direction*13+SIMD3(0,2.5,0))
+        smokeGrenades.append(grenade); smokeGrenadeCount -= 1; smokeCooldown = 0.7
+        emit(GameEvent(kind: .throwSmoke,position: grenade.position,id: grenade.id))
+        return true
+    }
+
+    private func activateSmoke(id: Int, kind: SmokeKind, origin: SIMD3<Float>, radii: SIMD3<Float>,
+                               density: Float, lifetime: Float, sourceEmitterID: Int? = nil) {
+        guard smokeVolumes.count < SmokeVolumeState.maximumCount else { return }
+        var volume = SmokeVolumeState(id: id,kind: kind,position: origin+SIMD3(0,1.3,0),radii: radii,
+            origin: origin,density: density,lifetime: lifetime,createdAt: elapsed,sourceEmitterID: sourceEmitterID)
+        volume.constrain(to: obstacles,terrain: terrain)
+        smokeVolumes.append(volume)
+        emit(GameEvent(kind: .smokeActivated,position: origin,id: id,smoke: volume))
+    }
+
+    private func updateSmoke(_ dt: Float) {
+        smokeCooldown = max(0,smokeCooldown-dt)
+        var index = 0
+        while index < smokeVolumes.count {
+            smokeVolumes[index].age = Float(elapsed-smokeVolumes[index].createdAt)
+            if elapsed + 0.0000001 >= smokeVolumes[index].createdAt + Double(smokeVolumes[index].lifetime) {
+                let expired = smokeVolumes.remove(at: index)
+                emit(GameEvent(kind: .smokeDissipated,position: expired.position,id: expired.id,smoke: expired))
+            } else { index += 1 }
+        }
+        index = 0
+        while index < smokeGrenades.count {
+            var grenade = smokeGrenades[index]
+            advanceThrowable(position: &grenade.position,velocity: &grenade.velocity,dt: dt)
+            grenade.remainingTicks -= 1
+            if grenade.remainingTicks <= 0 {
+                smokeGrenades.remove(at: index)
+                activateSmoke(id: grenade.id,kind: .smoke,origin: grenade.position,radii: SIMD3(3,2,3),density: 2.2,lifetime: 10)
+            } else { smokeGrenades[index] = grenade; index += 1 }
+        }
+        smokeWarnings.removeAll(keepingCapacity: true)
+        for source in map.environment.smokeEmitters {
+            let first = source.firstEmissionTime(seed: weatherSeed), interval = Double(source.interval)
+            let powered = source.powerDeviceID.map { power in devices.contains { $0.id == power && $0.enabled && !$0.destroyed } } ?? true
+            let nextCycle = max(0, Int(ceil((elapsed - first + 0.0000001) / interval)))
+            let nextStart = first + Double(nextCycle) * interval
+            let beginsAt = nextStart - Double(source.warningLeadTime)
+            if powered, source.warningLeadTime > 0, elapsed + 0.0000001 >= beginsAt, elapsed + 0.0000001 < nextStart {
+                let warning = SmokeWarning(emitterID: source.id, kind: source.kind, position: map.grounded(source.position),
+                    startsAt: nextStart, cycle: nextCycle, beginsAt: beginsAt)
+                smokeWarnings.append(warning)
+                if smokeWarningCycles[source.id] != nextCycle {
+                    smokeWarningCycles[source.id] = nextCycle
+                    let hearing = recordHearing(kind: .gust, position: warning.position + SIMD3(0,1,0),
+                        strength: 0.85, range: 28, source: .world, sourceID: source.id)
+                    emit(GameEvent(kind: .smokeWarning, position: warning.position, id: source.id, hearing: hearing, warning: warning))
+                }
+            }
+            guard elapsed + 0.0000001 >= first else { continue }
+            let cycle = Int(floor((elapsed - first + 0.0000001) / interval))
+            guard smokeEmitterCycles[source.id] != cycle else { continue }
+            smokeEmitterCycles[source.id] = cycle
+            guard powered else { continue }
+            activateSmoke(id: allocateID(),kind: source.kind,origin: map.grounded(source.position),radii: source.radii,
+                density: source.density,lifetime: source.lifetime,sourceEmitterID: source.id)
+        }
+        refreshSmokeClips()
+    }
+
+    private func refreshSmokeClips() {
+        for index in smokeVolumes.indices { smokeVolumes[index].constrain(to: obstacles,terrain: terrain) }
+    }
+}
+
+
+extension CombatSimulation {
+    /// Render historical points only while the player can still see that point.
+    /// Never query the target's current pose, health, awareness or position here.
+    public var visibleReconMarks: [ReconMark] {
+        reconMarks.filter { elapsed < $0.expiresAt && sightLine(eyePosition,$0.position) &&
+            !smokeVisibility(from: eyePosition,to: $0.position).opaque }
+    }
+
+    @discardableResult public func useClassGadget() -> Bool {
+        guard state == .active, climbing == nil, !isSprinting else { return false }
+        switch loadout.operatorClass {
+        case .assault: return throwSmokeGrenade()
+        case .recon: return observeContact()
+        case .engineer: return placeBreachCharge()
+        }
+    }
+
+    private func observeContact() -> Bool {
+        guard isAiming, elapsed+1e-9 >= reconReadyAt else { return false }
+        let origin = eyePosition, direction = viewDirection(yaw: player.yaw,pitch: player.pitch)
+        var closest = wallHit(origin: origin,direction: direction,maximumDistance: 70,purpose: .sight).distance
+        var targetID: Int?
+        for enemy in enemies where enemy.health > 0 {
+            let pose = EnemyPose(enemy)
+            for (height,radius) in [(pose.headHeight,Float(0.25)),(pose.bodyHeight,0.43-enemy.crouchAmount*0.07),(pose.hipHeight,Float(0.34))] {
+                let distance = raySphere(origin: origin,direction: direction,center: enemy.position+SIMD3(0,height,0),radius: radius)
+                if distance < closest { closest = distance; targetID = enemy.id }
+            }
+        }
+        guard let targetID else { return false }
+        let point = origin+direction*closest
+        guard !smokeVisibility(from: origin,to: point).opaque else { return false }
+        let mark = ReconMark(id: allocateID(),targetID: targetID,position: point,createdAt: elapsed)
+        reconMarks.removeAll { $0.targetID == targetID || elapsed >= $0.expiresAt }
+        if reconMarks.count >= ReconMark.maximumCount { reconMarks.removeFirst() }
+        reconMarks.append(mark); reconReadyAt = elapsed+0.75
+        emit(GameEvent(kind: .reconMarked,position: point,id: mark.id,mark: mark))
+        return true
+    }
+
+    private func placeBreachCharge() -> Bool {
+        guard player.grounded, breachChargeCount > 0, breachCharges.count < BreachChargeState.maximumCount else { return false }
+        let direction = viewDirection(yaw: player.yaw,pitch: player.pitch)
+        let hit = wallHit(origin: eyePosition,direction: direction,maximumDistance: 2.001)
+        guard hit.distance <= 2, abs(hit.normal.y) < 0.1, let index = hit.obstacleIndex,
+              map.breaches.contains(where: { $0.ownerObstacleID == obstacles[index].id }),
+              !obstacles[index].destroyed else { return false }
+        let surface = eyePosition+direction*hit.distance, owner = obstacles[index]
+        let horizontal = abs(hit.normal.x) > 0.5 ? surface.z : surface.x
+        let low = abs(hit.normal.x) > 0.5 ? owner.minimum.z : owner.minimum.x
+        let high = abs(hit.normal.x) > 0.5 ? owner.maximum.z : owner.maximum.x
+        guard horizontal >= low+0.07, horizontal <= high-0.07,
+              surface.y >= owner.minimum.y+0.05, surface.y <= owner.maximum.y-0.05 else { return false }
+        let point = surface+hit.normal*0.05
+        let charge = BreachChargeState(id: allocateID(),ownerObstacleID: obstacles[index].id,
+            position: point,normal: hit.normal,createdAt: elapsed)
+        breachCharges.append(charge); breachChargeCount -= 1
+        emit(GameEvent(kind: .breachChargePlaced,position: point,id: charge.id,charge: charge))
+        return true
+    }
+
+    private func updateClassGadgets(_ dt: Float) {
+        reconMarks.removeAll { elapsed+1e-9 >= $0.expiresAt }
+        var index = 0
+        while index < breachCharges.count {
+            var charge = breachCharges[index]
+            if charge.attached && !obstacles.contains(where: { $0.id == charge.ownerObstacleID && !$0.destroyed }) {
+                charge.attached = false
+            }
+            if !charge.attached {
+                // Preserve the same physical centre during detachment. The
+                // swept flight is conservative; the final thin housing rests
+                // 1mm above its actual support, including elevated roofs.
+                if charge.resting {
+                    let support = wallHit(origin: charge.position,direction: SIMD3(0,-1,0),maximumDistance: 0.2)
+                    if !(support.hitGround || support.obstacleIndex != nil) || support.distance*support.normal.y > 0.033 { charge.resting = false }
+                }
+                if !charge.resting {
+                    advanceThrowable(position: &charge.position,velocity: &charge.velocity,dt: dt)
+                    let support = wallHit(origin: charge.position,direction: SIMD3(0,-1,0),maximumDistance: 0.12)
+                    if support.distance < 0.11 && abs(charge.velocity.y) < 0.55 && simd_length(charge.velocity) < 0.8 {
+                        let contact = charge.position-SIMD3(0,support.distance,0)
+                        charge.normal = support.normal; charge.position = contact+support.normal*0.031
+                        charge.velocity = .zero; charge.resting = true
+                    }
+                }
+            }
+            charge.remainingTicks -= 1
+            if charge.remainingTicks <= 0 {
+                breachCharges.remove(at: index)
+                emit(GameEvent(kind: .breachChargeDetonated,position: charge.position,id: charge.id,charge: charge))
+                explode(at: charge.position)
+            } else { breachCharges[index] = charge; index += 1 }
+        }
+    }
+}
+
+// A bounded linear operation with one active interaction timer. Legacy maps
+// have no requiredStages and continue through the original mission code above.
+extension CombatSimulation {
+    private var operationDefinitions: [OperationStageDefinition] { missionKind == .operation ? map.operation?.requiredStages ?? [] : [] }
+    private var hasRequiredOperationStages: Bool { !operationDefinitions.isEmpty }
+    private var activeRequiredStage: OperationStageDefinition? {
+        let stages = operationDefinitions
+        return stages.indices.contains(operationStageIndex) ? stages[operationStageIndex] : nil
+    }
+    private var nearestRequiredTarget: OperationTargetDefinition? {
+        activeRequiredStage?.targets.filter { !completedOperationTargets.contains($0.id) }.min {
+            simd_distance_squared(player.position,map.grounded($0.position)) < simd_distance_squared(player.position,map.grounded($1.position))
+        }
+    }
+    private func requiredTargetInterruption(_ target: OperationTargetDefinition) -> MissionInterruption? {
+        if operationInteractionLatch { return .releaseRequired }
+        if !player.grounded || climbing != nil { return .notGrounded }
+        let point = map.grounded(target.position)
+        if simd_distance(player.position,point) > 1.6 { return .outOfRange }
+        let owner = target.ownerObstacleID.flatMap { id in obstacles.firstIndex { $0.id == id } }
+        if !clearLine(eyePosition,point + SIMD3(0,1,0),excludingObstacle: owner) { return .blocked }
+        return nil
+    }
+    private var operationStageSnapshots: [OperationStageSnapshot] {
+        operationDefinitions.enumerated().map { index, stage in
+            let active = index == operationStageIndex && state == .active
+            return OperationStageSnapshot(id: stage.id,title: stage.title,kind: stage.kind,
+                completed: stage.targets.allSatisfy { completedOperationTargets.contains($0.id) },active: active,
+                targets: stage.targets.map { target in
+                    let completed = completedOperationTargets.contains(target.id)
+                    let hold = active && missionPhase == .holdRadio
+                    let required = hold ? stage.holdDuration : stage.interactionDuration
+                    var interruption: MissionInterruption? = completed ? nil : active ? requiredTargetInterruption(target) : .prerequisites
+                    if hold { interruption = requiredRadioInterruption(target) }
+                    return OperationTargetSnapshot(id: target.id,title: target.title,stageID: stage.id,kind: stage.kind,
+                        position: map.grounded(target.position),ownerObstacleID: target.ownerObstacleID,
+                        completed: completed,available: active && !completed,
+                        progress: completed ? required : activeOperationTargetID == target.id || hold ? Float(missionProgressTicks)/120 : 0,
+                        requiredProgress: required,interruption: interruption)
+                })
+        }
+    }
+    private var requiredOperationMissionStatus: MissionStatus? {
+        guard let stage = activeRequiredStage, let nearest = nearestRequiredTarget,
+              missionPhase != .extract, state != .won else { return nil }
+        // A physically approached future terminal explains its prerequisite;
+        // its existence and authored location are not hidden enemy knowledge.
+        let futureStage = operationDefinitions.dropFirst(operationStageIndex+1).first { definition in
+            definition.targets.contains { simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+        }
+        let future = futureStage?.targets.first { simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+        let target = future ?? nearest, holding = missionPhase == .holdRadio && future == nil
+        var reason = future != nil ? MissionInterruption.prerequisites : holding ? requiredRadioInterruption(target) : requiredTargetInterruption(target)
+        if reason == nil && !holding && !interactionHeld { reason = .interactionReleased }
+        return MissionStatus(kind: .operation,phase: missionPhase,objectivePosition: map.grounded(target.position),
+            objectiveRadius: holding ? 5 : 1.6,distance: simd_distance(player.position,map.grounded(target.position)),
+            progress: future == nil ? Float(missionProgressTicks)/120 : 0,
+            requiredProgress: holding ? stage.holdDuration : (futureStage ?? stage).interactionDuration,interruption: reason,
+            interactionAvailable: missionInteractionAvailable,objectiveID: target.id,objectiveTitle: target.title,
+            completedObjectives: stage.targets.filter { completedOperationTargets.contains($0.id) }.count,
+            requiredObjectives: stage.targets.count)
+    }
+    private func requiredRadioInterruption(_ target: OperationTargetDefinition) -> MissionInterruption? {
+        let point = map.grounded(target.position)
+        if !player.grounded || climbing != nil || abs(player.position.y-point.y) > 2.5 { return .notGrounded }
+        if horizontalDistance(player.position,point) > 5 { return .outOfRange }
+        if enemies.contains(where: { $0.health > 0 && horizontalDistance($0.position,point) <= 5 && abs($0.position.y-point.y) <= 2.5 }) { return .contested }
+        return nil
+    }
+    private func phase(for stage: OperationStageDefinition) -> MissionPhase {
+        switch stage.kind { case .relayGroup: return .activateRelays; case .collectData: return .collectData; case .radioTransfer: return .activateRadio }
+    }
+    private func updateRequiredOperation(input: GameInput) {
+        if !input.interact { operationInteractionLatch = false }
+        if missionPhase == .extract { updateOperationExtraction(); return }
+        guard let stage = activeRequiredStage, let target = nearestRequiredTarget else { return }
+        if missionPhase == .holdRadio {
+            guard requiredRadioInterruption(target) == nil else { return }
+            missionProgressTicks += 1
+            if missionProgressTicks >= Int((stage.holdDuration*120).rounded(.up)) { completeOperationTarget(target,stage: stage) }
+            return
+        }
+        guard input.interact, missionInteractionAvailable else {
+            missionProgressTicks = 0; activeOperationTargetID = nil; return
+        }
+        if missionPhase == .prepareOperation { changeMissionPhase(to: phase(for: stage)) }
+        if activeOperationTargetID != target.id { activeOperationTargetID = target.id; missionProgressTicks = 0 }
+        missionProgressTicks += 1
+        guard missionProgressTicks >= Int((stage.interactionDuration*120).rounded(.up)) else { return }
+        if stage.kind == .radioTransfer && stage.holdDuration > 0 {
+            operationInteractionLatch = true; changeMissionPhase(to: .holdRadio)
+        } else { completeOperationTarget(target,stage: stage) }
+    }
+    private func completeOperationTarget(_ target: OperationTargetDefinition, stage: OperationStageDefinition) {
+        guard completedOperationTargets.insert(target.id).inserted else { return }
+        let snapshot = OperationTargetSnapshot(id: target.id,title: target.title,stageID: stage.id,kind: stage.kind,
+            position: map.grounded(target.position),ownerObstacleID: target.ownerObstacleID,completed: true,
+            progress: stage.holdDuration > 0 ? stage.holdDuration : stage.interactionDuration,
+            requiredProgress: stage.holdDuration > 0 ? stage.holdDuration : stage.interactionDuration)
+        emit(GameEvent(kind: .operationObjectiveCompleted,position: snapshot.position,operationObjective: snapshot))
+        operationInteractionLatch = true; missionProgressTicks = 0; activeOperationTargetID = nil
+        if stage.kind == .collectData { queueMissionReinforcements(3) }
+        if stage.targets.allSatisfy({ completedOperationTargets.contains($0.id) }) {
+            operationStageIndex += 1
+            changeMissionPhase(to: activeRequiredStage.map { phase(for: $0) } ?? .extract)
         }
     }
 }

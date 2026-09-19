@@ -58,6 +58,7 @@ final class NativeCombatEffects {
     private let particleBuffers:[MTLBuffer]
     private let decalBuffers:[MTLBuffer]
     private var alphaCounts=[0,0,0],additiveCounts=[0,0,0],decalCounts=[0,0,0]
+    private var alphaDepths=[[Float]](repeating:[],count:3),additiveDepths=[[Float]](repeating:[],count:3)
     private var particleLimit=256,decalLimit=80
     private var droppedParticles=0,droppedDecals=0,ignoredShots=0
     private(set) var drawCallCount=0
@@ -115,6 +116,7 @@ final class NativeCombatEffects {
     func reset() {
         particles.removeAll(keepingCapacity:true);decals.removeAll(keepingCapacity:true);obstaclePositions.removeAll(keepingCapacity:true)
         alphaCounts=[0,0,0];additiveCounts=[0,0,0];decalCounts=[0,0,0]
+        alphaDepths=[[Float]](repeating:[],count:3);additiveDepths=[[Float]](repeating:[],count:3)
         droppedParticles=0;droppedDecals=0;ignoredShots=0;drawCallCount=0;random=0x91ab34
     }
     /// A cover mesh replacement invalidates its old projected surface points.
@@ -139,15 +141,23 @@ final class NativeCombatEffects {
         let destroyed=Set(events.filter { $0.kind == .coverDestroyed }.map(\.id))
         decals.removeAll { $0.obstacleID.map { destroyed.contains($0) } ?? false }
         for event in events {
+            if let water=event.waterImpact {
+                waterSplash(at:water.position,strength:event.kind == .explosion ? 1:0.5,highQuality:highQuality)
+            } else if let hearing=event.hearing,hearing.surface == .water,
+                      hearing.kind == .footstep || hearing.kind == .landing,
+                      let water=simulation.map.waterSurface(at:hearing.position) {
+                waterSplash(at:SIMD3(hearing.position.x,water.surfaceHeight,hearing.position.z),
+                    strength:hearing.kind == .landing ? 0.7:0.28,highQuality:highQuality)
+            }
             switch event.kind {
-            case .shot:
-                guard let hit=event.surfaceImpact else { ignoredShots+=1;continue }
+            case .shot,.enemyShot:
+                guard let hit=event.surfaceImpact else { if event.kind == .shot { ignoredShots+=1 };continue }
                 let removed=hit.obstacleID.map { destroyed.contains($0) || obstaclePositions[$0]==nil } ?? false
                 impact(hit,simulation:simulation,createDecal:!removed,highQuality:highQuality,boxes:hit.obstacleID.flatMap { surfaceBoxes[$0] } ?? [])
             case .explosion: explosion(at:event.position,highQuality:highQuality)
             case .coverDestroyed:
                 let kind=simulation.obstacles.first { $0.id==event.id }?.kind
-                let color:SIMD3<Float> = kind == .crate ? SIMD3(0.34,0.23,0.11):SIMD3(0.27,0.27,0.24)
+                let color:SIMD3<Float> = kind == .crate ? SIMD3(0.34,0.23,0.11):kind == .glass ? SIMD3(0.63,0.72,0.68):SIMD3(0.27,0.27,0.24)
                 for _ in 0..<(highQuality ? 12:6) {
                     add(Particle(position:event.position,velocity:vector()*(1.5+unit()*3)+SIMD3(0,1.5,0),color:color,lifetime:1.2+unit()*0.7,radius:0.025+unit()*0.035,rotation:unit()*6.28,aspect:0.35,opacity:0.95,gravity:8,kind:3))
                 }
@@ -160,7 +170,13 @@ final class NativeCombatEffects {
         let normal=simd_normalize(hit.normal),material=hit.material
         guard normal.x.isFinite,normal.y.isFinite,normal.z.isFinite else { return }
         var point=hit.position
-        if material == .asphalt && hit.obstacleID==nil && normal.y>0.8 { point.y=max(point.y,0.015) }
+        if hit.obstacleID==nil && normal.y>0.8 {
+            for support in simulation.map.groundedSupportSurfaces where !support.destroyed {
+                if abs(point.x-support.position.x)<=support.size.x*0.5 && abs(point.z-support.position.z)<=support.size.z*0.5 {
+                    point.y=max(point.y,support.position.y+support.size.y)
+                }
+            }
+        }
         let tint:SIMD3<Float>
         switch material {
         case .soil:tint=SIMD3(0.28,0.22,0.14)
@@ -168,11 +184,15 @@ final class NativeCombatEffects {
         case .metal:tint=SIMD3(0.26,0.27,0.25)
         case .wood:tint=SIMD3(0.44,0.30,0.13)
         case .asphalt:tint=SIMD3(0.17,0.18,0.18)
+        case .glass:tint=SIMD3(0.62,0.73,0.69)
         }
-        let count=highQuality ? 8:4
+        // A submerged solid still owns its decal and ballistic hit. Dry dust
+        // would misrepresent that surface; its separate crossing supplies spray.
+        let submerged=simulation.map.waterSurface(at:point).map { point.y < $0.surfaceHeight-0.005 } ?? false
+        let count=submerged ? 0:highQuality ? 8:4
         for index in 0..<count {
             let spark=material == .metal && index<count-2
-            let chip=(material == .wood && index%2==0) || (material != .metal && index%3==0)
+            let chip=material == .glass || (material == .wood && index%2==0) || (material != .metal && index%3==0)
             let kind=spark ? 2:chip ? 3:1
             let direction=simd_normalize(normal*(1.2+unit())+vector()*0.7)
             add(Particle(position:point+normal*0.018,velocity:direction*(spark ? 3+unit()*6:chip ? 1+unit()*2:0.4+unit()*0.8),
@@ -180,7 +200,9 @@ final class NativeCombatEffects {
                 radius:spark ? 0.06+unit()*0.04:chip ? 0.016+unit()*0.025:0.09+unit()*0.08,rotation:unit()*6.28,
                 aspect:spark ? 0.07:chip ? (material == .wood ? 0.24:0.65):1,opacity:spark ? 1:chip ? 0.92:0.36,gravity:spark || chip ? 8:0,kind:kind))
         }
-        guard createDecal else { return }
+        // The pane shader supplies its actual damaged fracture state; opaque
+        // bullet-hole discs would incorrectly float in front of clear glass.
+        guard createDecal,material != .glass else { return }
         var n=normal,radius:Float = material == .soil ? 0.070:material == .concrete ? 0.050:material == .wood ? 0.042:0.034
         let obstacle=hit.obstacleID.flatMap { id in simulation.obstacles.first { $0.id==id && !$0.destroyed } }
         if let box=obstacle {
@@ -212,6 +234,16 @@ final class NativeCombatEffects {
         decals.append(Decal(position:point-(obstacle?.position ?? .zero),normal:n,tangent:direction,material:material,obstacleID:hit.obstacleID,radius:radius,seed:unit()*97))
     }
 
+    private func waterSplash(at point:SIMD3<Float>,strength:Float,highQuality:Bool) {
+        for _ in 0..<(highQuality ? 6:3) {
+            let angle=unit()*Float.pi*2,speed:Float=0.35+strength*0.75
+            add(Particle(position:point+SIMD3(0,0.008,0),
+                velocity:SIMD3(cos(angle)*speed,(0.6+unit()*1.3)*strength,sin(angle)*speed),
+                color:SIMD3(0.53,0.65,0.62),lifetime:0.18+strength*0.30,
+                radius:0.016+unit()*0.014,rotation:unit()*6.28,aspect:0.38,opacity:0.55,gravity:5,kind:5))
+        }
+    }
+
     private func explosion(at center:SIMD3<Float>,highQuality:Bool) {
         add(Particle(position:center,velocity:.zero,color:SIMD3(1,0.82,0.42),lifetime:0.10,radius:0.72,rotation:0,aspect:1,opacity:1,gravity:0,kind:4))
         add(Particle(position:center,velocity:SIMD3(0,0.8,0),color:SIMD3(1,0.31,0.05),lifetime:0.19,radius:1.25,rotation:unit()*6.28,aspect:1,opacity:0.85,gravity:0,kind:4))
@@ -233,6 +265,7 @@ final class NativeCombatEffects {
     func step(deltaTime:Float,simulation:CombatSimulation) {
         let dt=min(0.1,max(0,deltaTime));guard dt>0 else { return }
         syncSupports(simulation)
+        let supports=simulation.obstacles+simulation.map.groundedSupportSurfaces
         for i in particles.indices {
             let previous=particles[i].position
             particles[i].age+=dt;particles[i].velocity.y-=particles[i].gravity*dt
@@ -244,8 +277,7 @@ final class NativeCombatEffects {
             } else if particles[i].gravity>0 {
                 let p=particles[i].position
                 var floor=simulation.terrain.height(x:p.x,z:p.z)
-                if abs(p.x)<=6 && abs(p.z)<=45.5 { floor=max(floor,0.015) }
-                for box in simulation.obstacles where !box.destroyed {
+                for box in supports where !box.destroyed {
                     let top=box.position.y+box.size.y
                     if abs(p.x-box.position.x)<=box.size.x*0.5 && abs(p.z-box.position.z)<=box.size.z*0.5 && top<=previous.y+0.025 { floor=max(floor,top) }
                 }
@@ -264,7 +296,8 @@ final class NativeCombatEffects {
         let up=simd_normalize(simd_cross(right,forward))
         // Parallel billboards blend by camera depth, not radial eye distance.
         let alpha=particles.filter { $0.kind != 2 && $0.kind != 4 }.sorted { simd_dot($0.position-eye,forward)>simd_dot($1.position-eye,forward) }
-        let additive=particles.filter { $0.kind==2 || $0.kind==4 }
+        let additive=particles.filter { $0.kind==2 || $0.kind==4 }.sorted { simd_dot($0.position-eye,forward)>simd_dot($1.position-eye,forward) }
+        alphaDepths[slot]=alpha.map { simd_dot($0.position-eye,forward) };additiveDepths[slot]=additive.map { simd_dot($0.position-eye,forward) }
         let target=particleBuffers[slot].contents().bindMemory(to:ParticleGPU.self,capacity:256)
         for (index,p) in (alpha+additive).enumerated() {
             let age=min(1,p.age/p.lifetime),fade=pow(1-age,p.kind<=1 ? 0.8:1.3)
@@ -283,6 +316,7 @@ final class NativeCombatEffects {
             case .metal:kind=2;tint=SIMD3(0.37,0.39,0.39)
             case .wood:kind=3;tint=SIMD3(0.39,0.25,0.105)
             case .asphalt:kind=4;tint=SIMD3(0.16,0.17,0.17)
+            case .glass:kind=5;tint=SIMD3(0.60,0.70,0.66)
             }
             markTarget[index]=DecalGPU(positionOpacity:SIMD4(point,fade),axisU:SIMD4(d.tangent*d.radius,d.seed),axisV:SIMD4(simd_cross(d.normal,d.tangent)*d.radius,0),tintKind:SIMD4(tint,kind))
         }
@@ -333,24 +367,33 @@ final class NativeCombatEffects {
         return CombatSurfaceProjection(position:bestPoint,radius:min(radius,max(0,bestMargin*0.68)))
     }
 
-    func encode(encoder:MTLRenderCommandEncoder,samples:Int,slot:Int,farShadow:MTLTexture,nearShadow:MTLTexture,shadowSampler:MTLSamplerState) {
+    func encode(encoder:MTLRenderCommandEncoder,samples:Int,slot:Int,farShadow:MTLTexture,nearShadow:MTLTexture,shadowSampler:MTLSamplerState,
+                transparentDepths:[Float]=[],includeDecals:Bool=true,resetDrawCount:Bool=true,drawSurface:((Int)->Void)?=nil) {
         guard (0..<3).contains(slot) else { return }
-        encoder.pushDebugGroup("Material impacts and bounded transparent blasts")
+        encoder.pushDebugGroup("Depth-ordered glass, impacts and bounded transparent blasts")
         encoder.setDepthStencilState(depth);encoder.setCullMode(.none)
-        if decalCounts[slot]>0,let pipeline=decalPipelines[samples] {
+        if resetDrawCount { drawCallCount=0 }
+        if includeDecals,decalCounts[slot]>0,let pipeline=decalPipelines[samples] {
             encoder.setRenderPipelineState(pipeline);encoder.setVertexBuffer(decalBuffers[slot],offset:0,index:0)
-            // Soldier rendering overwrites textures 0–2. Bind both depth maps
-            // explicitly instead of inheriting that material state.
             encoder.setFragmentTexture(farShadow,index:0);encoder.setFragmentTexture(nearShadow,index:1);encoder.setFragmentSamplerState(shadowSampler,index:0)
-            encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:decalCounts[slot])
+            encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:decalCounts[slot]);drawCallCount+=1
         }
-        if alphaCounts[slot]>0,let pipeline=alphaPipelines[samples] {
-            encoder.setRenderPipelineState(pipeline);encoder.setVertexBuffer(particleBuffers[slot],offset:0,index:0)
-            encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:alphaCounts[slot])
-        }
-        if additiveCounts[slot]>0,let pipeline=additivePipelines[samples] {
-            encoder.setRenderPipelineState(pipeline);encoder.setVertexBuffer(particleBuffers[slot],offset:alphaCounts[slot]*MemoryLayout<ParticleGPU>.stride,index:0)
-            encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:additiveCounts[slot])
+        let alphaRanges=NativeTransparencyOrder.ranges(sortedDepths:alphaDepths[slot],surfaces:transparentDepths)
+        let additiveRanges=NativeTransparencyOrder.ranges(sortedDepths:additiveDepths[slot],surfaces:transparentDepths)
+        for segment in alphaRanges.indices {
+            encoder.setDepthStencilState(depth);encoder.setCullMode(.none)
+            let alpha=alphaRanges[segment],additive=additiveRanges[segment]
+            if !alpha.isEmpty,let pipeline=alphaPipelines[samples] {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(particleBuffers[slot],offset:alpha.lowerBound*MemoryLayout<ParticleGPU>.stride,index:0)
+                encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:alpha.count);drawCallCount+=1
+            }
+            if !additive.isEmpty,let pipeline=additivePipelines[samples] {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(particleBuffers[slot],offset:(alphaCounts[slot]+additive.lowerBound)*MemoryLayout<ParticleGPU>.stride,index:0)
+                encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:additive.count);drawCallCount+=1
+            }
+            if segment<transparentDepths.count { drawSurface?(segment) }
         }
         encoder.popDebugGroup()
     }

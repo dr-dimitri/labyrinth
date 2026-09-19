@@ -13,7 +13,7 @@ public enum WeaponKind: String, CaseIterable, Sendable {
 public enum Difficulty: String, CaseIterable, Sendable { case easy, normal, hard }
 public enum MatchState: String, Sendable { case active, won, lost }
 public enum EnemyAwareness: String, Sendable { case watching, investigating, searching, engaged }
-public enum ObstacleKind: String, Sendable { case bunker, container, barrier, crate, barrel }
+public enum ObstacleKind: String, Sendable { case bunker, container, barrier, crate, barrel, accessPanel, glass }
 
 public struct GameInput: Sendable {
     public var moveForward: Float = 0
@@ -54,6 +54,9 @@ public struct EnemyState: Sendable {
     public var awareness: EnemyAwareness = .watching
     /// Visual recognition, not knowledge of the player's position through cover.
     public var detectionProgress: Float = 0
+    public var lastHeard: HearingObservation?
+    /// Historical knowledge; expiry stops report delivery/history retention, not memory.
+    public var lastContactReport: ContactReport?
     public var isMoving = false
     public var crouchAmount: Float = 0
     public var isRunning = false
@@ -125,6 +128,8 @@ public struct Obstacle: Sendable {
         case .barrier: return 280
         case .crate: return 110
         case .barrel: return 55
+        case .accessPanel: return 160
+        case .glass: return 45
         }
     }
     public init(id: Int, kind: ObstacleKind, position: SIMD3<Float>, size: SIMD3<Float>) {
@@ -135,6 +140,8 @@ public struct Obstacle: Sendable {
         case .barrier: health = 280
         case .crate: health = 110
         case .barrel: health = 55
+        case .accessPanel: health = 160
+        case .glass: health = 45
         }
     }
     var minimum: SIMD3<Float> { position - SIMD3(size.x * 0.5, 0, size.z * 0.5) }
@@ -167,6 +174,13 @@ public struct SupplyState: Sendable {
 public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
         case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
+        case footstep, decoyThrown, decoyPulse, noiseEmitterChanged
+        case deviceActivated, deviceDestroyed, gateBlocked, gateStopped
+        case contactReportStarted, contactReportInterrupted, contactReportTransmitted, alarmEscalated
+        case extractionSelected, operationObjectiveCompleted
+        case throwSmoke, smokeActivated, smokeDissipated, smokeWarning
+        case breachOpened
+        case reconMarked, breachChargePlaced, breachChargeDetonated
         case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
@@ -179,14 +193,29 @@ public struct GameEvent: Sendable {
     public var count: Int
     public var surfaceImpact: SurfaceImpact?
     public let missionPhase: MissionPhase?
+    public let hearing: HearingStimulus?
+    public let noiseEmitter: NoiseEmitterState?
+    public let device: WorldInteractableState?
+    public let contactReport: ContactReport?
+    public let alarmReportID: Int?
+    public let extractionID: String?
+    public let smoke: SmokeVolumeState?
+    public let breach: BreachState?
+    public let mark: ReconMark?
+    public let charge: BreachChargeState?
+    public let warning: SmokeWarning?
+    public let waterImpact: WaterImpact?
+    public let operationObjective: OperationTargetSnapshot?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
-                id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil) {
+                id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil, breach: BreachState? = nil, mark: ReconMark? = nil, charge: BreachChargeState? = nil, warning: SmokeWarning? = nil, waterImpact: WaterImpact? = nil, operationObjective: OperationTargetSnapshot? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
-        self.missionPhase = missionPhase
+        self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device; self.contactReport = contactReport; self.alarmReportID = alarmReportID; self.extractionID = extractionID
+        self.smoke = smoke; self.breach = breach; self.mark = mark; self.charge = charge; self.warning = warning; self.waterImpact = waterImpact; self.operationObjective = operationObjective
     }
 }
 
@@ -197,7 +226,7 @@ public enum LevelProp: Int, CaseIterable, Sendable {
     case westRoofEquipment = 21, northRoofEquipment = 22
 }
 
-public enum GameMap {
+enum BlacksiteMapData {
     public static let minimum = SIMD3<Float>(-38, 0, -42)
     public static let maximum = SIMD3<Float>(38, 0, 42)
     public static let extraction = SIMD3<Float>(0, 0, -35)
@@ -236,6 +265,10 @@ public enum GameMap {
             housing.health = .infinity
             result.append(housing)
         }
+        let generator = Obstacle(id: 23, kind: .container, position: SIMD3(27,0,2), size: SIMD3(1.6,1.4,1.2))
+        result.append(generator)
+        let gate = Obstacle(id: 24, kind: .container, position: SIMD3(0,0,-15), size: SIMD3(12,2.8,0.45))
+        result.append(gate)
         return result
     }()
 

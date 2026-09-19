@@ -254,3 +254,42 @@ Eine spätere Messung des damaligen Waffenstands mit überarbeitetem Sturmgewehr
 Das Build-Skript versieht die App standardmäßig mit einer lokalen Ad-hoc-Signatur und prüft anschließend die Integrität des Bundles. `--no-sign` überspringt diesen Schritt. Eine Ad-hoc-Signatur ist keine Developer-ID-Signatur; die App ist nicht von Apple notarisiert. Für eine reguläre öffentliche Verteilung benötigt man eine eigene Developer-ID-Signierung und Notarisierung.
 
 Die mitgelieferten Poly-Haven-Texturen stehen unter CC0; Quellcode und eigene Geometrie unter der Projektlizenz. Die App enthält `ASSET-CREDITS.txt`, `ASSETS.md` und `LICENSE.txt` in `Contents/Resources`. Die vollständige Herkunft der ursprünglichen Ressourcen ist in [ASSETS.md](ASSETS.md) dokumentiert.
+
+### Kessel-9
+
+Im Einsatzbriefing steht die Gebirgssperre Kessel-9 bereit: Leitstanddaten sichern, den unteren Funkverteiler aktivieren und acht Sekunden halten, anschließend einen von zwei Ausgängen erreichen. Am Wartungsschalter tauscht gehaltenes **E** die offenen Kanalspuren. Steht eine Figur im Bewegungsbereich, warten beide Schotts. Zerstörung des Schalters stoppt die Schotts in ihrer tatsächlichen Stellung. Westlicher Betriebsweg und östliche Kabelrampe bleiben benutzbar; die östlichen Deckungsbuchten bieten einen geschützten Rückweg.
+
+Grafikprüfungen: `--scene kessel-overview`, `kessel-gates`, `kessel-switched` und `kessel-aftermath`. Die Umschaltansicht verwendet echte gehaltene Eingabe; die Nachkampfaufnahme normale Granaten. Diese kurzen Szenen ersetzen keinen vollständigen menschlichen Kampfdurchlauf. Der Core-Benchmark unterstützt `--map kessel9 --grenades`.
+
+### Sirocco
+
+Sirocco ist eine Salzgewächshaus-Anlage mit offener Betriebsgasse, mittlerem Gewächshausgang und erhöhter östlicher Salzrampe. Verkrustete Scheiben nehmen die Sicht; klare Scheiben lassen sie durch. Zwei Gewehrtreffer öffnen einen Glasdurchgang, entfernen aber auch dessen Sichtschutz. Die tragenden Pfosten und oberen Rahmen bleiben stehen. Alle Pflichtziele sind auch ohne Glasbruch erreichbar.
+
+Die Feldoperation verlangt Messdaten, anschließend Aktivierung und Halten der Funkstation, danach eine von zwei Extraktionen. Die Prüfszenen heißen `sirocco-overview`, `sirocco-glass`, `sirocco-clear`, `sirocco-damaged`, `sirocco-opened`, `sirocco-aftermath` und `sirocco-ruins`. Die Ruinenansicht ist ausdrücklich ein vollständig zerstörter Anfangssnapshot; die Schadensansichten verwenden echte Gewehrschüsse.
+
+## Reproduzierbare Einsätze und lokaler Bericht (#31)
+
+Alle fünf veröffentlichten Karten enthalten in Definitionsversion 2 genau drei
+fest entworfene Varianten. Datenanker, Patrouillenziele und angekündigte
+Geräte-/Glaszustände beziehungsweise Gischtzeiten variieren; Boden und
+Tarnwirkung bleiben unverändert. Ein neuer Einsatz öffnet zuerst das Briefing
+mit der tatsächlich gewählten Lage. Karten-/Klassenwechsel behalten dessen
+Seed. „Erneut antreten“ stellt Karte, Version, gesamten 64-Bit-Seed, Auftrag,
+Schwierigkeit und Ausrüstung wieder her. „Neuer Einsatz“ wählt eine andere
+Variante und zeigt sie erneut vor dem Start.
+
+Der lokale Ergebnisbildschirm unterscheidet Erfolg, Niederlage und Abbruch.
+Er nennt Spielzeit, tatsächlich übermittelte Alarme, vollzogene Geräteaktionen,
+den bei Erfolg genutzten Ausgang und tatsächlich verbrauchte Munition/Werkzeuge.
+Nachschub verringert diese Zähler nicht; vorbereitete Ausgangszustände zählen
+nicht als Spieleraktionen. Der Bericht gilt für den gerade beendeten Einsatz
+und bleibt bis zum nächsten Start in der laufenden App; es gibt keine Cloud
+oder dauerhafte Verlaufssammlung. „Einsatz abbrechen“ in der Pause zeigt zuerst
+den Bericht, danach führt die Menüaktion zurück.
+
+`--briefing-check --map sirocco --seed 1` zeichnet das reale Variantenbriefing.
+`--report-check --map sirocco --seed 1` zeichnet einen Abbruchbericht nach
+gewöhnlichen Schuss-/Wurfeingaben. Beide akzeptieren `--output`; der Bericht
+berücksichtigt `--class`/`--camouflage`. `--scene run-variant --map kessel9
+--seed 1` zeigt eine echte Sekunde der aufgelösten Feldoperation und unterstützt
+die üblichen Metal-Bild-/Benchmarkoptionen. Ungültige Seeds werden abgelehnt.

@@ -62,7 +62,7 @@ enum NativeDestructionCheck {
         let reset = arguments.contains("--destruction-reset")
         if reset {
             renderer.reset()
-            guard let fresh = try NativeBattlefieldCheck.prepare(arguments: arguments, renderer: renderer) else {
+            guard let fresh = try NativeBattlefieldCheck.prepare(arguments: arguments, renderer: renderer, loadout: original.loadout) else {
                 throw CheckFailure(message: "Destruction reset requires a valid battlefield fixture.")
             }
             simulation = fresh.simulation
