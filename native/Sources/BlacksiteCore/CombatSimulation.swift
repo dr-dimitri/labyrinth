@@ -1308,7 +1308,11 @@ extension CombatSimulation {
             brain.path = findPath(from: enemy.position, to: goal); brain.pathIndex = 0
             brain.pathTimer = 1.2 + random() * 0.6
         }
-        let next = horizontalDistance(enemy.position, goal) < 2.6 ? goal :
+        // A nearby sound/contact may still be on the other side of a wall.
+        // Keep its detour until the final standing-body connector is open.
+        let directApproach = horizontalDistance(enemy.position, goal) < 2.6 &&
+            navigationSegmentIsOpen(from: groundedPoint(enemy.position), to: groundedPoint(goal))
+        let next = directApproach ? goal :
             (brain.pathIndex < brain.path.count ? brain.path[brain.pathIndex] : enemy.position)
         let length = horizontalDistance(enemy.position, next)
         if length < 0.2 { brain.pathIndex += 1; return }
