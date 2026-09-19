@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "map_id": "nebelwacht",
+  "retrieved_at_utc": "2026-09-19T13:01:35.267029+00:00",
+  "provider": "Poly Haven",
+  "api_credit": "Powered by Poly Haven",
+  "license": {
+    "spdx": "CC0-1.0",
+    "provider_license_url": "https://polyhaven.com/license",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "scope": "Only the seven photographic Nebelwacht material and sky files listed here."
+  },
+  "processing": "Original JPEG bytes; no resizing, painting, color adjustment or recompression. Balanced downsamples only at runtime through the shared native texture loader. The tonemapped sky is a display background, not an HDR lighting dataset.",
+  "files": [
+    {
+      "asset_id": "seaside_rock",
+      "name": "Seaside Rock",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/seaside_rock",
+      "info_url": "https://api.polyhaven.com/info/seaside_rock",
+      "files_url": "https://api.polyhaven.com/files/seaside_rock",
+      "api_path": [
+        "Diffuse",
+        "4k",
+        "jpg"
+      ],
+      "channel": "color",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/seaside_rock/seaside_rock_diff_4k.jpg",
+      "upstream_md5": "c4b60a33201c3d4dfd9b94527691e476",
+      "upstream_bytes": 14287458,
+      "color_space": "sRGB",
+      "physical_size_m": [
+        2.0,
+        2.0
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/coastal-rock/color.jpg",
+      "width": 4096,
+      "height": 4096,
+      "bytes": 14287458,
+      "sha256": "dcdeecd9efcabbe96b2f8f04a659370a7eb3a576526bbeec9a0c161d59af607d",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed."
+    },
+    {
+      "asset_id": "seaside_rock",
+      "name": "Seaside Rock",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/seaside_rock",
+      "info_url": "https://api.polyhaven.com/info/seaside_rock",
+      "files_url": "https://api.polyhaven.com/files/seaside_rock",
+      "api_path": [
+        "nor_gl",
+        "2k",
+        "jpg"
+      ],
+      "channel": "normal",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/seaside_rock/seaside_rock_nor_gl_2k.jpg",
+      "upstream_md5": "28f8bd7b913f55b92d333217d02e8d1a",
+      "upstream_bytes": 4527854,
+      "color_space": "linear OpenGL +Y",
+      "physical_size_m": [
+        2.0,
+        2.0
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/coastal-rock/normal.jpg",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 4527854,
+      "sha256": "4e067c8f418bb9f2fd5b6fd4bb018ad00a99e70076cf302c1a5581787e2ab8df",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed.",
+      "normal_convention": "OpenGL (+Y)"
+    },
+    {
+      "asset_id": "seaside_rock",
+      "name": "Seaside Rock",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/seaside_rock",
+      "info_url": "https://api.polyhaven.com/info/seaside_rock",
+      "files_url": "https://api.polyhaven.com/files/seaside_rock",
+      "api_path": [
+        "Rough",
+        "1k",
+        "jpg"
+      ],
+      "channel": "roughness",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/seaside_rock/seaside_rock_rough_1k.jpg",
+      "upstream_md5": "675e6f434f2261d91a21fa7dd621b116",
+      "upstream_bytes": 379230,
+      "color_space": "linear",
+      "physical_size_m": [
+        2.0,
+        2.0
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/coastal-rock/roughness.jpg",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 379230,
+      "sha256": "308e154e8b68c79e119609bfc6a724299b1454e52c68b90fa9f5814cff5b18dc",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed."
+    },
+    {
+      "asset_id": "concrete_layers",
+      "name": "Concrete Layers",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/concrete_layers",
+      "info_url": "https://api.polyhaven.com/info/concrete_layers",
+      "files_url": "https://api.polyhaven.com/files/concrete_layers",
+      "api_path": [
+        "Diffuse",
+        "4k",
+        "jpg"
+      ],
+      "channel": "color",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/concrete_layers/concrete_layers_diff_4k.jpg",
+      "upstream_md5": "bc501a9bea741281f1b69777d6b6d6dd",
+      "upstream_bytes": 12098526,
+      "color_space": "sRGB",
+      "physical_size_m": [
+        1.5499999523162842,
+        1.5499999523162842
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/concrete/color.jpg",
+      "width": 4096,
+      "height": 4096,
+      "bytes": 12098526,
+      "sha256": "4e83c0f8f76a0d5e3e3195248b22859ac5274936bd89d685ac85dcac16549012",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed."
+    },
+    {
+      "asset_id": "concrete_layers",
+      "name": "Concrete Layers",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/concrete_layers",
+      "info_url": "https://api.polyhaven.com/info/concrete_layers",
+      "files_url": "https://api.polyhaven.com/files/concrete_layers",
+      "api_path": [
+        "nor_gl",
+        "2k",
+        "jpg"
+      ],
+      "channel": "normal",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/concrete_layers/concrete_layers_nor_gl_2k.jpg",
+      "upstream_md5": "b860e339b6fae5b3911a57e4712046ad",
+      "upstream_bytes": 3581470,
+      "color_space": "linear OpenGL +Y",
+      "physical_size_m": [
+        1.5499999523162842,
+        1.5499999523162842
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/concrete/normal.jpg",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 3581470,
+      "sha256": "2853b3960cdaa6dfa46210046bbe59953227f058b801111e0a0fcd0bfd5e2c2c",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed.",
+      "normal_convention": "OpenGL (+Y)"
+    },
+    {
+      "asset_id": "concrete_layers",
+      "name": "Concrete Layers",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/concrete_layers",
+      "info_url": "https://api.polyhaven.com/info/concrete_layers",
+      "files_url": "https://api.polyhaven.com/files/concrete_layers",
+      "api_path": [
+        "Rough",
+        "1k",
+        "jpg"
+      ],
+      "channel": "roughness",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers/concrete_layers_rough_1k.jpg",
+      "upstream_md5": "e6dbc1c8d200354fcc25865bfeecb6a6",
+      "upstream_bytes": 342556,
+      "color_space": "linear",
+      "physical_size_m": [
+        1.5499999523162842,
+        1.5499999523162842
+      ],
+      "path": "native/Assets/maps/nebelwacht/textures/concrete/roughness.jpg",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 342556,
+      "sha256": "89ef4ff1ec63bd416a5e58569833b5e4f56669f7fc9dd5ee7bec3ae4a249011a",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed."
+    },
+    {
+      "asset_id": "kloofendal_overcast_puresky",
+      "name": "Kloofendal Overcast (Pure Sky)",
+      "authors": {
+        "Greg Zaal": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/kloofendal_overcast_puresky",
+      "info_url": "https://api.polyhaven.com/info/kloofendal_overcast_puresky",
+      "files_url": "https://api.polyhaven.com/files/kloofendal_overcast_puresky",
+      "api_path": [
+        "tonemapped"
+      ],
+      "channel": "sky",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/kloofendal_overcast_puresky.jpg",
+      "upstream_md5": "61b14cf4deed54ca8bd1a0c3314f8a21",
+      "upstream_bytes": 16892196,
+      "color_space": "tonemapped sRGB, display background (not HDR lighting)",
+      "physical_size_m": [],
+      "path": "native/Assets/maps/nebelwacht/environment/sky.jpg",
+      "width": 8192,
+      "height": 4096,
+      "bytes": 16892196,
+      "sha256": "8c43b53c187c8b2fa7c492fb2c40743f1d460fb47935456ea701c740a35d4ce7",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; file and directory names only changed."
+    }
+  ]
+}

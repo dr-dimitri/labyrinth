@@ -8,6 +8,7 @@ final class NativeNoisePresentation {
     static let maximumLines=3
     private struct Caption {
         let key:String,label:String,position:SIMD3<Float>,time:Double,expires:Double,priority:Int
+        let warning:SmokeWarning?
     }
     private var captions:[Caption]=[]
     private var recentIDs:[Int]=[]
@@ -25,7 +26,12 @@ final class NativeNoisePresentation {
             // Own footsteps and weapon handling would continually obscure the
             // external cues. A thrown decoy and nearby blast remain meaningful.
             if sound.source == .player && (sound.kind == .footstep || sound.kind == .landing || sound.kind == .gunshot) { continue }
-            guard simulation.acousticSample(for:sound,listener:simulation.eyePosition).audible else { continue }
+            let warningCue = sound.kind == .gust ? NativeSmokeWarningCue.make(event:event,simulation:simulation) : nil
+            if sound.kind == .gust {
+                guard warningCue != nil else { continue }
+            } else {
+                guard simulation.acousticSample(for:sound,listener:simulation.eyePosition).audible else { continue }
+            }
             let label:String,priority:Int,lifetime:Double
             switch sound.kind {
             case .gunshot:label="SCHÜSSE";priority=4;lifetime=2.4
@@ -35,26 +41,40 @@ final class NativeNoisePresentation {
             case .footstep:label="SCHRITTE";priority=2;lifetime=1.4
             case .shout:label="KONTAKTRUF";priority=4;lifetime=2.2
             case .breakage:label=sound.surface == .glass ? "GLASBRUCH":"DURCHBRUCH";priority=4;lifetime=2.6
+            case .gust:
+                guard let warningCue else { continue }
+                label=warningCue.label;priority=3;lifetime=warningCue.expiresAt-sound.time
             case .radio:
                 label=event.kind == .contactReportInterrupted ? "FUNK UNTERBROCHEN":event.kind == .contactReportTransmitted ? "FUNK ÜBERMITTELT":"FUNK MELDET"
                 priority=4;lifetime=2.2
             }
             let source=sound.sourceID.map(String.init) ?? String(sound.id)
             insert(Caption(key:"\(sound.kind.rawValue)-\(sound.source.rawValue)-\(source)",label:label,
-                position:sound.position,time:sound.time,expires:sound.time+lifetime,priority:priority))
+                position:sound.position,time:sound.time,expires:sound.time+lifetime,priority:priority,
+                warning:sound.kind == .gust ? event.warning:nil))
         }
         update(simulation:simulation)
     }
 
     func update(simulation:CombatSimulation) {
         synchronizeClock(simulation.elapsed)
-        captions.removeAll { $0.expires<=simulation.elapsed || $0.key.hasPrefix("machine-") }
+        captions.removeAll { caption in
+            if caption.expires<=simulation.elapsed || caption.key.hasPrefix("machine-") { return true }
+            // A forecast caption promises a future emission. Cancel it when
+            // its authored source loses that warning; ordinary heard events
+            // remain historical snapshots for their existing short lifetime.
+            guard let warning=caption.warning,
+                  simulation.map.environment.smokeEmitters.contains(where:{ $0.id==warning.emitterID }) else { return false }
+            return !simulation.smokeWarnings.contains {
+                $0.emitterID==warning.emitterID && $0.cycle==warning.cycle && $0.startsAt==warning.startsAt
+            }
+        }
         for emitter in simulation.noiseEmitters {
             // A local, audible machine is useful context for a player without
             // sound. A remote or switched-off source produces no global notice.
             guard simulation.noiseEmitterGain(emitter,listener:simulation.eyePosition)>=0.12 else { continue }
             insert(Caption(key:"machine-\(emitter.id)",label:"MASCHINE",position:emitter.position,
-                time:simulation.elapsed,expires:simulation.elapsed+0.1,priority:1))
+                time:simulation.elapsed,expires:simulation.elapsed+0.1,priority:1,warning:nil))
         }
         lines=captions.map { "\($0.label) · \(Self.direction(source:$0.position,listener:simulation.eyePosition,yaw:simulation.player.yaw))" }
     }

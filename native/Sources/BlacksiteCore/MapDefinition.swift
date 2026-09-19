@@ -6,7 +6,7 @@ public struct MapLineSegment: Sendable {
     public init(start: SIMD3<Float>, end: SIMD3<Float>) { self.start = start; self.end = end }
 }
 
-public enum MapVisualMesh: Sendable { case box, rock, grass }
+public enum MapVisualMesh: Sendable { case box, rock, grass, dome, water }
 public struct MapTree: Sendable {
     public let position: SIMD3<Float>
     public let height: Float
@@ -21,14 +21,15 @@ public struct MapVisualBox: Sendable {
     public let yaw: Float
     public let castsShadow: Bool, levelDetail: Bool, grounded: Bool
     public let mesh: MapVisualMesh
+    public let replacesOwnerBody: Bool
     /// A relative offset from this obstacle's grounded base, or world space.
     public let ownerID: Int?
     public init(position: SIMD3<Float>, size: SIMD3<Float>, color: SIMD3<Float>, material: SIMD4<Float>,
                 yaw: Float = 0, castsShadow: Bool = true, ownerID: Int? = nil, levelDetail: Bool = false,
-                mesh: MapVisualMesh = .box, grounded: Bool = false) {
+                mesh: MapVisualMesh = .box, grounded: Bool = false, replacesOwnerBody: Bool = false) {
         self.position = position; self.size = size; self.color = color; self.material = material
         self.yaw = yaw; self.castsShadow = castsShadow; self.ownerID = ownerID; self.levelDetail = levelDetail
-        self.mesh = mesh; self.grounded = grounded
+        self.mesh = mesh; self.grounded = grounded; self.replacesOwnerBody = replacesOwnerBody
     }
 }
 
@@ -75,6 +76,8 @@ public struct MapSurfaceRegion: Sendable {
 }
 public struct MapEnvironmentDefinition: Sendable {
     public var sunDirection = simd_normalize(SIMD3<Float>(-0.68, 0.24, -0.69))
+    /// Visual exposure only; awareness continues to use real geometry and light sources.
+    public var sunIntensity: Float = 1
     public var fogColor = SIMD3<Float>(0.40, 0.49, 0.54)
     public var shadowTarget = SIMD3<Float>(0, 0, 0)
     public var shadowExtent: Float = 65, shadowDistance: Float = 100, shadowDepth: Float = 220, viewDistance: Float = 450
@@ -370,6 +373,10 @@ public struct MapDefinition: Sendable {
                   emitter.lifetime.isFinite, (4...15).contains(emitter.lifetime),
                   emitter.interval.isFinite, emitter.interval >= emitter.lifetime + 2, emitter.interval <= 120,
                   emitter.startDelay.isFinite, (0...120).contains(emitter.startDelay),
+                  emitter.warningLeadTime.isFinite, (0...8).contains(emitter.warningLeadTime),
+                  emitter.warningLeadTime <= emitter.startDelay, emitter.warningLeadTime < emitter.interval - emitter.lifetime,
+                  emitter.seededDelayRange.isFinite, (0...4).contains(emitter.seededDelayRange),
+                  emitter.warningIndicatorPosition.map(inside) ?? true,
                   emitter.powerDeviceID.map({ id in environment.devices.contains { $0.id == id && $0.kind == .generator } }) ?? true else {
                 throw MapValidationError("Karte \(id): Rauchquelle benötigt eindeutige ID, endliche begrenzte Maße/Lebensdauer, eine sichtbare Pause und vorhandene optionale Stromversorgung.")
             }
@@ -428,11 +435,28 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Vegetationszonen benötigen insgesamt \(totalPlants) Pflanzen; zulässig sind höchstens \(EnvironmentZone.maximumTotalPlantCount).")
             }
         }
+        var replacementOwners = Set<Int>()
         for box in scenery.boxes {
             guard finite(box.position), finite(box.size), finite(box.color), finite4(box.material), box.yaw.isFinite,
                   box.size.x > 0, box.size.y > 0, box.size.z > 0,
                   box.ownerID.map({ owner in obstacles.contains { $0.id == owner } }) ?? true else {
                 throw MapValidationError("Karte \(id): Eine Kulisse besitzt ungültige Maße oder eine fehlende Objekt-ID.")
+            }
+            if box.replacesOwnerBody {
+                guard box.mesh == .box, !box.grounded, box.yaw == 0,
+                      let owner = obstacles.first(where: { $0.id == box.ownerID }),
+                      replacementOwners.insert(owner.id).inserted,
+                      box.position == SIMD3(0, owner.size.y * 0.5, 0), box.size == owner.size else {
+                    throw MapValidationError("Karte \(id): Ersatzkörper muss genau einem vorhandenen unverzerrten Collider entsprechen.")
+                }
+            }
+            if box.mesh == .water {
+                let half = box.size * 0.5
+                guard box.ownerID == nil, !box.grounded, !box.castsShadow, box.yaw == 0,
+                      box.position.x + half.x <= minimum.x || box.position.x - half.x >= maximum.x ||
+                      box.position.z + half.z <= minimum.z || box.position.z - half.z >= maximum.z else {
+                    throw MapValidationError("Karte \(id): Dekoratives Wasser muss außerhalb des begehbaren Geländes liegen.")
+                }
             }
         }
         let renderSize = scenery.renderMaximum - scenery.renderMinimum
@@ -467,7 +491,9 @@ public struct MapDefinition: Sendable {
             throw MapValidationError("Karte \(id): Eine Kulissenposition ist ungültig.")
         }
         let appearance = scenery.terrainAppearance, gradient = appearance.leafGradient
-        guard finite4(gradient), gradient.z > gradient.y, appearance.regions.count <= 8 else {
+        guard finite4(gradient), gradient.z > gradient.y, appearance.regions.count <= 8,
+              finite4(appearance.materialScales), (0..<4).allSatisfy({ (0.01...8).contains(appearance.materialScales[$0]) }),
+              appearance.surfaceWetness.isFinite, (0...1).contains(appearance.surfaceWetness) else {
             throw MapValidationError("Karte \(id): Terrainmaterialprofil ist ungültig oder enthält mehr als acht Zonen.")
         }
         for region in appearance.regions {
@@ -479,6 +505,7 @@ public struct MapDefinition: Sendable {
             }
         }
         guard finite(environment.sunDirection), simd_length_squared(environment.sunDirection) > 0.01,
+              environment.sunIntensity.isFinite, (0...1).contains(environment.sunIntensity),
               finite(environment.fogColor), finite(environment.shadowTarget),
               [environment.shadowExtent, environment.shadowDistance, environment.shadowDepth, environment.viewDistance].allSatisfy({ $0.isFinite && $0 > 0 }) else {
             throw MapValidationError("Karte \(id): Licht- oder Sichtweitenangaben sind ungültig.")
@@ -495,6 +522,8 @@ public struct MapDefinition: Sendable {
             }
         }
     }
+
+    public static let nebelwacht: MapDefinition = try! NebelwachtDefinition.make()
 
     public static let blacksite: MapDefinition = try! MapDefinition(
         id: "blacksite", displayName: "Blacksite", minimum: BlacksiteMapData.minimum, maximum: BlacksiteMapData.maximum,

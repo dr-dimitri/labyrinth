@@ -45,14 +45,14 @@ enum NativeMapCheck {
         guard index+1<arguments.count,let cycles=Int(arguments[index+1]),(1...10).contains(cycles) else {
             throw CheckFailure(message:"--map-cycles accepts 1 to 10 complete map round trips.")
         }
-        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,arguments[scene+1]=="map-test" else {
-            throw CheckFailure(message:"--map-cycles requires --scene map-test; map changes deliberately clear other fixture effects.")
+        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,["map-test", "fjord-overview"].contains(arguments[scene+1]) else {
+            throw CheckFailure(message:"--map-cycles requires --scene map-test or fjord-overview; map changes deliberately clear other fixture effects.")
         }
         let initial=simulation.map
         var measurements:[[String:Any]]=[]
         for transition in 0..<(cycles*2) {
             let next=transition.isMultiple(of:2)
-                ? (initial.id==MapDefinition.testRange.id ? MapDefinition.blacksite:MapDefinition.testRange)
+                ? (initial.id == MapDefinition.blacksite.id ? MapDefinition.testRange : MapDefinition.blacksite)
                 : initial
             try autoreleasepool { try renderer.setMap(next) }
             let candidate=CombatSimulation(map:next,difficulty:.easy,seed:1745,loadout:simulation.loadout)

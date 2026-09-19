@@ -100,7 +100,7 @@ final class NativeBriefingView: NSView {
     @objc private func start() { onApply?(draft, true) }
     func updatePreview() {
         let choice = draft
-        rules.stringValue = NativeMissionPresentation.rules(choice.mission, interactionLabel: interactionLabel)
+        rules.stringValue = NativeMissionPresentation.rules(choice.mission, interactionLabel: interactionLabel, map: choice.map)
         inventory.stringValue = NativeClassPresentation.inventory(choice.loadout)
         classAdvice.stringValue = NativeClassPresentation.name(choice.operatorClass).uppercased() + "\n\n" + NativeClassPresentation.description(choice.operatorClass, gadgetKey: gadgetLabel)
         terrainAdvice.stringValue = NativeCamouflagePresentation.description(choice.camouflage) + "\n\n" + Self.terrainHint(choice.map)
@@ -108,6 +108,7 @@ final class NativeBriefingView: NSView {
     }
     static func terrainHint(_ map: MapDefinition) -> String {
         var facts: [String] = []
+        if map.id == "nebelwacht" { facts.append("Wind und gelbe Leuchten kündigen Gischt an: kurzzeitig schlechtere Sicht, kein Schutz vor Kugeln.") }
         if !map.environment.vegetationZones.isEmpty { facts.append("Bewachsene Zonen dämpfen Sicht, halten keine Kugeln auf.") }
         if map.environment.alarm != nil { facts.append("Eine Funkmeldung kann weitere Wachen alarmieren.") }
         if facts.isEmpty { facts.append("Nutze feste Deckung und prüfe offene Querungen vor dem Vorrücken.") }

@@ -11,12 +11,40 @@ public struct SmokeEmitterDefinition: Sendable {
     public let position: SIMD3<Float>, radii: SIMD3<Float>
     public let density: Float, lifetime: Float, interval: Float, startDelay: Float
     public let powerDeviceID: Int?
+    public let warningLeadTime: Float, seededDelayRange: Float
+    public let warningIndicatorPosition: SIMD3<Float>?
     public init(id: Int, kind: SmokeKind = .steam, position: SIMD3<Float>, radii: SIMD3<Float> = SIMD3(2.5,2,2.5),
                 density: Float = 2.2, lifetime: Float = 10, interval: Float = 24, startDelay: Float = 2,
-                powerDeviceID: Int? = nil) {
+                powerDeviceID: Int? = nil, warningLeadTime: Float = 0, seededDelayRange: Float = 0,
+                warningIndicatorPosition: SIMD3<Float>? = nil) {
         self.id = id; self.kind = kind; self.position = position; self.radii = radii
         self.density = density; self.lifetime = lifetime; self.interval = interval; self.startDelay = startDelay
-        self.powerDeviceID = powerDeviceID
+        self.powerDeviceID = powerDeviceID; self.warningLeadTime = warningLeadTime
+        self.seededDelayRange = seededDelayRange; self.warningIndicatorPosition = warningIndicatorPosition
+    }
+
+    /// A reproducible phase offset, independent of combat RNG and frame rate.
+    /// Subsequent emissions keep the authored period, so warnings are learnable.
+    public func firstEmissionTime(seed: UInt64) -> Double {
+        guard seededDelayRange.isFinite, seededDelayRange > 0 else { return Double(startDelay) }
+        var hash = seed ^ UInt64(bitPattern: Int64(id)) &* 0x9e3779b97f4a7c15
+        hash = (hash ^ (hash >> 30)) &* 0xbf58476d1ce4e5b9
+        hash = (hash ^ (hash >> 27)) &* 0x94d049bb133111eb
+        hash ^= hash >> 31
+        let ticks = UInt64((Double(min(4, seededDelayRange)) * 120).rounded())
+        return Double(startDelay) + Double(hash % (ticks + 1)) / 120
+    }
+}
+
+/// A real, finite advance cue; it never grants enemies hostile knowledge.
+public struct SmokeWarning: Sendable, Equatable {
+    public let emitterID: Int, cycle: Int
+    public let kind: SmokeKind
+    public let position: SIMD3<Float>
+    public let beginsAt: Double, startsAt: Double
+    public init(emitterID: Int, kind: SmokeKind, position: SIMD3<Float>, startsAt: Double, cycle: Int, beginsAt: Double = 0) {
+        self.emitterID = emitterID; self.kind = kind; self.position = position
+        self.startsAt = startsAt; self.cycle = cycle; self.beginsAt = beginsAt
     }
 }
 

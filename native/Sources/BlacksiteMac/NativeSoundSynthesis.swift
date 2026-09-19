@@ -80,6 +80,23 @@ enum NativeSoundSynthesis {
         }
     }
 
+    /// A finite coastal gust rising before the shared spray window. Generated
+    /// once into the existing one-shot bank, with no ambient loop or callback work.
+    static func gust() -> [Float] {
+        let duration = 2.6
+        var seed: UInt32 = 27_061, low = 0.0, mid = 0.0
+        return samples(duration: duration) { t in
+            seed = seed &* 1_664_525 &+ 1_013_904_223
+            let noise = Double(seed) / Double(UInt32.max) * 2 - 1
+            low += (noise - low) * 0.012
+            mid += (noise - mid) * 0.10
+            let attack = min(1, t / 1.65), release = min(1, (duration - t) / 0.40)
+            let swell = attack * attack * (3 - 2 * attack) * release * release * (3 - 2 * release)
+            let air = low * 0.72 + (mid - low) * 0.18 + noise * 0.018
+            return air * swell * (0.88 + 0.12 * sin(t * 5.2))
+        }
+    }
+
     /// One sharp fracture followed by a finite scatter of light pieces. Both
     /// sources are original PCM and share the existing limited one-shot voices.
     static func breakage(kind: BreachKind) -> [Float] {

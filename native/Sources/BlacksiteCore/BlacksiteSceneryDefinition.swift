@@ -19,6 +19,8 @@ public struct MapTerrainAppearance: Sendable {
     /// X origin, inner/outer distance and strength of the broad leaf gradient.
     public var leafGradient=SIMD4<Float>(0,7,32,0)
     public var regions:[MapGroundAppearanceRegion]=[]
+    public var materialScales = SIMD4<Float>(1 / 1.3, 0.5, 1 / 2.38, 0.5)
+    public var surfaceWetness: Float = 0
     public init() {}
 }
 

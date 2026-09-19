@@ -28,11 +28,12 @@ struct NativeBriefingTests {
     }
 
     @Test func minimumWindowHasCompleteKeyboardChainReadableInventoryAndKnownMap() {
+        for map in [MapDefinition.blacksite, .nebelwacht] {
         for mission in MissionKind.allCases {
             for pattern in CamouflagePattern.allCases {
               for role in OperatorClass.allCases {
-                let view = NativeBriefingView(draft: NativeBriefingDraft(map: .blacksite, mission: mission,
-                    difficulty: .normal, camouflage: pattern, operatorClass: role))
+                let view = NativeBriefingView(draft: NativeBriefingDraft(map: map, mission: mission,
+                    difficulty: .normal, camouflage: pattern, operatorClass: role), maps: [map])
                 #expect(view.bounds.width <= 960 && view.bounds.height + 22 <= 618)
                 #expect(view.subviews.allSatisfy { view.bounds.contains($0.frame) })
                 #expect(view.mapChoice.nextKeyView === view.missionChoice)
@@ -60,6 +61,7 @@ struct NativeBriefingTests {
                 }
               }
             }
+        }
         }
     }
 }

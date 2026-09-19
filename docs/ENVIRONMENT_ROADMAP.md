@@ -24,7 +24,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #21 | Rauch, Dampf und Gischt | Umgesetzt, Reviews, Tests, GPU-Abgleich, Bilder und native Eingaben bestanden |
 | #22 | Durchbrechbare Zugänge | Umgesetzt, Reviews, Tests, reale Routen, Audio und Bilder bestanden |
 | #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Eingaben vorgemerkt |
-| #27 | Nebelwacht | Offen |
+| #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik- und Speicherprüfung bestanden; native Eingaben vorgemerkt |
 | #28 | Sundkai | Offen |
 | #29 | Kessel-9 | Offen |
 | #30 | Sirocco | Offen |
@@ -344,3 +344,37 @@ Sie belegen Wege und Zustände, nicht eine abgeschlossene menschliche
 Balancingprüfung. Der optimierte Appbuild mit Signatur und Smokecheck bestand.
 Die native Bedienprüfung ist wegen erneut gesperrtem Mac für den Abschluss
 vorgemerkt; die App selbst startet. [Prüfdaten](native-environment/issue24.json).
+
+### #27 – Nebelwacht
+
+Die Fjordstation besitzt fotografische nasse Küstenmaterialien, gelbe Module,
+ein geschlossenes Radom und bewegtes Meer außerhalb der Arena. Zwei echte
+Kletterketten ergänzen fünf geprüfte Bodenwege. Die kurze Versorgungsextraktion
+liegt rund 38 m vom Datenziel entfernt, der gedecktere Felsausgang rund 57 m.
+Zwei Gischtquellen kündigen ihre reproduzierbaren Zeitfenster drei Sekunden
+vorher mit Wind, Leuchten und tatsächlich hörbaren lokalen Hinweisen an.
+Spieler und KI verwenden dieselbe optische Dichte; Kugeln bleiben unverändert.
+
+Unabhängige Reviews korrigierten eine zu schmale Kletterstufe, die Position
+der Gischt am Rückweg, die offene Radomunterseite, eine helle Himmelsnaht und
+veraltete Dampfhinweise nach Stromverlust. 198 Core- und 191 Mac-Tests bestanden;
+ein zusätzlicher Test zur veröffentlichten Karte bringt die abgedeckten
+Mac-Tests auf 192. Sechs Auswahl-/Briefingtests und 17 Prüfungen einschließlich
+echtem Audiomix und Metal-Texturupload bestanden nach den letzten Ergänzungen.
+Alle drei Klassen schließen je einen ruhigen und alarmierten Operationsweg ab;
+diese echten Bewegungs-/Interaktionsläufe isolieren den Kampf ausdrücklich.
+
+Vierzehn finale Metal-Bilder in High/Balanced, Felsweg und AppKit-Briefing wurden
+geprüft. Der Core benötigt mit Gischt im Median 9,86 µs, ohne 10,26 µs je Schritt
+bei neun Startgegnern und bis zu zwei regulären Alarmverstärkungen. Unterschiedliche
+KI-Entscheidungen erlauben daraus keinen isolierten Kostenvorteil der Gischt.
+Bei 2560 × 1600 liegen GPU-P95 mit Gischt bei 3,95 ms/847,41 MiB (High) und
+6,07 ms/240,95 MiB (Balanced); beide bleiben unter den vorher festgelegten
+Budgets. Drei Kartenrundwechsel je Profil halten die Allokationen konstant.
+Diese Teilsystemmessungen sind keine Spiel-FPS. [Messdaten](native-environment/issue27.json).
+
+Die optimierte ARM64-App, Signatur und Metal-Startprüfung bestanden auch nach
+Freischaltung der Karte. Die native Bedienprüfung bleibt vorgemerkt: macOS ist
+gesperrt, CUA konnte das gestartete Fenster nicht übernehmen. Die bereits
+angefragte Entsperrung steht noch aus; Auswahl/Retry und Darstellung wurden
+zusätzlich automatisiert geprüft.

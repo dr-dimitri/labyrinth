@@ -10,7 +10,7 @@ struct NativeRunConfigurationTests {
         let name = "Blacksite.RunConfigurationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id])
+        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id, MapDefinition.nebelwacht.id])
         #expect(PublishedMapRegistry.map(id: MapDefinition.testRange.id) == nil)
         for storedID in ["missing-map", "", MapDefinition.testRange.id, MapDefinition.blacksite.id] {
             defaults.set(storedID, forKey: "native.mapID")
@@ -20,6 +20,29 @@ struct NativeRunConfigurationTests {
             settings.save(defaults: defaults)
             #expect(defaults.string(forKey: "native.mapID") == MapDefinition.blacksite.id)
         }
+    }
+
+    @Test func fjordSelectionAndRetryKeepThePublishedMapAndItsKit() throws {
+        let name = "Blacksite.FjordRunTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var settings = NativeSettings(defaults: defaults)
+        settings.selectedMapID = "nebelwacht"; settings.selectedMission = .operation
+        settings.selectedClass = .engineer; settings.selectedCamouflage = .mineral
+        settings.save(defaults: defaults)
+        let restored = NativeSettings(defaults: defaults)
+        #expect(restored.selectedMapID == "nebelwacht" && restored.selectedClass == .engineer)
+        let map = try #require(PublishedMapRegistry.map(id: restored.selectedMapID))
+        let run = ActiveRunConfiguration(map: map, seed: 1745, mission: restored.selectedMission,
+            difficulty: restored.difficulty, loadout: LoadoutDefinition(operatorClass: restored.selectedClass, camouflage: restored.selectedCamouflage))
+        let initial = try run.makeSimulation()
+        #expect(initial.throwGrenade())
+        settings.selectedMapID = "blacksite"; settings.selectedClass = .recon; settings.save(defaults: defaults)
+        let retry = try run.makeSimulation()
+        #expect(retry.map.id == "nebelwacht" && retry.map.version == map.version)
+        #expect(retry.loadout.operatorClass == .engineer && retry.loadout.camouflage == .mineral)
+        #expect(retry.grenadeCount == 3 && retry.elapsed == 0 && retry.breachChargeCount == 1)
+        #expect(retry.missionStatus.phase == .prepareOperation)
     }
 
     @Test func retryRejectsMissingMapsChangedVersionsAndUnsupportedMissions() throws {

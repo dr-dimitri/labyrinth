@@ -185,6 +185,7 @@ final class NativeRenderer {
     private var smokeVolumeCount=0
     private var smokeGrenadeVisualCount=0
     private var smokeDensities:[Float]=[]
+    private var weatherWarningCount=0
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
@@ -204,6 +205,12 @@ final class NativeRenderer {
         diagnostics["mapTextureReferences"]=map.resources.texturePaths.count
         diagnostics["mapSupportSurfaces"]=shellGroundColliders.count
         diagnostics["mapTerrainVertices"]=meshes[7].count
+        diagnostics["coastalWaterSurfaces"]=map.scenery.boxes.filter { $0.mesh == .water }.count
+        diagnostics["coastalWaterVertices"]=meshes[NativeCoastalGeometry.waterMesh].count
+        diagnostics["radomeSurfaces"]=map.scenery.boxes.filter { $0.mesh == .dome }.count
+        diagnostics["radomeVertices"]=meshes[NativeCoastalGeometry.domeMesh].count
+        diagnostics["mapSunIntensity"]=map.environment.sunIntensity
+        diagnostics["mapSurfaceWetness"]=map.scenery.terrainAppearance.surfaceWetness
         diagnostics["gameplayVegetationZones"]=vegetationBatches.count
         diagnostics["gameplayVegetationPlants"]=vegetationBatches.reduce(0) { $0+$1.plants }
         diagnostics["gameplayVegetationVertices"]=vegetationBatches.reduce(0) { $0+meshes[$1.mesh].count }
@@ -220,6 +227,8 @@ final class NativeRenderer {
         diagnostics["smokeDensities"]=smokeDensities
         diagnostics["smokeUniformBytes"]=MemoryLayout<GPUWorldSmoke>.stride
         diagnostics["smokeVolumeDrawCalls"]=0
+        diagnostics["weatherWarningBeacons"]=map.environment.smokeEmitters.filter { $0.warningIndicatorPosition != nil }.count
+        diagnostics["activeWeatherWarningLights"]=weatherWarningCount
         diagnostics["visibleReconMarkers"]=reconMarkerCount
         diagnostics["breachChargeVisuals"]=breachChargeVisualCount
         diagnostics["operatorVisualParts"]=operatorVisualParts
@@ -411,21 +420,12 @@ final class NativeRenderer {
     private static func makeAppearanceBuffer(device: MTLDevice, map: MapDefinition) throws -> MTLBuffer {
         let appearance = map.scenery.terrainAppearance
         guard appearance.regions.count <= 8 else { throw RenderError.unavailable("Karte \(map.id): Höchstens acht Gelände-Materialmasken sind erlaubt.") }
-        // Metal: two float4 header fields, then eight records of four float4.
-        var fields = [SIMD4<Float>](repeating: .zero, count: 34)
-        fields[0] = appearance.leafGradient
-        fields[1] = SIMD4(Float(appearance.regions.count), 0, 0, 0)
-        for (index, region) in appearance.regions.enumerated() {
-            let offset = 2 + index * 4
-            fields[offset] = SIMD4(region.center.x, region.center.y, region.radii.x, region.radii.y)
-            fields[offset + 1] = SIMD4(region.inner.x, region.inner.y, region.outer.x, region.outer.y)
-            fields[offset + 2] = SIMD4(region.shape == .ellipse ? 0 : 1, region.leafReduction, region.minimumLeaf, region.roughnessReduction)
-            fields[offset + 3] = SIMD4(region.tint, region.tintStrength)
-        }
+        let fields=NativeMapAppearance.fields(appearance)
+        assert(fields.count*MemoryLayout<SIMD4<Float>>.stride==NativeMapAppearance.byteCount)
         guard let buffer = device.makeBuffer(bytes: fields, length: fields.count * MemoryLayout<SIMD4<Float>>.stride, options: .storageModeShared) else {
             throw RenderError.unavailable("Geländematerialien der Karte \(map.id) konnten nicht angelegt werden.")
         }
-        buffer.label = "Active map terrain appearance (544 bytes)"
+        buffer.label = "Active map terrain appearance (560 bytes)"
         return buffer
     }
 
@@ -449,7 +449,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { reconMarkerCount=0;breachChargeVisualCount=0;operatorVisualParts=0;clearGlassCount=0;activeBreachCount=0;breachFrameCount=0;smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { weatherWarningCount=0;reconMarkerCount=0;breachChargeVisualCount=0;operatorVisualParts=0;clearGlassCount=0;activeBreachCount=0;breachFrameCount=0;smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
@@ -729,6 +729,15 @@ final class NativeRenderer {
         appendAcousticProps(to:&all,simulation:simulation)
         appendAlarmProps(to:&all,simulation:simulation)
         appendDeviceProps(to:&all,simulation:simulation)
+        weatherWarningCount=0
+        for source in map.environment.smokeEmitters {
+            guard let point=source.warningIndicatorPosition else { continue }
+            let warning=simulation.smokeWarnings.first { $0.emitterID==source.id }
+            if let warning,simulation.elapsed>=warning.beginsAt && simulation.elapsed<warning.startsAt { weatherWarningCount+=1 }
+            for part in NativeWeatherGeometry.lenses(position:map.grounded(point),warning:warning,time:simulation.elapsed) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
         let marks=simulation.visibleReconMarks
         reconMarkerCount=marks.count;breachChargeVisualCount=simulation.breachCharges.count;operatorVisualParts=0
         for mark in marks.prefix(ReconMark.maximumCount) {
@@ -749,7 +758,7 @@ final class NativeRenderer {
         smokeDensities=simulation.smokeVolumes.map(\.density)
         let smokeLighting=simulation.smokeVolumes.map { volume -> SIMD2<Float> in
             let light=simulation.lightSample(at:volume.position)
-            return SIMD2(light.directSun,light.artificial)
+            return SIMD2(light.directSun*map.environment.sunIntensity,light.artificial)
         }
         let smoke=GPUWorldSmoke(volumes:simulation.smokeVolumes,lighting:smokeLighting)
         for grenade in simulation.smokeGrenades {
@@ -884,7 +893,7 @@ final class NativeRenderer {
             let batch=RenderBatch(mesh:item.mesh,offset:instances.count,count:1);instances.append(item.instance);return batch
         }
         let glassDepths=glassItems.map { simd_dot($0.center-eye,forward) }
-        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
+        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, map.environment.sunIntensity), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
                                   shadowParameters: SIMD4(1 / Float(shadowResolution), DirectionalShadowVolume.nearWidth, DirectionalShadowVolume.nearDepth, 0.30))
         return PreparedScene(instances: instances, main: main, glass:glassBatches,glassDepths:glassDepths,shadows: shadows, nearShadows: nearShadows, weapon:weaponBatches,weaponShadows:weaponShadowBatches,spotShadows:spotBatches,spotVolumes:spotVolumes,spotlights:spotlights,smoke:smoke,weaponLightMatrix:weaponLightMatrix, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible+glassBatches.count,
                              enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
@@ -1027,6 +1036,12 @@ final class NativeRenderer {
         let definition=map.scenery
         let metal = SIMD3<Float>(0.17, 0.20, 0.19), concrete = SIMD3<Float>(0.61, 0.63, 0.59)
         for box in definition.boxes where box.ownerID==nil { appendMapBox(box,to:&items) }
+        for source in map.environment.smokeEmitters {
+            guard let point=source.warningIndicatorPosition else { continue }
+            for part in NativeWeatherGeometry.housing(position:map.grounded(point)) {
+                appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+            }
+        }
         // Mesh fence: fine metal wires cast real shadows and remain legible when
         // the player approaches; all wires share a single instanced draw call.
         func grounded(_ p: SIMD3<Float>) -> SIMD3<Float> { map.grounded(p) }
@@ -1093,13 +1108,20 @@ final class NativeRenderer {
 
     private func appendMapBox(_ box:MapVisualBox,to items:inout [RenderItem],owner:Obstacle?=nil) {
         let mesh:Int
-        switch box.mesh { case .box:mesh=0;case .rock:mesh=8;case .grass:mesh=4 }
+        switch box.mesh { case .box:mesh=0;case .rock:mesh=8;case .grass:mesh=4;case .dome:mesh=NativeCoastalGeometry.domeMesh;case .water:mesh=NativeCoastalGeometry.waterMesh }
         let position=owner.map { $0.position+box.position } ?? (box.grounded ? map.grounded(box.position):box.position)
         var material=box.material
         // Store the physical half-width in the asphalt material's unused metal
         // channel. Its edge dirt now follows this road, including rotated roads.
         if Int(material.w+0.5)==6 { material.y=box.size.x*0.5 }
+        if box.replacesOwnerBody,owner?.damageStage == .damaged {
+            material.w=owner?.kind == .container ? 17:19
+        }
         appendItem(to:&items,mesh:mesh,position:position,scale:box.size,color:box.color,material:material,yaw:box.yaw,shadow:box.castsShadow)
+        if box.mesh == .water {
+            // Wave motion is in world metres, independent of the box's scale.
+            items[items.count-1].radius+=NativeCoastalGeometry.waterMaximumDisplacement
+        }
         items[items.count-1].levelAddition=box.levelDetail
     }
 
@@ -1177,7 +1199,7 @@ final class NativeRenderer {
         guard let source=map.obstacles.first(where:{ $0.id==obstacle.id }),
               source.kind==obstacle.kind,source.size==obstacle.size,
               source.position.x==obstacle.position.x,source.position.z==obstacle.position.z else { return }
-        for box in map.scenery.boxes where box.ownerID==obstacle.id { appendMapBox(box,to:&items,owner:obstacle) }
+        for box in map.scenery.boxes where box.ownerID==obstacle.id && !box.replacesOwnerBody { appendMapBox(box,to:&items,owner:obstacle) }
         for sign in map.scenery.signs where sign.ownerID==obstacle.id {
             let start=items.count
             appendLevelSign(to:&items,transform:Self.translation(obstacle.position+sign.position)*Self.rotationY(sign.yaw),width:sign.width,materialID:sign.materialID)
@@ -1237,6 +1259,11 @@ final class NativeRenderer {
             for part in NativeBreachGeometry.frame(obstacle:obstacle) {
                 appendTransformed(to:&items,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
             }
+        } else if let replacement=map.scenery.boxes.first(where:{ $0.ownerID==obstacle.id && $0.replacesOwnerBody }),
+                  let source=map.obstacles.first(where: { $0.id==obstacle.id }),source.kind==obstacle.kind,source.size==obstacle.size,
+                  source.position.x==obstacle.position.x,source.position.z==obstacle.position.z {
+            items=[];appendMapBox(replacement,to:&items,owner:obstacle)
+            appendOwnerLevelDetails(to:&items,obstacle:obstacle)
         } else if let device=map.environment.devices.first(where:{ $0.ownerObstacleID==obstacle.id }) { items=buildDeviceCover(obstacle,kind:device.kind) }
         else if let prop=map.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
         else { items=buildCover(obstacle) }
@@ -1996,7 +2023,10 @@ final class NativeRenderer {
                 for (p,uv) in [(p0,uv0),(p1,uv1),(p2,uv2)] { let nn=simd_dot(n,p)<0 ? -n : n; rock.append(GPUVertex(position:p,normal:simd_normalize(nn*0.5+simd_normalize(p)*0.5),uv:uv)) }
             }
         } }
-        let named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Active map heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
+        var named: [(String,[GPUVertex])] = Array(zip(["Box", "Sphere", "Cylinder", "Plane", "Grass", "Tapered bark", "Photographic twig", "Active map heightfield", "Weathered rock"], [cube,sphere,cylinder,plane,grass,trunk,twig,terrain,rock])) + WeaponGeometry.meshes()
+        assert(named.count==NativeCoastalGeometry.domeMesh)
+        named.append(("Coastal radome hemisphere",NativeCoastalGeometry.domeVertices()))
+        named.append(("Coastal sea wave grid",NativeCoastalGeometry.waterVertices()))
         return try named.map { try makeMesh(device:device,name:$0.0,vertices:$0.1) }
     }
     private static func makeMesh(device:MTLDevice,name:String,vertices:[GPUVertex])throws->Mesh {

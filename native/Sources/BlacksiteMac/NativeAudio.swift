@@ -43,6 +43,7 @@ final class NativeAudio {
     private var threat: Float = 0
     private var contactSoundIDs:[Int]=[]
     private var breakageSoundIDs:[Int]=[]
+    private var warningSoundIDs: [Int] = []
     var machineLoopCount: Int { machineIDs.compactMap { $0 }.count }
     var oneShotVoiceCapacity: Int { voices.count }
     var machineVoiceCapacity: Int { machineVoices.count }
@@ -88,6 +89,7 @@ final class NativeAudio {
         } }
         buffers["machine"]=pcm(samples:NativeSoundSynthesis.machine())
         buffers["decoy"]=pcm(samples:NativeSoundSynthesis.decoy())
+        buffers["gust"] = pcm(samples: NativeSoundSynthesis.gust())
         buffers["break-glass"]=pcm(samples:NativeSoundSynthesis.breakage(kind:.glass))
         buffers["break-panel"]=pcm(samples:NativeSoundSynthesis.breakage(kind:.lightPanel))
         buffers["contact-call"]=pcm(samples:NativeSoundSynthesis.contactCall())
@@ -125,7 +127,7 @@ final class NativeAudio {
 
     func reset() {
         voices.forEach { $0.stop() };stopMachines()
-        nextVoice=0;contactSoundIDs.removeAll(keepingCapacity:true);breakageSoundIDs.removeAll(keepingCapacity:true);threat=0
+        nextVoice=0;contactSoundIDs.removeAll(keepingCapacity:true);breakageSoundIDs.removeAll(keepingCapacity:true);warningSoundIDs.removeAll(keepingCapacity:true);threat=0
     }
 
     private func stopMachines() {
@@ -172,6 +174,13 @@ final class NativeAudio {
                     breakageSoundIDs.append(hearing.id)
                     if breakageSoundIDs.count>64 { breakageSoundIDs.removeFirst(breakageSoundIDs.count-64) }
                     play(cue.bufferName,gain:cue.spatial.gain,pan:cue.spatial.pan)
+                }
+            case .smokeWarning:
+                if let hearing = event.hearing, !warningSoundIDs.contains(hearing.id),
+                   let cue = NativeSmokeWarningCue.make(event: event, simulation: simulation) {
+                    warningSoundIDs.append(hearing.id)
+                    if warningSoundIDs.count > 64 { warningSoundIDs.removeFirst(warningSoundIDs.count - 64) }
+                    play("gust", gain: cue.spatial.gain, pan: cue.spatial.pan)
                 }
             case .damage: play("damage")
             case .reload: play("reload")

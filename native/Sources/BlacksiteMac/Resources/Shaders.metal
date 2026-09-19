@@ -4,7 +4,7 @@ struct Vertex { float3 position; float3 normal; float2 uv; };
 struct Instance { float4x4 model; float4 normal0; float4 normal1; float4 normal2; float4 tint; float4 material; };
 struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; float4x4 nearLightViewProjection; float4 shadowParameters; };
 struct GroundAppearanceRegion { float4 centerRadii; float4 innerOuter; float4 controls; float4 tintStrength; };
-struct MapAppearance { float4 leafGradient; float4 counts; GroundAppearanceRegion regions[8]; };
+struct MapAppearance { float4 leafGradient; float4 counts; float4 materialScales; GroundAppearanceRegion regions[8]; };
 struct WorldLight { float4x4 matrix; float4 positionRange; float4 directionOuter; float4 colorPower; float4 parameters; };
 struct WorldLighting { float4 counts; WorldLight first; WorldLight second; };
 struct WorldSmokeVolume { float4 centerDensity; float4 radiiKind; float4 clipMinimum; float4 clipMaximum; float4 scatterColor; };
@@ -60,7 +60,22 @@ float3 smokeComposite(float3 color,float3 from,float3 to,constant WorldSmoke &sm
   return color*transmission+scattering/depth*(1-transmission);
 }
 struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float2 detailUV; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
+float seaHeight(float2 p,float time) {
+  return sin(dot(p,float2(0.42,0.19))-time*1.35)*0.18
+       + sin(dot(p,float2(-0.23,0.61))-time*1.85)*0.075
+       + sin(dot(p,float2(0.83,-0.47))-time*2.4)*0.025;
+}
+float3 seaNormal(float2 p,float time) {
+  float2 slope=cos(dot(p,float2(0.42,0.19))-time*1.35)*float2(0.42,0.19)*0.18
+              +cos(dot(p,float2(-0.23,0.61))-time*1.85)*float2(-0.23,0.61)*0.075
+              +cos(dot(p,float2(0.83,-0.47))-time*2.4)*float2(0.83,-0.47)*0.025;
+  // Small wind ripples affect normals, never displacement/visibility bounds.
+  slope+=cos(dot(p,float2(2.4,1.3))-time*2.2)*float2(0.045,0.024);
+  slope+=cos(dot(p,float2(-1.7,3.1))-time*2.7)*float2(-0.022,0.041);
+  return normalize(float3(-slope.x,1,-slope.y));
+}
 float3 windPosition(float3 p, float2 uv, float material, float time) {
+  if(material>35.5 && material<36.5) p.y+=seaHeight(p.xz,time);
   if(material>3.5 && material<4.5) {
     // Flex only the tips of individual twigs. No whole-tree billboard rotation.
     float flexibility=pow(saturate((0.884-uv.y)/0.794),1.6);
@@ -276,12 +291,13 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   depth2d<float> weaponShadowMap [[texture(31)]],texture2d<float> gameplayAlpha [[texture(32)]],depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
+  float2 uvFootprint=fwidth(in.uv);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
   int id=int(in.material.w+0.5); float2 uv; float3 absN=abs(n);
   if(absN.y>absN.x && absN.y>absN.z) uv=in.world.xz; else if(absN.x>absN.z) uv=in.world.zy; else uv=in.world.xy;
   uv*=0.5;
   if(id==1 || id==7) {
-    uv=in.world.xz*0.76923; float2 leafUV=in.world.xz*0.5+float2(12.73,4.29);
+    uv=in.world.xz*appearance.materialScales.x; float2 leafUV=in.world.xz*appearance.materialScales.w+float2(12.73,4.29);
     float macro=noise(in.world.xz*0.041);
     float4 gradient=appearance.leafGradient;
     float forest=smoothstep(0.2,0.75,macro+smoothstep(gradient.y,gradient.z,abs(in.world.x-gradient.x))*gradient.w);
@@ -308,13 +324,14 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     albedo=mix(albedo,rockColor.sample(surface,uv*0.6).rgb*in.tint.rgb,exposed);
     n=perturbNormal(n,in.world,uv,map,0.9);
   } else if(id==2 || id==19) {
+    uv*=appearance.materialScales.y*2;
     albedo*=concreteColor.sample(surface,uv).rgb;
     float gray=dot(albedo,float3(0.2126,0.7152,0.0722)); albedo=mix(albedo,float3(gray),0.6);
     rough*=concreteRough.sample(surface,uv).r; map=concreteNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
   } else if(id==3) {
-    uv*=0.84034;
+    uv*=appearance.materialScales.z*2;
     float3 w=pow(absN,float3(5)); w/=max(w.x+w.y+w.z,0.001);
-    float3 rocky=rockColor.sample(surface,in.world.zy*0.42017).rgb*w.x+rockColor.sample(surface,in.world.xz*0.42017).rgb*w.y+rockColor.sample(surface,in.world.xy*0.42017).rgb*w.z;
+    float3 rocky=rockColor.sample(surface,in.world.zy*appearance.materialScales.z).rgb*w.x+rockColor.sample(surface,in.world.xz*appearance.materialScales.z).rgb*w.y+rockColor.sample(surface,in.world.xy*appearance.materialScales.z).rgb*w.z;
     albedo*=rocky*(0.8+noise(in.world.xz*0.18)*0.34); rough*=rockRough.sample(surface,uv).r;
     map=rockNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.82);
   } else if(id==4 || id==28) {
@@ -345,7 +362,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float edgeNoise=noise(in.world.xz*0.7);
     float halfWidth=max(in.material.y,0.1);metal=0;
     float shoulder=smoothstep(max(0.0,halfWidth-1.85),halfWidth,abs(in.detailUV.x)+(edgeNoise-0.5)*0.9); float grime=shoulder*(0.45+edgeNoise*0.25);
-    albedo=mix(albedo,earthColor.sample(surface,in.world.xz*0.76923).rgb*0.52,grime);
+    albedo=mix(albedo,earthColor.sample(surface,in.world.xz*appearance.materialScales.x).rgb*0.52,grime);
     albedo*=0.91+noise(in.world.xz*0.12)*0.14; rough=max(0.78,rough*asphaltRough.sample(surface,uv).r);
     map=asphaltNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
   } else if(id>=21 && id<=24) {
@@ -363,6 +380,22 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float diagonal=step(0.54,fract(in.uv.x*5.0+in.uv.y*1.5));
     float border=step(0.05,in.uv.x)*step(in.uv.x,0.95)*step(0.12,in.uv.y)*step(in.uv.y,0.88);
     albedo=mix(albedo,float3(0.065,0.075,0.057),diagonal*border);rough=0.9;metal=0;
+  } else if(id==36) {
+    n=seaNormal(in.world.xz,u.eyeTime.w);rough=0.19;metal=0;
+    float crest=smoothstep(0.16,0.27,seaHeight(in.world.xz,u.eyeTime.w));
+    float foam=crest*smoothstep(0.56,0.82,noise(in.world.xz*0.38+u.eyeTime.w*0.12));
+    albedo=mix(albedo,float3(0.48,0.58,0.59),foam*0.42);
+    rough=mix(rough,0.58,foam);
+  } else if(id==37) {
+    // Thin triangular fiberglass panel joints, without extra meshes or cuts.
+    float2 grid=in.uv*float2(24,12);
+    float row=floor(grid.y);float2 cell=float2(fract(grid.x+row*0.5),fract(grid.y));
+    float edge=min(min(cell.y,1-cell.y),abs(cell.x-(1-cell.y)*0.5));
+    edge=min(edge,abs(cell.x-(1+cell.y)*0.5));
+    float aa=max(0.002,max(uvFootprint.x*24,uvFootprint.y*12)*0.65);
+    float joint=(1-smoothstep(0.012-aa,0.012+aa,edge))*min(1.0,0.012/aa);
+    albedo*=n.y<-0.9 ? 0.52:mix(0.97,0.65,joint)*(0.96+noise(in.world.xz*3.4)*0.04);
+    rough=n.y<-0.9 ? 0.88:0.69;metal=0;
   } else if(id==35) {
     // Tiny resting glass splinters are an opaque reflective surface at this
     // scale, keeping all cosmetic remnants in one existing instanced batch.
@@ -484,6 +517,13 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
       albedo=mix(albedo,float3(0.37,0.36,0.32),scratch*0.68);rough=max(rough,0.83-soot*0.05);
     }
   }
+  float wetness=0;
+  if(id==1 || id==2 || id==3 || id==6 || id==7 || id==19) {
+    // Wet patches are material response only, not invented standing water.
+    wetness=appearance.counts.y*smoothstep(0.22,0.79,noise(in.world.xz*0.29)+max(n.y,0.0)*0.20);
+    wetness*=0.40+0.60*max(n.y,0.0);
+    albedo*=1-wetness*0.23;rough=mix(rough,max(0.22,rough*0.46),wetness);
+  }
   rough=clamp(rough,id==12 ? 0.10:0.16,1.0);
   float3 l=normalize(u.sunDirection.xyz),v=normalize(u.eyeTime.xyz-in.world),h=normalize(l+v);
   float nl=max(dot(n,l),0.0),nv=max(dot(n,v),0.05),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
@@ -506,17 +546,22 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     }
   }
   float3 ambient=mix(float3(0.12,0.115,0.085),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
-  float3 irradiance=float3(3.05,2.90,2.52);
+  float3 irradiance=float3(3.05,2.90,2.52)*u.sunDirection.w;
   float3 lit=ambient*shadow.y*canopyAO+(albedo*(1-metal)/M_PI_F+specular)*irradiance*nl*visibility;
   if(id==4 || id==28 || id==29) {
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
-    lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
+    lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO*u.sunDirection.w;
   }
-  if((id>=9 && id<=13) || id==15 || id==16 || id==30 || id==31 || id==35) {
+  if((id>=9 && id<=13) || id==15 || id==16 || id==30 || id==31 || id==35 || id==36 || wetness>0.001) {
     float3 reflected=reflect(-v,n);
     float2 envUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
     float3 environment=photoSky.sample(surface,envUV,level(rough*7.0)).rgb;
-    lit+=environment*fresnel*(0.35+metal*0.55)*(1-rough*0.5);
+    float facingReflectance=0.025+0.975*pow(1-nv,5.0);
+    if(id==36) {
+      lit=lit*(1-facingReflectance)+environment*facingReflectance;
+    } else if(wetness>0.001) {
+      lit+=environment*facingReflectance*wetness*0.55;
+    } else { lit+=environment*fresnel*(0.35+metal*0.55)*(1-rough*0.5); }
     // A restrained sky fill preserves bevels on dark anodised parts in shadow.
     lit+=albedo*float3(0.08,0.095,0.11)*(0.25+0.75*max(n.y,0.0));
     if(id==12) {
@@ -556,7 +601,7 @@ fragment float4 breachGlassFragment(Raster in [[stage_in]],constant Uniforms &u 
   float band=1-smoothstep(0.008-aa,0.008+aa,abs(in.uv.y-0.59));
   float segment=fract(in.uv.x*6.0),frost=band*smoothstep(0.14,0.18,segment)*(1-smoothstep(0.82,0.86,segment));
   float alpha=clamp(0.075+fresnel*0.42+edge*0.18+cracks*0.64+frost*0.54,0.075,0.82);
-  float highlight=pow(max(0.0,dot(reflect(-normalize(u.sunDirection.xyz),normal),view)),96.0)*shadow.x;
+  float highlight=pow(max(0.0,dot(reflect(-normalize(u.sunDirection.xyz),normal),view)),96.0)*shadow.x*u.sunDirection.w;
   float3 color=sky*float3(0.76,0.92,0.86)*0.70+in.tint.rgb*0.12+float3(0.43,0.41,0.34)*highlight;
   color=mix(color,float3(0.73,0.78,0.74),cracks*0.8);
   color=mix(color,float3(0.67,0.71,0.67)*(0.78+shadow.x*0.22),frost*0.86);
@@ -571,7 +616,10 @@ fragment float4 skyFragment(SkyRaster in [[stage_in]],constant Uniforms &u [[buf
   float elevation=acos(clamp(ray.y,-1.0,1.0))/M_PI_F;
   // Pure photographic sky uses spherical UVs without stretching a cutoff row.
   float2 uv=float2(fract(azimuth),elevation);
-  float3 photo=photoSky.sample(surface,uv).rgb;
+  // A spherical seam is continuous despite its wrapped U coordinate. Give
+  // sampling the short angular gradients instead of a false full-width jump.
+  float2 uvX=dfdx(uv),uvY=dfdy(uv);uvX.x-=round(uvX.x);uvY.x-=round(uvY.x);
+  float3 photo=photoSky.sample(surface,uv,gradient2d(uvX,uvY)).rgb;
   float horizon=1-smoothstep(-0.015,0.055,ray.y); photo=mix(photo,u.fogColor.rgb*0.70,horizon*0.45);
   return float4(smokeComposite(photo,u.eyeTime.xyz,p.xyz/p.w,smoke,u.sunDirection.xyz),1); // Source panorama is already tonemapped.
 }
@@ -621,12 +669,12 @@ fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],cons
     mask=core*(0.65+tongues*0.35)*(1-smoothstep(0.72,1.0,radius));color=aces(in.tint*(2.5+core*5));
   } else if(kind==3) {
     mask=(1-smoothstep(0.73,0.95,abs(in.uv.x)+abs(in.uv.y)*0.2))*(1-smoothstep(0.6,0.95,abs(in.uv.y)));
-    color=aces(in.tint*(0.50+max(u.sunDirection.y,0.0)*0.8)*(0.78+noise(in.uv*12)*0.4));
+    color=aces(in.tint*(0.50+max(u.sunDirection.y,0.0)*0.8*u.sunDirection.w)*(0.78+noise(in.uv*12)*0.4));
   } else {
     float cloud=noise(in.uv*3.2+float2(in.age*0.4,2.7))*0.7+noise(in.uv*7.8+float2(8.3,in.age*0.6))*0.3;
     mask=(1-smoothstep(0.48,0.99,radius+(0.5-cloud)*0.18))*(0.48+cloud*0.52);
     float volume=0.7+cloud*0.45-in.uv.y*0.07;
-    color=aces(in.tint*volume*(0.68+u.sunDirection.y*0.4));
+    color=aces(in.tint*volume*(0.68+u.sunDirection.y*0.4*u.sunDirection.w));
   }
   // Smoke/dust fade before intersecting their actual ground/roof plane. The
   // visible flash core remains above it; solid chips and sparks retain depth.
@@ -664,7 +712,7 @@ fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant U
     color=mix(color,float3(0.035,0.018,0.005),split*0.8);
   } else { opacity*=0.78;color*=0.82; }
   float nl=max(dot(in.normal,normalize(u.sunDirection.xyz)),0.0);
-  float3 lit=color*(float3(0.22,0.24,0.24)*visibility.y+float3(0.9,0.86,0.76)*nl*visibility.x);
+  float3 lit=color*(float3(0.22,0.24,0.24)*visibility.y+float3(0.9,0.86,0.76)*nl*visibility.x*u.sunDirection.w);
   float alpha=opacity*in.opacity;return float4(smokeComposite(aces(lit),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
 }
 struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; float4 nearShadow; };
@@ -732,16 +780,16 @@ fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms 
   float2 shadow=directionalShadows(in.shadow,in.nearShadow,normalize(in.normal),u,shadowMap,nearShadowMap,shadowSampler);
   float visibility=shadow.x;
   float3 ambient=mix(float3(0.13,0.125,0.10),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
-  float3 lit=ambient*shadow.y+(albedo/M_PI_F+specular)*float3(3.05,2.90,2.52)*nl*visibility;
+  float3 lit=ambient*shadow.y+(albedo/M_PI_F+specular)*float3(3.05,2.90,2.52)*u.sunDirection.w*nl*visibility;
   if(skin) {
     float wrap=max(0.0,saturate((dot(n,l)+0.25)/1.25)-nl);
-    lit+=albedo*float3(0.52,0.27,0.17)*wrap*0.28;
+    lit+=albedo*float3(0.52,0.27,0.17)*wrap*0.28*u.sunDirection.w;
   }
   float3 reflected=reflect(-v,n);float2 envUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
   float3 environment=photoSky.sample(surface,envUV,level(rough*7)).rgb;
   if(visor) {
     float grazing=0.06+0.94*pow(1-nv,5.0);
-    lit=albedo*0.35+environment*float3(0.66,0.83,0.88)*(0.18+grazing*0.85)+specular*float3(3.05,2.90,2.52)*nl*visibility;
+    lit=albedo*0.35+environment*float3(0.66,0.83,0.88)*(0.18+grazing*0.85)+specular*float3(3.05,2.90,2.52)*u.sunDirection.w*nl*visibility;
   } else { lit+=environment*f0*(0.18+armor*0.22); }
   lit+=worldLights(lights,in.world,n,v,albedo,rough,0,firstSpotMap,secondSpotMap,shadowSampler);
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);

@@ -1,0 +1,25 @@
+NACHTGANG — NEBELWACHT PHOTOGRAPHIC MATERIALS
+
+Seaside Rock — Dimitrios Savva / Poly Haven
+https://polyhaven.com/a/seaside_rock
+Original photographed surface size: 2 x 2 metres.
+
+Concrete Layers — Amal Kumar / Poly Haven
+https://polyhaven.com/a/concrete_layers
+Original photographed surface size: approximately 1.55 x 1.55 metres.
+
+Both PBR sets contain original 4096x4096 sRGB color, 2048x2048 OpenGL
+(+Y) linear normal and 1024x1024 linear roughness JPEG maps.
+
+Kloofendal Overcast (Pure Sky) — Greg Zaal / Poly Haven
+https://polyhaven.com/a/kloofendal_overcast_puresky
+Original 8192x4096 tonemapped sRGB JPEG, used as a photographic sky
+background; this image is not an HDR lighting dataset.
+
+All seven images: CC0 1.0 Universal, https://polyhaven.com/license
+https://creativecommons.org/publicdomain/zero/1.0/
+Powered by Poly Haven. Original image bytes unchanged.
+Official metadata/download URLs, authors, source MD5, SHA-256, dimensions
+and original API file paths are recorded in native-nebelwacht-sources.json.
+These CC0 terms do not change the separate Adobe/Mixamo terms of the
+integrated SWAT character or the MIT license of the game's own code.

@@ -12,7 +12,7 @@ public enum SurfaceSound: String, CaseIterable, Sendable {
         case .concrete, .asphalt: return .hard; case .glass: return .glass }
     }
 }
-public enum HearingKind: String, Sendable { case footstep, landing, gunshot, explosion, decoy, shout, radio, breakage }
+public enum HearingKind: String, Sendable { case footstep, landing, gunshot, explosion, decoy, shout, radio, breakage, gust }
 public enum NoiseSource: String, Sendable { case player, enemy, world }
 
 /// An immutable source snapshot, independent of audio settings and later actor movement.

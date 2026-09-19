@@ -139,6 +139,7 @@ public final class CombatSimulation {
 
     let difficulty: Difficulty
     private var seed: UInt64
+    private let weatherSeed: UInt64
     private var accumulator: Double = 0
     private var nextID = 100
     private var nextHearingID = 1
@@ -159,6 +160,8 @@ public final class CombatSimulation {
     private var grenadeCooldown: Float = 0
     private var smokeCooldown: Float = 0
     private var smokeEmitterCycles: [Int: Int] = [:]
+    private var smokeWarningCycles: [Int: Int] = [:]
+    public private(set) var smokeWarnings: [SmokeWarning] = []
     private var lastShot: Double = -20
     private var concealmentMotion = ConcealmentMotion()
     private var extractionAnnounced = false
@@ -212,7 +215,7 @@ public final class CombatSimulation {
         // unsupported selection using supportsMission; direct callers get the
         // documented data-recovery fallback and an honest effective missionKind.
         let mission = selected.supportsMission(mission) ? mission : .recoverData
-        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
+        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.weatherSeed = seed; self.terrain = terrain; missionKind = mission
         self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
         smokeGrenadeCount = loadout.smokeGrenades; breachChargeCount = loadout.breachCharges
         weapons[.rifle]?.reserve = loadout.rifleReserve; weapons[.sniper]?.reserve = loadout.sniperReserve
@@ -1498,7 +1501,7 @@ extension CombatSimulation {
         nextHearingID += 1
         if hearingStimuli.count >= 64 { hearingStimuli.removeFirst() }
         hearingStimuli.append(stimulus)
-        guard source != .enemy else { return stimulus }
+        guard source != .enemy, kind != .gust else { return stimulus }
         let priority = kind == .gunshot || kind == .explosion ? 3 : kind == .decoy || kind == .breakage ? 2 : 1
         for index in enemies.indices where enemies[index].health > 0 {
             let ear = EnemyPose(enemies[index]).eyePosition
@@ -1992,13 +1995,29 @@ extension CombatSimulation {
                 activateSmoke(id: grenade.id,kind: .smoke,origin: grenade.position,radii: SIMD3(3,2,3),density: 2.2,lifetime: 10)
             } else { smokeGrenades[index] = grenade; index += 1 }
         }
+        smokeWarnings.removeAll(keepingCapacity: true)
         for source in map.environment.smokeEmitters {
-            guard elapsed + 0.0000001 >= Double(source.startDelay) else { continue }
-            let cycle = Int(floor((elapsed-Double(source.startDelay)+0.0000001)/Double(source.interval)))
+            let first = source.firstEmissionTime(seed: weatherSeed), interval = Double(source.interval)
+            let powered = source.powerDeviceID.map { power in devices.contains { $0.id == power && $0.enabled && !$0.destroyed } } ?? true
+            let nextCycle = max(0, Int(ceil((elapsed - first + 0.0000001) / interval)))
+            let nextStart = first + Double(nextCycle) * interval
+            let beginsAt = nextStart - Double(source.warningLeadTime)
+            if powered, source.warningLeadTime > 0, elapsed + 0.0000001 >= beginsAt, elapsed + 0.0000001 < nextStart {
+                let warning = SmokeWarning(emitterID: source.id, kind: source.kind, position: map.grounded(source.position),
+                    startsAt: nextStart, cycle: nextCycle, beginsAt: beginsAt)
+                smokeWarnings.append(warning)
+                if smokeWarningCycles[source.id] != nextCycle {
+                    smokeWarningCycles[source.id] = nextCycle
+                    let hearing = recordHearing(kind: .gust, position: warning.position + SIMD3(0,1,0),
+                        strength: 0.85, range: 28, source: .world, sourceID: source.id)
+                    emit(GameEvent(kind: .smokeWarning, position: warning.position, id: source.id, hearing: hearing, warning: warning))
+                }
+            }
+            guard elapsed + 0.0000001 >= first else { continue }
+            let cycle = Int(floor((elapsed - first + 0.0000001) / interval))
             guard smokeEmitterCycles[source.id] != cycle else { continue }
             smokeEmitterCycles[source.id] = cycle
-            if let power = source.powerDeviceID,
-               !devices.contains(where: { $0.id == power && $0.enabled && !$0.destroyed }) { continue }
+            guard powered else { continue }
             activateSmoke(id: allocateID(),kind: source.kind,origin: map.grounded(source.position),radii: source.radii,
                 density: source.density,lifetime: source.lifetime,sourceEmitterID: source.id)
         }

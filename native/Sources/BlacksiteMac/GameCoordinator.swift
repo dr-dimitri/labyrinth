@@ -24,6 +24,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var combatFeedback = CombatFeedback()
     let noisePresentation = NativeNoisePresentation()
     let alarmPresentation = NativeAlarmPresentation()
+    let weatherPresentation = NativeWeatherPresentation()
     var showPerformance = false
     var performanceText = ""
     private var inputState = NativeInputState()
@@ -135,7 +136,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     private func activateRun(_ configuration: ActiveRunConfiguration, map: MapDefinition, simulation nextSimulation: CombatSimulation) {
         selectedMap = map; simulation = nextSimulation; activeRun = configuration
         yaw = simulation.player.yaw; pitch = simulation.player.pitch
-        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); weatherPresentation.clear(); audio.reset()
         bannerUntil = 0
         if configuration.mission == .waves {
             banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
@@ -158,7 +159,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         if !map.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData }
         settings.save()
         simulation = CombatSimulation(map: map)
-        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
+        renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); weatherPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0
         clearInput(); hud.refresh()
     }
@@ -180,7 +181,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
-        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
+        renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); weatherPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0; setMode(.menu)
     }
 
@@ -202,6 +203,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     private func process(_ events: [GameEvent]) {
         let now = CACurrentMediaTime()
+        weatherPresentation.consume(events, simulation: simulation)
         let alarmNotice = alarmPresentation.consume(events, simulation: simulation)
         let alarmArrival = alarmPresentation.arrivalNotice(events, simulation: simulation)
         var arrivalSectors = Set<Int>(), arrivals = 0
@@ -225,10 +227,10 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .waveCleared:
                 banner("SEKTOR VORERST GESICHERT", "DURCHATMEN.", "Nachschub erhalten · Nächste Welle in 7 Sekunden", duration: 4)
             case .extractionUnlocked:
-                banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6)
+                banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring bei \(NativeMissionPresentation.extractionTitle(simulation.map)).", duration: 6)
             case .missionPhaseChanged:
                 if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase,
-                    interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings), operation: simulation.operationStatus) {
+                    interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings), operation: simulation.operationStatus, map: simulation.map) {
                     banner(notice.label, notice.title, notice.detail, duration: 4)
                 }
             case .extractionSelected:
@@ -357,7 +359,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         let interact = NativeControlLabels.label(for: .interact, bindings: settings.bindings)
         let alert = NSAlert(); alert.messageText = "Dein Feldhandbuch"
         alert.informativeText = NativeControlLabels.help(settings: settings) + "\n\nAuftrag: \(NativeMissionPresentation.name(mission))\n" +
-            NativeMissionPresentation.rules(mission, interactionLabel: interact) +
+            NativeMissionPresentation.rules(mission, interactionLabel: interact, map: mode == .menu ? selectedMap : simulation.map) +
             "\n\nAR-4: 30 Schuss, automatisch. M82: 5 Schuss, 6× Zielfernrohr.\nKopftreffer verursachen zusätzlichen Schaden. Granaten: 2,8 s Zündzeit.\nDeckung schützt vor Sicht, Beschuss und Granaten. Fässer explodieren.\nAn einer Kante hebt Interagieren dich auf Containerdächer.\nGesundheit regeneriert nach 5,5 Sekunden ohne Treffer."
         alert.addButton(withTitle: "Verstanden"); alert.beginSheetModal(for: window)
     }
@@ -421,7 +423,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             self.settings.difficulty = draft.difficulty; self.settings.selectedCamouflage = draft.camouflage; self.settings.selectedClass = draft.operatorClass
             self.settings.save()
             self.simulation = CombatSimulation(map: draft.map)
-            self.renderer?.reset(); self.combatFeedback.reset(); self.noisePresentation.clear(); self.alarmPresentation.clear(); self.audio.reset()
+            self.renderer?.reset(); self.combatFeedback.reset(); self.noisePresentation.clear(); self.alarmPresentation.clear(); self.weatherPresentation.clear(); self.audio.reset()
             self.bannerUntil = 0; self.toastUntil = 0
             self.clearInput(); self.window.endSheet(panel, returnCode: start ? .OK : .stop)
             self.sheet = nil; self.hud.refresh()

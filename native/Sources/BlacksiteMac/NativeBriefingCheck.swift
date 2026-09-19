@@ -5,9 +5,20 @@ import BlacksiteCore
 /// input. This checks static layout; it does not claim a native interaction test.
 @MainActor
 enum NativeBriefingCheck {
-    static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral)) throws -> [String: Any] {
-        let view = NativeBriefingView(draft: NativeBriefingDraft(map: .blacksite,
-            mission: .operation, difficulty: .normal, camouflage: loadout.camouflage, operatorClass: loadout.operatorClass))
+    static func selectedMap(arguments: [String]) throws -> MapDefinition {
+        guard let index = arguments.firstIndex(of: "--map") else { return .blacksite }
+        guard index + 1 < arguments.count else {
+            throw NSError(domain: "Blacksite.BriefingCheck", code: 3, userInfo: [NSLocalizedDescriptionKey: "--map benötigt eine Karten-ID."])
+        }
+        let id = arguments[index + 1]
+        if let map = PublishedMapRegistry.map(id: id) { return map }
+        // Explicit prepublication layout diagnostic, never a menu entry.
+        if id == "nebelwacht" { return .nebelwacht }
+        throw NativeRunConfigurationError.unavailableMap(id)
+    }
+    static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral), map: MapDefinition = .blacksite) throws -> [String: Any] {
+        let view = NativeBriefingView(draft: NativeBriefingDraft(map: map,
+            mission: .operation, difficulty: .normal, camouflage: loadout.camouflage, operatorClass: loadout.operatorClass), maps: [map])
         view.appearance = NSAppearance(named: .darkAqua)
         view.layoutSubtreeIfNeeded()
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds),

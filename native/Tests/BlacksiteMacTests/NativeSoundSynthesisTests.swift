@@ -4,6 +4,20 @@ import BlacksiteCore
 @testable import BlacksiteMac
 
 struct NativeSoundSynthesisTests {
+    @Test func coastalWarningIsOneFiniteDeterministicWindBuffer() {
+        let gust = NativeSoundSynthesis.gust()
+        #expect(gust == NativeSoundSynthesis.gust())
+        #expect(gust.count == Int(2.6 * NativeSoundSynthesis.sampleRate))
+        #expect(gust.count < 120_000)
+        #expect(gust.allSatisfy { $0.isFinite && abs($0) <= 0.8 })
+        #expect((gust.map(abs).max() ?? 0) > 0.05)
+        #expect(gust.reduce(0.0) { $0 + Double($1 * $1) } > 0.1)
+        #expect(abs(gust.first ?? 1) < 0.001 && abs(gust.last ?? 1) < 0.001)
+        let early = gust.prefix(11_025).reduce(0.0) { $0 + Double($1 * $1) }
+        let rising = gust.dropFirst(66_150).prefix(11_025).reduce(0.0) { $0 + Double($1 * $1) }
+        #expect(rising > early * 10)
+    }
+
     @Test func glassFractureAndPanelTearAreDifferentFiniteCachedSizedSignals() {
         let glass = NativeSoundSynthesis.breakage(kind: .glass)
         let panel = NativeSoundSynthesis.breakage(kind: .lightPanel)
