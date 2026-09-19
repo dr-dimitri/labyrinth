@@ -1367,7 +1367,12 @@ final class NativeRenderer {
         let metal=SIMD3<Float>(0.22,0.27,0.235)
         let material:SIMD4<Float>=SIMD4(0.70,0.20,0,obstacle.damageStage == .damaged ? 17:15)
         appendItem(to:&items,position:p+SIMD3(0,s.y*0.5,0),scale:s,color:metal,material:material)
-        if kind == .generator {
+        if kind == .maintenanceSwitch {
+            appendItem(to:&items,position:p+SIMD3(0,s.y*0.65,s.z*0.5+0.008),scale:SIMD3(s.x*0.8,s.y*0.45,0.016),color:SIMD3(0.09,0.12,0.13),material:SIMD4(0.7,0.1,0,15),shadow:false)
+            for x:Float in [-0.13,0.13] {
+                appendItem(to:&items,position:p+SIMD3(x,s.y*0.68,s.z*0.5+0.018),scale:SIMD3(0.13,0.04,0.016),color:SIMD3(0.72,0.52,0.17),material:SIMD4(0.8,0,0,0),shadow:false)
+            }
+        } else if kind == .generator {
             for side:Float in [-1,1] {
                 appendItem(to:&items,position:p+SIMD3(0,s.y*0.51,side*(s.z*0.5+0.002)),scale:SIMD3(s.x*0.75,s.y*0.42,0.004),color:SIMD3(0.09,0.12,0.105),material:SIMD4(0.9,0.1,0,27),shadow:false)
             }
@@ -1609,6 +1614,13 @@ final class NativeRenderer {
     }
 
     private func appendDeviceProps(to items:inout[RenderItem],simulation:CombatSimulation) {
+        for device in simulation.devices where device.kind == .maintenanceSwitch && !device.destroyed {
+            guard let owner = simulation.obstacles.first(where: { $0.id == device.ownerObstacleID && !$0.destroyed }) else { continue }
+            for (index,on) in [device.enabled,!device.enabled].enumerated() {
+                let color: SIMD3<Float> = device.blockedByActor ? SIMD3(0.8,0.24,0.08) : on ? SIMD3(0.22,0.65,0.35) : SIMD3(0.3,0.08,0.05)
+                appendItem(to:&items,mesh:1,position:owner.position+SIMD3(index == 0 ? -0.13:0.13,owner.size.y*0.51,owner.size.z*0.5+0.022),scale:SIMD3(0.035,0.035,0.014),color:color,material:SIMD4(0.5,0,on ? 0.7:0.1,0),shadow:false)
+            }
+        }
         for light in simulation.spotlights {
             let rotation=simd_float4x4(simd_quatf(from:SIMD3<Float>(0,0,-1),to:light.direction))
             let base=Self.translation(light.position)*rotation
@@ -1616,7 +1628,7 @@ final class NativeRenderer {
             appendTransformed(to:&items,mesh:0,transform:base*Self.translation(SIMD3(0,0,-0.004))*Self.scale(SIMD3(0.34,0.15,0.008)),
                 color:light.enabled ? light.color:SIMD3(0.09,0.10,0.085),material:SIMD4(0.4,0,light.enabled ? light.power*3:0,0),shadow:false)
         }
-        for definition in map.environment.devices where definition.kind == .serviceGate {
+        for definition in map.environment.devices where definition.kind == .serviceGate && definition.controllerID == nil {
             for point in definition.interactionPoints {
                 let p=map.grounded(point)+SIMD3(0,0.9,0)
                 appendItem(to:&items,position:p,scale:SIMD3(0.12,0.28,0.12),color:SIMD3(0.13,0.17,0.15),material:SIMD4(0.8,0.1,0,15))

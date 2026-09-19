@@ -55,7 +55,8 @@ enum MapCoreBenchmark {
         case "nebelwacht": original = .nebelwacht
         case "blacksite": original = .blacksite
         case "sundkai": original = .sundkai
-        default: throw Failure("Unknown map ID; use blacksite, nebelwacht or sundkai")
+        case "kessel9": original = .kessel9
+        default: throw Failure("Unknown map ID; use blacksite, nebelwacht, sundkai or kessel9")
         }
         guard options.enemyCount <= original.spawns.count else {
             throw Failure("Map \(original.id) has only \(original.spawns.count) authored starts")

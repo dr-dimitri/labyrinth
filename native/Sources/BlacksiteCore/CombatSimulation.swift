@@ -267,8 +267,19 @@ public final class CombatSimulation {
         }
         devices = selected.environment.devices.compactMap { definition in
             guard let owner = obstacles.first(where: { $0.id == definition.ownerObstacleID }) else { return nil }
-            return WorldInteractableState(id: definition.id, kind: definition.kind, ownerObstacleID: definition.ownerObstacleID,
+            var state = WorldInteractableState(id: definition.id, kind: definition.kind, ownerObstacleID: definition.ownerObstacleID,
                 interactionPoints: definition.interactionPoints.map { self.map.grounded($0) }, closedPosition: owner.position)
+            if definition.kind == .maintenanceSwitch { state.enabled = false }
+            if definition.initiallyOpen { state.gateProgress = 1; state.targetOpen = true }
+            return state
+        }
+        for definition in selected.environment.devices where definition.initiallyOpen {
+            if let index = obstacles.firstIndex(where: { $0.id == definition.ownerObstacleID }) {
+                let old = obstacles[index]
+                var opened = Obstacle(id: old.id,kind: old.kind,position: old.position+definition.openOffset,size: old.size)
+                opened.health = old.health; opened.destroyed = old.destroyed
+                obstacles[index] = opened
+            }
         }
         spotlights = selected.environment.spotlights.map { definition in
             WorldSpotlightState(id: definition.id, position: self.map.grounded(definition.position),
@@ -1616,6 +1627,7 @@ extension CombatSimulation {
         guard state == .active, !missionContextAvailable else { return nil }
         var nearest: (index: Int, point: SIMD3<Float>, distance: Float)?
         for index in devices.indices {
+            if map.environment.devices.first(where: { $0.id == devices[index].id })?.controllerID != nil { continue }
             for point in devices[index].interactionPoints {
                 let distance = simd_distance(player.position, point)
                 if distance <= 3.5 && distance < (nearest?.distance ?? .infinity) { nearest = (index, point, distance) }
@@ -1637,7 +1649,8 @@ extension CombatSimulation {
         else { reason = nil }
         let manual = device.kind == .serviceGate && !device.powered
         let action: DeviceAction
-        if device.kind == .generator { action = device.enabled ? .disableGenerator : .enableGenerator }
+        if device.kind == .maintenanceSwitch { action = .switchBulkheads }
+        else if device.kind == .generator { action = device.enabled ? .disableGenerator : .enableGenerator }
         else if device.gateProgress > 0 && device.gateProgress < 1 || device.isMoving {
             action = device.targetOpen ? .openGate : .closeGate
         } else { action = device.gateProgress >= 1 ? .closeGate : .openGate }
@@ -1658,6 +1671,12 @@ extension CombatSimulation {
                 devices[index].gateProgress = 1; devices[index].targetOpen = true
                 invalidateDeviceNavigation()
             }
+            if devices[index].kind == .maintenanceSwitch {
+                let linked = map.environment.devices.first { $0.id == devices[index].id }?.linkedGateIDs ?? []
+                for gateIndex in devices.indices where linked.contains(devices[gateIndex].id) {
+                    devices[gateIndex].isMoving = false; devices[gateIndex].blockedByActor = false
+                }
+            }
             if activeDeviceID == devices[index].id { activeDeviceID = nil; deviceInteractionTicks = 0 }
             emit(GameEvent(kind: .deviceDestroyed, position: owner.position, id: devices[index].id, device: devices[index]))
             changed = true
@@ -1677,7 +1696,12 @@ extension CombatSimulation {
         }
         for index in devices.indices where devices[index].kind == .serviceGate && !devices[index].destroyed {
             let definition = map.environment.devices.first { $0.id == devices[index].id }
-            let powered = definition?.generatorID.flatMap { id in devices.first { $0.id == id } }.map { $0.enabled && !$0.destroyed } ?? false
+            let powered: Bool
+            if let controller = definition?.controllerID {
+                powered = devices.contains { $0.id == controller && !$0.destroyed }
+            } else {
+                powered = definition?.generatorID.flatMap { id in devices.first { $0.id == id } }.map { $0.enabled && !$0.destroyed } ?? false
+            }
             let lostMotorPower = devices[index].powered && !powered && devices[index].isMoving && !devices[index].manualMotion
             devices[index].powered = powered
             if lostMotorPower {
@@ -1705,6 +1729,15 @@ extension CombatSimulation {
                 if devices[index].kind == .generator {
                     devices[index].enabled.toggle(); devices[index].powered = devices[index].enabled
                     synchronizeDevicePower()
+                } else if devices[index].kind == .maintenanceSwitch {
+                    devices[index].targetOpen.toggle(); devices[index].isMoving = true
+                    devices[index].blockedByActor = false
+                    let linked = map.environment.devices.first { $0.id == status.id }!.linkedGateIDs
+                    for (offset, id) in linked.enumerated() {
+                        guard let gateIndex = devices.firstIndex(where: { $0.id == id && !$0.destroyed }) else { continue }
+                        devices[gateIndex].targetOpen = offset == 0 ? devices[index].targetOpen : !devices[index].targetOpen
+                        devices[gateIndex].isMoving = true; devices[gateIndex].blockedByActor = false
+                    }
                 } else {
                     devices[index].targetOpen = status.action == .openGate
                     devices[index].isMoving = true; devices[index].blockedByActor = false
@@ -1714,7 +1747,11 @@ extension CombatSimulation {
                 emit(GameEvent(kind: .deviceActivated, position: status.position, id: status.id, device: devices[index]))
             }
         } else { resetDeviceInteraction() }
-        for index in devices.indices where devices[index].kind == .serviceGate && devices[index].isMoving && !devices[index].destroyed {
+        for index in devices.indices where devices[index].kind == .maintenanceSwitch && devices[index].isMoving && !devices[index].destroyed {
+            advanceCoupledGates(index: index, dt: dt)
+        }
+        for index in devices.indices where devices[index].kind == .serviceGate && devices[index].isMoving && !devices[index].destroyed &&
+            map.environment.devices.first(where: { $0.id == devices[index].id })?.controllerID == nil {
             advanceGate(index: index, dt: dt)
         }
     }
@@ -1722,6 +1759,60 @@ extension CombatSimulation {
     private func resetDeviceInteraction() {
         if let id = activeDeviceID, let index = devices.firstIndex(where: { $0.id == id }) { devices[index].interactionProgress = 0 }
         activeDeviceID = nil; deviceInteractionTicks = 0
+    }
+
+    /// One shared motor phase: if either swept collider encounters an actor,
+    /// neither gate advances. Renderer, hits and navigation read these colliders.
+    private func advanceCoupledGates(index: Int, dt: Float) {
+        guard let definition = map.environment.devices.first(where: { $0.id == devices[index].id }) else { return }
+        let progress = clamp(devices[index].gateProgress + (devices[index].targetOpen ? 1 : -1) * 0.5 * dt, 0, 1)
+        var proposals: [(device: Int, owner: Int, old: Obstacle, next: Obstacle, progress: Float)] = []
+        for (offset, id) in definition.linkedGateIDs.enumerated() {
+            guard let gateIndex = devices.firstIndex(where: { $0.id == id && !$0.destroyed }),
+                  let gate = map.environment.devices.first(where: { $0.id == id }),
+                  let owner = obstacles.firstIndex(where: { $0.id == gate.ownerObstacleID && !$0.destroyed }) else { continue }
+            let phase = offset == 0 ? progress : 1-progress
+            let old = obstacles[owner]
+            var next = Obstacle(id: old.id,kind: old.kind,position: devices[gateIndex].closedPosition + gate.openOffset * phase,size: old.size)
+            next.health = old.health; next.destroyed = old.destroyed
+            proposals.append((gateIndex,owner,obstacles[owner],next,phase))
+        }
+        let blocked = proposals.contains { gateSweepOccupied(old: $0.old, next: $0.next) }
+        if blocked {
+            if !devices[index].blockedByActor {
+                emit(GameEvent(kind: .gateBlocked, position: devices[index].interactionPoints[0], id: devices[index].id, device: {
+                    var snapshot = devices[index]; snapshot.blockedByActor = true; return snapshot
+                }()))
+            }
+            devices[index].blockedByActor = true
+            for proposal in proposals { devices[proposal.device].blockedByActor = true }
+            return
+        }
+        let finished = progress == 0 || progress == 1
+        devices[index].gateProgress = progress; devices[index].blockedByActor = false
+        devices[index].isMoving = !finished
+        if finished { devices[index].enabled = devices[index].targetOpen }
+        for proposal in proposals {
+            obstacles[proposal.owner] = proposal.next
+            devices[proposal.device].gateProgress = proposal.progress
+            devices[proposal.device].blockedByActor = false; devices[proposal.device].isMoving = !finished
+            if !navigationDirty && gateChangesNavigation(old: proposal.old, new: proposal.next) { invalidateDeviceNavigation() }
+        }
+        refreshSmokeClips()
+        if finished { emit(GameEvent(kind: .gateStopped, position: devices[index].interactionPoints[0], id: devices[index].id, device: devices[index])) }
+    }
+
+    private func gateSweepOccupied(old: Obstacle, next: Obstacle) -> Bool {
+        let low = simd_min(old.minimum, next.minimum) - SIMD3<Float>(repeating: 0.006)
+        let high = simd_max(old.maximum, next.maximum) + SIMD3<Float>(repeating: 0.006)
+        func overlaps(_ position: SIMD3<Float>, height: Float, radius: Float) -> Bool {
+            position.x + radius > low.x && position.x - radius < high.x &&
+            position.z + radius > low.z && position.z - radius < high.z &&
+            position.y + height > low.y && position.y < high.y
+        }
+        return overlaps(player.position, height: player.height, radius: 0.32) || enemies.contains {
+            $0.health > 0 && overlaps($0.position, height: EnemyPose($0).totalHeight, radius: 0.38)
+        }
     }
 
     private func advanceGate(index: Int, dt: Float) {
@@ -1733,16 +1824,7 @@ extension CombatSimulation {
         var next = Obstacle(id: old.id, kind: old.kind,
             position: devices[index].closedPosition + definition.openOffset * progress, size: old.size)
         next.health = old.health
-        let low = simd_min(old.minimum, next.minimum) - SIMD3<Float>(repeating: 0.006)
-        let high = simd_max(old.maximum, next.maximum) + SIMD3<Float>(repeating: 0.006)
-        func overlaps(_ position: SIMD3<Float>, height: Float, radius: Float) -> Bool {
-            position.x + radius > low.x && position.x - radius < high.x &&
-            position.z + radius > low.z && position.z - radius < high.z &&
-            position.y + height > low.y && position.y < high.y
-        }
-        let blocked = overlaps(player.position, height: player.height, radius: 0.32) || enemies.contains {
-            $0.health > 0 && overlaps($0.position, height: EnemyPose($0).totalHeight, radius: 0.38)
-        }
+        let blocked = gateSweepOccupied(old: old, next: next)
         if blocked {
             if !devices[index].blockedByActor {
                 devices[index].blockedByActor = true

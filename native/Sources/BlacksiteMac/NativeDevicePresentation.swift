@@ -15,6 +15,32 @@ struct NativeDevicePresentation {
         fraction = min(1, max(0, operating ? status.gateProgress :
             status.requiredProgress > 0 ? status.progress / status.requiredProgress : 0))
         showsProgress = !status.destroyed && (operating || status.interactionAvailable)
+        if status.kind == .maintenanceSwitch {
+            if status.destroyed {
+                title = "WARTUNGSSCHALTER ZERSTÖRT"
+                detail = "Schotts bleiben stehen · Kabelrampe im Osten bleibt frei"
+            } else if status.blockedByActor {
+                title = "WARTUNGSSCHOTTS WARTEN"
+                detail = "Beide Öffnungen freigeben · Schotts fahren danach gemeinsam weiter"
+            } else if status.isMoving {
+                title = "WARTUNGSSCHOTTS FAHREN"
+                detail = "Durchgänge wechseln · Kabelrampe im Osten bleibt frei"
+            } else if !isBound {
+                title = "INTERAGIEREN NICHT BELEGT"
+                detail = "In Einstellungen zuweisen · Schotts gemeinsam umschalten"
+            } else {
+                title = status.interactionAvailable ? "\(binding) HALTEN · SCHOTTS UMSCHALTEN" : "SCHOTTS UMSCHALTEN"
+                let state = status.enabled ? "Westschott offen · Ostschott zu" : "Westschott zu · Ostschott offen"
+                switch status.interruption {
+                case .releaseRequired: detail = "Taste loslassen, dann erneut halten · " + state
+                case .notGrounded: detail = "Am Boden stehen · " + state
+                case .occluded: detail = "Bedienfeld freilegen · " + state
+                case .outOfRange: detail = "Wartungsschalter erreichen · \(Int(ceil(max(0,status.distance)))) m"
+                default: detail = state + " · Kabelrampe immer frei"
+                }
+            }
+            return
+        }
         if status.destroyed {
             title = status.kind == .generator ? "GENERATOR ZERSTÖRT" : "SERVICETOR OFFEN"
             detail = status.kind == .generator ? (suppliesRadio ? "Licht, Funk und Maschinenlärm aus · Tor von Hand bedienen" : "Licht und Maschinenlärm aus · Tor von Hand bedienen") : "Durchgang frei · Reguläre Wege bleiben nutzbar"
@@ -39,6 +65,9 @@ struct NativeDevicePresentation {
         case .disableGenerator:
             action = "GENERATOR ABSCHALTEN"
             consequence = suppliesRadio ? "STROM AN · Licht, Funk und Geräuschdeckung entfallen" : "STROM AN · Licht und Geräuschdeckung entfallen"
+        case .switchBulkheads:
+            action = "WARTUNGSSCHOTTS UMSCHALTEN"
+            consequence = "Kabelrampe im Osten bleibt frei"
         case .openGate:
             action = "SERVICETOR ÖFFNEN"
             consequence = "TOR ZU · Öffnet Durchgang und Sichtlinie"

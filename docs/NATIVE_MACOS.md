@@ -254,3 +254,9 @@ Eine spätere Messung des damaligen Waffenstands mit überarbeitetem Sturmgewehr
 Das Build-Skript versieht die App standardmäßig mit einer lokalen Ad-hoc-Signatur und prüft anschließend die Integrität des Bundles. `--no-sign` überspringt diesen Schritt. Eine Ad-hoc-Signatur ist keine Developer-ID-Signatur; die App ist nicht von Apple notarisiert. Für eine reguläre öffentliche Verteilung benötigt man eine eigene Developer-ID-Signierung und Notarisierung.
 
 Die mitgelieferten Poly-Haven-Texturen stehen unter CC0; Quellcode und eigene Geometrie unter der Projektlizenz. Die App enthält `ASSET-CREDITS.txt`, `ASSETS.md` und `LICENSE.txt` in `Contents/Resources`. Die vollständige Herkunft der ursprünglichen Ressourcen ist in [ASSETS.md](ASSETS.md) dokumentiert.
+
+### Kessel-9
+
+Im Einsatzbriefing steht die Gebirgssperre Kessel-9 bereit: Leitstanddaten sichern, den unteren Funkverteiler aktivieren und acht Sekunden halten, anschließend einen von zwei Ausgängen erreichen. Am Wartungsschalter tauscht gehaltenes **E** die offenen Kanalspuren. Steht eine Figur im Bewegungsbereich, warten beide Schotts. Zerstörung des Schalters stoppt die Schotts in ihrer tatsächlichen Stellung. Westlicher Betriebsweg und östliche Kabelrampe bleiben benutzbar; die östlichen Deckungsbuchten bieten einen geschützten Rückweg.
+
+Grafikprüfungen: `--scene kessel-overview`, `kessel-gates`, `kessel-switched` und `kessel-aftermath`. Die Umschaltansicht verwendet echte gehaltene Eingabe; die Nachkampfaufnahme normale Granaten. Diese kurzen Szenen ersetzen keinen vollständigen menschlichen Kampfdurchlauf. Der Core-Benchmark unterstützt `--map kessel9 --grenades`.

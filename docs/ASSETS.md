@@ -102,3 +102,7 @@ Die folgenden Dateien enthalten genaue Download-URLs, Dateigrößen, SHA-256-Pr�
 - [Nativer SWAT-Soldat, Originaltexturen und Animationen](../native/Assets/characters/soldier/SOURCE.json)
 
 `npm test` prüft unter anderem diese Prüfsummen, Bildabmessungen, GLB-Datenbereiche, Materialkarten und die Skelettgewichte des Steinwächters.
+
+## Kessel-9: vorhandene fotografische Materialien
+
+Kessel-9 verwendet die unveränderten Beton- und Felskarten aus dem oben dokumentierten Nebelwacht-Satz sowie den vorhandenen Blacksite-Himmel und Metall-/Figurenressourcen. Neue Bilddateien oder Lizenzen kommen nicht hinzu. Betonrippen, Wartungsschotts, Kabelrampe und Staumauerkulisse sind eigene Spielgeometrie. Beton verwendet 1,55 m, Fels 2 m Materialmaßstab; die Auswahl wird wie bei den übrigen Karten ausschließlich für die aktive Karte auf die GPU geladen.

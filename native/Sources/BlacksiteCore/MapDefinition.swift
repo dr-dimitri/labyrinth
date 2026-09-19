@@ -356,6 +356,25 @@ public struct MapDefinition: Sendable {
                   finite(device.openOffset) else {
                 throw MapValidationError("Karte \(id): Gerät \(device.id) besitzt ungültige Verbindungen oder Bedienpunkte.")
             }
+            if device.kind == .maintenanceSwitch {
+                guard device.linkedGateIDs.count == 2, Set(device.linkedGateIDs).count == 2,
+                      device.controllerID == nil, device.generatorID == nil, !device.initiallyOpen,
+                      device.linkedGateIDs.enumerated().allSatisfy({ offset, id in
+                          environment.devices.contains { $0.id == id && $0.kind == .serviceGate &&
+                              $0.controllerID == device.id && $0.initiallyOpen == (offset == 1) }
+                      }) else { throw MapValidationError("Karte \(id): Wartungsschalter benötigt zwei gegensinnig gestartete, eindeutig zugeordnete Schotts.") }
+            } else if !device.linkedGateIDs.isEmpty {
+                throw MapValidationError("Karte \(id): Nur Wartungsschalter dürfen gekoppelte Schotts besitzen.")
+            }
+            if let controller = device.controllerID {
+                guard device.kind == .serviceGate, device.generatorID == nil,
+                      environment.devices.contains(where: { $0.id == controller && $0.kind == .maintenanceSwitch && $0.linkedGateIDs.contains(device.id) }) else {
+                    throw MapValidationError("Karte \(id): Gekoppeltes Schott benötigt den zugehörigen Wartungsschalter.")
+                }
+            }
+            if device.initiallyOpen && device.kind != .serviceGate {
+                throw MapValidationError("Karte \(id): Nur Schotts können offen starten.")
+            }
             if device.kind == .serviceGate {
                 // Current gate is a vertical lift: thin footprint cannot be mantled,
                 // and its unambiguous height threshold keeps navigation bounded.
@@ -588,6 +607,8 @@ public struct MapDefinition: Sendable {
             }
         }
     }
+
+    public static let kessel9: MapDefinition = try! Kessel9Definition.make()
 
     public static let sundkai: MapDefinition = try! SundkaiDefinition.make()
 

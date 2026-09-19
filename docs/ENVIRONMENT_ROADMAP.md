@@ -26,7 +26,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Eingaben vorgemerkt |
 | #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik- und Speicherprüfung bestanden; native Eingaben vorgemerkt |
 | #28 | Sundkai | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik-/Speicherprüfung und native Start-/Eingabeprüfung bestanden |
-| #29 | Kessel-9 | Offen |
+| #29 | Kessel-9 | Umgesetzt, Review, Tests, Release, Grafik-/Speicherprüfung und native Bedienprüfung bestanden |
 | #30 | Sirocco | Offen |
 | #31 | Varianten und Einsatzbericht | Offen |
 
@@ -429,3 +429,35 @@ wiederhergestellt. Deterministischer Retry und vollständige Missionswege sind
 automatisiert geprüft; der native Kurztest ist kein kompletter manueller Einsatz.
 Auf Wunsch des Nutzers endet die Arbeit nach diesem Issue. Weitere Karten,
 Varianten und die gemeinsame Veröffentlichung bleiben offen.
+
+
+### #29 – Gekoppelte Wartungsschotts in Kessel-9
+
+Kessel-9 ergänzt drei reale Wege, eine östliche Geländerampe und die Folge
+Leitstanddaten → unteren Funkverteiler acht Sekunden halten → Ausgang wählen.
+Ein Schalter tauscht zwei Schotts; ein belegter Bewegungsraum pausiert beide.
+Zerstörung des Schalters hält die tatsächliche Stellung, beide äußeren Umwege
+bleiben offen. Neun physische Operationsdurchläufe decken alle Klassen und
+normale, vorbereitete sowie zerstörte Schalterzustände ab. Tests isolieren den
+Kampf; vollständige menschliche Kampfdurchläufe werden damit nicht behauptet.
+
+Unabhängiges Core-/Mac-/Bildreview abgeschlossen. 219 Core- und 209 gemeldete
+Mac-Tests bestanden, nach den letzten Briefing-/Diagnosekorrekturen fünf
+gezielte Mac-Tests. Release-Build und Signaturprüfung bestanden. Native Auswahl,
+Feldoperationsstart, Granatenverbrauch und Pause/Fortsetzen wurden bedient.
+Das Bildreview führte zu einer versetzten Gerätemarkierung mit Ankerlinie,
+damit der Funkpunkt lesbar bleibt, und zur Schalterlegende. Diagnoseeffekte
+werden nun bei jedem tatsächlichen Simulationsschritt an den Renderer übergeben.
+
+Core-Median: 12,80 µs pro Schritt, neun Startgegner mit echten Alarmfolgen und
+Granaten. GPU-P95 bei 2560×1600: 12,07 ms Hoch / 10,09 ms Ausgewogen;
+Allokationen 1170,64 / 321,94 MiB. Die Karten-Rundwechsel stabilisieren sich.
+Diese Werte sind Teilzeiten, keine Gesamtbildrate. [Prüfdaten](native-environment/issue29.json).
+
+### #33 – Nahziele hinter dünnen Wänden
+
+Das unabhängige Review reproduzierte eine Wache, die trotz gültigem Umweg vor
+dem Westpaneel stehenblieb. Der direkte Anlauf auf Ziele unter 2,6 m prüft jetzt
+den vorhandenen Körper-Sweep; bei blockiertem Weg bleibt der berechnete Umweg.
+Zwei Regressionen verwenden echte Bewegung am intakten und geöffneten Paneel.
+Issue separat angelegt und Fix unabhängig geprüft; Commit `f6c2490`.

@@ -67,7 +67,8 @@ final class NativeBriefingMapView: NSView {
         for device in map.environment.devices {
             guard let owner=map.obstacles.first(where: { $0.id==device.ownerObstacleID }) else { continue }
             let generator=device.kind == .generator
-            known.append(Marker(position:owner.position,code:generator ? "G":"T",title:generator ? "Generator":"Servicetor",
+            let control=device.kind == .maintenanceSwitch
+            known.append(Marker(position:owner.position,code:generator ? "G":control ? "W":"T",title:generator ? "Generator":control ? "Wartungsschalter":"Servicetor",
                                 symbol:.device,emphasized:mission == .operation,color:Self.muted))
         }
         markers=known
@@ -136,6 +137,7 @@ final class NativeBriefingMapView: NSView {
         if markers.contains(where: { $0.code.hasPrefix("R") }) { legend.append("R Relais") }
         if markers.contains(where: { $0.code == "G" }) { legend.append("G Strom") }
         if markers.contains(where: { $0.code == "T" }) { legend.append("T Tor") }
+        if markers.contains(where: { $0.code == "W" }) { legend.append("W Schalter") }
         label(legend.joined(separator: " · "),rect:NSRect(x:14,y:legendY+17,width:bounds.width-28,height:15),size:9,color:Self.muted)
         drawScale(in:frame)
     }
@@ -161,7 +163,18 @@ final class NativeBriefingMapView: NSView {
         Self.muted.withAlphaComponent(0.13).setStroke();grid.stroke()
     }
     private func draw(_ marker:Marker,in frame:NSRect) {
-        let point=project(marker.position,in:frame),radius:CGFloat=marker.emphasized ? 7.5:6
+        let anchor=project(marker.position,in:frame),radius:CGFloat=marker.emphasized ? 7.5:6
+        var point=anchor
+        if marker.symbol == .device, markers.contains(where: {
+            guard $0.symbol == .objective else { return false }
+            let other=project($0.position,in:frame)
+            return abs(other.x-anchor.x)<18 && abs(other.y-anchor.y)<18
+        }) {
+            point.x=max(frame.minX+11,anchor.x-21)
+            point.y=max(frame.minY+11,anchor.y-12)
+            let leader=NSBezierPath();leader.move(to:anchor);leader.line(to:point)
+            Self.muted.setStroke();leader.lineWidth=0.7;leader.stroke()
+        }
         let shape:NSBezierPath
         switch marker.symbol {
         case .start: shape=NSBezierPath(ovalIn:NSRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2))

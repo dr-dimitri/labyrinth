@@ -109,21 +109,22 @@ struct BlacksiteMain {
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let loadout = try NativeLoadoutCheck.loadout(arguments: args)
-                let sundkaiCheck = try NativeSundkaiCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
-                let fjordCheck = sundkaiCheck == nil ? try NativeFjordCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let classCheck = sundkaiCheck == nil && fjordCheck == nil ? try NativeClassCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let breachCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil ? try NativeBreachCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let smokeCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil ? try NativeSmokeCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let mapCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil ? try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let operationCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let alarmCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let deviceCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let soundCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let environmentCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let missionCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let sceneCheck = sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                var simulation = sundkaiCheck?.simulation ?? fjordCheck?.simulation ?? classCheck?.simulation ?? breachCheck?.simulation ?? smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
-                if sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
+                let industrialCheck = try NativeIndustrialCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
+                let sundkaiCheck = industrialCheck == nil ? try NativeSundkaiCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let fjordCheck = industrialCheck == nil && sundkaiCheck == nil ? try NativeFjordCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let classCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil ? try NativeClassCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let breachCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil ? try NativeBreachCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let smokeCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil ? try NativeSmokeCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let mapCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil ? try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let operationCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let alarmCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let deviceCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let soundCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let environmentCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let missionCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let sceneCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                var simulation = industrialCheck?.simulation ?? sundkaiCheck?.simulation ?? fjordCheck?.simulation ?? classCheck?.simulation ?? breachCheck?.simulation ?? smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
+                if industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -145,7 +146,8 @@ struct BlacksiteMain {
                     result.merge(effectsCheck) { _, value in value }
                     result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
-                    result.merge(sundkaiCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(industrialCheck?.metadata ?? [:]) { _, value in value }
+                result.merge(sundkaiCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(fjordCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(classCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(breachCheck?.metadata ?? [:]) { _, value in value }
@@ -169,6 +171,7 @@ struct BlacksiteMain {
                 result.merge(effectsCheck) { _, value in value }
                 result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
+                result.merge(industrialCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(sundkaiCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(fjordCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(classCheck?.metadata ?? [:]) { _, value in value }

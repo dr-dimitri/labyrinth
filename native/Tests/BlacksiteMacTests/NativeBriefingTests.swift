@@ -49,7 +49,7 @@ struct NativeBriefingTests {
     }
 
     @Test func minimumWindowHasCompleteKeyboardChainReadableInventoryAndKnownMap() {
-        for map in [MapDefinition.blacksite, .nebelwacht, .sundkai] {
+        for map in [MapDefinition.blacksite, .nebelwacht, .sundkai, .kessel9] {
         for mission in MissionKind.allCases {
             for pattern in CamouflagePattern.allCases {
               for role in OperatorClass.allCases {

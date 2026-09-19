@@ -1,0 +1,3820 @@
+{
+  "issue": 29,
+  "status": "Implemented and independently reviewed; full tests, release build, native start/pause/input and GPU checks passed. Final briefing marker/event-fixture corrections passed targeted tests; included in next release packaging.",
+  "budgets": {
+    "referenceCommit": "1033fb1",
+    "device": "Apple M2 Pro",
+    "width": 2560,
+    "height": 1600,
+    "coreMedianMicrosecondsPerStep9AI": 25,
+    "highGpuP95Milliseconds": 16.7,
+    "balancedGpuP95Milliseconds": 14,
+    "highGPUAllocatedMiB": 1250,
+    "balancedGPUAllocatedMiB": 360,
+    "qualification": "Subsystem timings; no whole-game FPS claim. Same inherited ceilings set before graphics acceptance."
+  },
+  "beforeSundkai": {
+    "high": {
+      "acceptedGrenadeThrows": 0,
+      "acceptedJumps": 0,
+      "activeBreachSurfaces": 0,
+      "activeFlashes": 0,
+      "activeSmoke": 0,
+      "activeSparks": 0,
+      "activeWeatherWarningLights": 0,
+      "airborneFootsteps": 0,
+      "airborneTicks": 0,
+      "alarmArrivalEvents": 0,
+      "alarmPropInstances": 28,
+      "alarmReporterVisuals": 0,
+      "backend": "Metal",
+      "breachChargeVisuals": 0,
+      "breachFrameBodies": 0,
+      "cameraPitch": -0.04139244928956032,
+      "cameraYaw": 0.07677189260721207,
+      "camouflage": "none",
+      "camouflageClothingInstances": 0,
+      "clearGlassShadowCasters": 0,
+      "clearGlassSurfaces": 0,
+      "coastalWaterSurfaces": 2,
+      "coastalWaterVertices": 24576,
+      "combatEffectDrawCalls": 0,
+      "combatParticleDrops": 0,
+      "combatParticleLimit": 256,
+      "combatParticles": 0,
+      "coverCacheEntries": 13,
+      "cpuAverageMs": 3.2104458330043903,
+      "cpuP95Ms": 3.380624984856695,
+      "damagedCoverCount": 0,
+      "debrisCacheEntries": 0,
+      "decalMaterials": {},
+      "decorativeDebrisInstances": 0,
+      "device": "Apple M2 Pro",
+      "drawCalls": 59,
+      "droppedSoldiers": 0,
+      "exitsLockedAfterFirstRelay": false,
+      "explosionEvents": 0,
+      "explosions": [],
+      "farShadowInstances": 1857,
+      "firstRelayCompletedIDs": [],
+      "fixtureElapsed": 0.24999999999999997,
+      "fixtureMap": "sundkai",
+      "fixtureMapVersion": 1,
+      "fixtureScope": "short real Sundkai actions with nine normal authored guards and any actual alarm arrivals; not a mission playthrough",
+      "fixtureSeed": 1745,
+      "footContactPatches": 18,
+      "forestTrees": 19,
+      "frames": 120,
+      "gameplaySmokeVolumes": 0,
+      "gameplayVegetationAlphaWidth": 0,
+      "gameplayVegetationInstances": 4,
+      "gameplayVegetationPlantBudget": 512,
+      "gameplayVegetationPlants": 128,
+      "gameplayVegetationVertices": 82944,
+      "gameplayVegetationZones": 4,
+      "gpuAllocatedMB": 1077.6875,
+      "gpuAverageMs": 8.047890625069462,
+      "gpuP95Ms": 13.517375016817823,
+      "grenadeInventory": 4,
+      "grounded": true,
+      "height": 1600,
+      "impactDecalDrops": 0,
+      "impactDecalLimit": 80,
+      "impactDecals": 0,
+      "initialLiveSoldiers": 9,
+      "invalidSoldierPoses": 0,
+      "levelDetailInstanceBudget": 96,
+      "levelDetailInstances": 0,
+      "liveSoldiers": 9,
+      "loadoutCamouflage": "none",
+      "loadoutClass": "assault",
+      "loadoutFragmentationGrenades": 4,
+      "mapID": "sundkai",
+      "mapSunIntensity": 0.8500000238418579,
+      "mapSupportSurfaces": 3,
+      "mapSurfaceWetness": 0.3199999928474426,
+      "mapTerrainVertices": 76560,
+      "mapTextureReferences": 29,
+      "mapVersion": 1,
+      "missionPhase": "waves",
+      "missionPropInstances": 0,
+      "missionPropShadowCasters": 0,
+      "missionRingSegments": 0,
+      "nearShadowInstances": 149,
+      "nearShadowResolution": 2048,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "objectiveCompletionOrder": [],
+      "operationExitMarkers": 0,
+      "operationMarkerIDs": [],
+      "operatorClass": "assault",
+      "operatorVisualParts": 0,
+      "phaseAfterFirstRelay": "",
+      "playerCamouflagePattern": "none",
+      "playerEye": [
+        0,
+        2.619999885559082,
+        34
+      ],
+      "playerFeet": [
+        0,
+        1,
+        34
+      ],
+      "playerHealth": 100,
+      "radomeSurfaces": 0,
+      "radomeVertices": 5760,
+      "reconMarkerShadowCasters": 0,
+      "relayTerminalVisuals": 0,
+      "renderTargetAccounting": "current render pass attachments",
+      "reverseRelays": false,
+      "samples": 4,
+      "scene": "sundkai-overview",
+      "sceneryInstances": 1487,
+      "serialFrameAverageMs": 11.922672568713702,
+      "shallowWaterDrawCalls": 1,
+      "shallowWaterRenderTargets": 0,
+      "shallowWaterTransparencyLayers": 1,
+      "shallowWaterTriangles": 1596,
+      "shallowWaterUniformBytes": 144,
+      "shallowWaterZones": 2,
+      "shotEndpoints": [],
+      "shotEvents": 0,
+      "shotsWithoutSurfaceImpact": 0,
+      "skinnedSoldiers": 9,
+      "skyTextureWidth": 8192,
+      "smokeDensities": [],
+      "smokeGrenadeVisuals": 0,
+      "smokeUniformBytes": 336,
+      "smokeVolumeDrawCalls": 0,
+      "soldierContacts": [
+        {
+          "feet": [
+            -32,
+            1,
+            -35
+          ],
+          "grounded": true,
+          "id": 9880,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            4,
+            1,
+            -35
+          ],
+          "grounded": true,
+          "id": 9881,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            -30
+          ],
+          "grounded": true,
+          "id": 9882,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            -5
+          ],
+          "grounded": true,
+          "id": 9883,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            20
+          ],
+          "grounded": true,
+          "id": 9884,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            35
+          ],
+          "grounded": true,
+          "id": 9885,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            35
+          ],
+          "grounded": true,
+          "id": 9886,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            4
+          ],
+          "grounded": true,
+          "id": 9887,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            -18
+          ],
+          "grounded": true,
+          "id": 9888,
+          "waterDepth": 0
+        }
+      ],
+      "soldierDrawCallsIncludingShadows": 10,
+      "soldierTextureWidth": 2048,
+      "soldierTriangles": 175050,
+      "solidDebrisCount": 0,
+      "spotlightPowers": [],
+      "spotShadowInstances": [],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [],
+      "textureDimensions": {
+        "environment/sunrise.jpg": [
+          8192,
+          4096
+        ],
+        "maps/sundkai/foliage/broadleaf/alpha.jpg": [
+          2048,
+          2048
+        ],
+        "maps/sundkai/foliage/broadleaf/color.jpg": [
+          4096,
+          4096
+        ],
+        "maps/sundkai/foliage/broadleaf/normal.jpg": [
+          2048,
+          2048
+        ],
+        "maps/sundkai/foliage/broadleaf/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "maps/sundkai/textures/mud/color.jpg": [
+          4096,
+          4096
+        ],
+        "maps/sundkai/textures/mud/normal.jpg": [
+          2048,
+          2048
+        ],
+        "maps/sundkai/textures/mud/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "Soldier body-color": [
+          2048,
+          2048
+        ],
+        "Soldier body-normal": [
+          2048,
+          2048
+        ],
+        "Soldier head-color": [
+          2048,
+          2048
+        ],
+        "Soldier head-normal": [
+          2048,
+          2048
+        ],
+        "Soldier matte cloth roughness": [
+          1,
+          1
+        ],
+        "textures/floor/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/floor/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/floor/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-bark/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-bark/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-bark/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-rock/color.jpg": [
+          4096,
+          4096
+        ],
+        "textures/forest-rock/normal.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-rock/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-fabric/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/weapon-fabric/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-fabric/roughness.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/weapon-metal/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/roughness.jpg": [
+          1024,
+          1024
+        ]
+      },
+      "textureMemoryMB": {
+        "foliage": 223.359375,
+        "landscape": 330.765625,
+        "renderTargets": 142.875,
+        "shadows": 33.265625,
+        "sky": 172.015625,
+        "soldiers": 86.0626220703125,
+        "total": 1044.9376220703125,
+        "weapons": 56.59375
+      },
+      "textureQuality": "high",
+      "unlockedExits": [],
+      "visibleInstances": 3599,
+      "visibleReconMarkers": 0,
+      "walkedDistance": 0,
+      "warmupFrames": 10,
+      "waterContact": null,
+      "waterDisabled": false,
+      "waterExplosionEvents": 0,
+      "waterFootsteps": 0,
+      "waterImpactEvents": 0,
+      "waterImpactPositions": [],
+      "waterLandings": 0,
+      "waterRippleLimit": 32,
+      "waterRipples": 0,
+      "waterSounds": [],
+      "waterZones": [
+        {
+          "id": 2860,
+          "maximum": [
+            10,
+            25
+          ],
+          "minimum": [
+            -10,
+            5
+          ],
+          "surfaceHeight": 1
+        },
+        {
+          "id": 2861,
+          "maximum": [
+            10,
+            -1
+          ],
+          "minimum": [
+            -10,
+            -21
+          ],
+          "surfaceHeight": 1
+        }
+      ],
+      "weatherWarningBeacons": 0,
+      "width": 2560
+    },
+    "balanced": {
+      "acceptedGrenadeThrows": 0,
+      "acceptedJumps": 0,
+      "activeBreachSurfaces": 0,
+      "activeFlashes": 0,
+      "activeSmoke": 0,
+      "activeSparks": 0,
+      "activeWeatherWarningLights": 0,
+      "airborneFootsteps": 0,
+      "airborneTicks": 0,
+      "alarmArrivalEvents": 0,
+      "alarmPropInstances": 28,
+      "alarmReporterVisuals": 0,
+      "backend": "Metal",
+      "breachChargeVisuals": 0,
+      "breachFrameBodies": 0,
+      "cameraPitch": -0.04139244928956032,
+      "cameraYaw": 0.07677189260721207,
+      "camouflage": "none",
+      "camouflageClothingInstances": 0,
+      "clearGlassShadowCasters": 0,
+      "clearGlassSurfaces": 0,
+      "coastalWaterSurfaces": 2,
+      "coastalWaterVertices": 24576,
+      "combatEffectDrawCalls": 0,
+      "combatParticleDrops": 0,
+      "combatParticleLimit": 128,
+      "combatParticles": 0,
+      "coverCacheEntries": 13,
+      "cpuAverageMs": 3.0134763881505933,
+      "cpuP95Ms": 3.654583328170702,
+      "damagedCoverCount": 0,
+      "debrisCacheEntries": 0,
+      "decalMaterials": {},
+      "decorativeDebrisInstances": 0,
+      "device": "Apple M2 Pro",
+      "drawCalls": 59,
+      "droppedSoldiers": 0,
+      "exitsLockedAfterFirstRelay": false,
+      "explosionEvents": 0,
+      "explosions": [],
+      "farShadowInstances": 1857,
+      "firstRelayCompletedIDs": [],
+      "fixtureElapsed": 0.24999999999999997,
+      "fixtureMap": "sundkai",
+      "fixtureMapVersion": 1,
+      "fixtureScope": "short real Sundkai actions with nine normal authored guards and any actual alarm arrivals; not a mission playthrough",
+      "fixtureSeed": 1745,
+      "footContactPatches": 18,
+      "forestTrees": 19,
+      "frames": 120,
+      "gameplaySmokeVolumes": 0,
+      "gameplayVegetationAlphaWidth": 0,
+      "gameplayVegetationInstances": 4,
+      "gameplayVegetationPlantBudget": 512,
+      "gameplayVegetationPlants": 128,
+      "gameplayVegetationVertices": 82944,
+      "gameplayVegetationZones": 4,
+      "gpuAllocatedMB": 301.28125,
+      "gpuAverageMs": 7.891673958996155,
+      "gpuP95Ms": 11.69762498466298,
+      "grenadeInventory": 4,
+      "grounded": true,
+      "height": 1600,
+      "impactDecalDrops": 0,
+      "impactDecalLimit": 40,
+      "impactDecals": 0,
+      "initialLiveSoldiers": 9,
+      "invalidSoldierPoses": 0,
+      "levelDetailInstanceBudget": 96,
+      "levelDetailInstances": 0,
+      "liveSoldiers": 9,
+      "loadoutCamouflage": "none",
+      "loadoutClass": "assault",
+      "loadoutFragmentationGrenades": 4,
+      "mapID": "sundkai",
+      "mapSunIntensity": 0.8500000238418579,
+      "mapSupportSurfaces": 3,
+      "mapSurfaceWetness": 0.3199999928474426,
+      "mapTerrainVertices": 76560,
+      "mapTextureReferences": 29,
+      "mapVersion": 1,
+      "missionPhase": "waves",
+      "missionPropInstances": 0,
+      "missionPropShadowCasters": 0,
+      "missionRingSegments": 0,
+      "nearShadowInstances": 149,
+      "nearShadowResolution": 1024,
+      "noiseDecoyVisuals": 0,
+      "noiseEmitterVisuals": 1,
+      "noisePropInstances": 4,
+      "objectiveCompletionOrder": [],
+      "operationExitMarkers": 0,
+      "operationMarkerIDs": [],
+      "operatorClass": "assault",
+      "operatorVisualParts": 0,
+      "phaseAfterFirstRelay": "",
+      "playerCamouflagePattern": "none",
+      "playerEye": [
+        0,
+        2.619999885559082,
+        34
+      ],
+      "playerFeet": [
+        0,
+        1,
+        34
+      ],
+      "playerHealth": 100,
+      "radomeSurfaces": 0,
+      "radomeVertices": 5760,
+      "reconMarkerShadowCasters": 0,
+      "relayTerminalVisuals": 0,
+      "renderTargetAccounting": "current render pass attachments",
+      "reverseRelays": false,
+      "samples": 1,
+      "scene": "sundkai-overview",
+      "sceneryInstances": 1487,
+      "serialFrameAverageMs": 11.774086110138645,
+      "shallowWaterDrawCalls": 1,
+      "shallowWaterRenderTargets": 0,
+      "shallowWaterTransparencyLayers": 1,
+      "shallowWaterTriangles": 1596,
+      "shallowWaterUniformBytes": 144,
+      "shallowWaterZones": 2,
+      "shotEndpoints": [],
+      "shotEvents": 0,
+      "shotsWithoutSurfaceImpact": 0,
+      "skinnedSoldiers": 9,
+      "skyTextureWidth": 4096,
+      "smokeDensities": [],
+      "smokeGrenadeVisuals": 0,
+      "smokeUniformBytes": 336,
+      "smokeVolumeDrawCalls": 0,
+      "soldierContacts": [
+        {
+          "feet": [
+            -32,
+            1,
+            -35
+          ],
+          "grounded": true,
+          "id": 9880,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            4,
+            1,
+            -35
+          ],
+          "grounded": true,
+          "id": 9881,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            -30
+          ],
+          "grounded": true,
+          "id": 9882,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            -5
+          ],
+          "grounded": true,
+          "id": 9883,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            20
+          ],
+          "grounded": true,
+          "id": 9884,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            32,
+            1,
+            35
+          ],
+          "grounded": true,
+          "id": 9885,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            35
+          ],
+          "grounded": true,
+          "id": 9886,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            4
+          ],
+          "grounded": true,
+          "id": 9887,
+          "waterDepth": 0
+        },
+        {
+          "feet": [
+            -32,
+            1,
+            -18
+          ],
+          "grounded": true,
+          "id": 9888,
+          "waterDepth": 0
+        }
+      ],
+      "soldierDrawCallsIncludingShadows": 10,
+      "soldierTextureWidth": 1024,
+      "soldierTriangles": 175050,
+      "solidDebrisCount": 0,
+      "spotlightPowers": [],
+      "spotShadowInstances": [],
+      "spotShadowResolution": 512,
+      "spotShadowTerrainVertices": [],
+      "textureDimensions": {
+        "environment/sunrise.jpg": [
+          4096,
+          2048
+        ],
+        "maps/sundkai/foliage/broadleaf/alpha.jpg": [
+          1024,
+          1024
+        ],
+        "maps/sundkai/foliage/broadleaf/color.jpg": [
+          2048,
+          2048
+        ],
+        "maps/sundkai/foliage/broadleaf/normal.jpg": [
+          1024,
+          1024
+        ],
+        "maps/sundkai/foliage/broadleaf/roughness.jpg": [
+          512,
+          512
+        ],
+        "maps/sundkai/textures/mud/color.jpg": [
+          2048,
+          2048
+        ],
+        "maps/sundkai/textures/mud/normal.jpg": [
+          1024,
+          1024
+        ],
+        "maps/sundkai/textures/mud/roughness.jpg": [
+          512,
+          512
+        ],
+        "Soldier body-color": [
+          1024,
+          1024
+        ],
+        "Soldier body-normal": [
+          1024,
+          1024
+        ],
+        "Soldier head-color": [
+          1024,
+          1024
+        ],
+        "Soldier head-normal": [
+          1024,
+          1024
+        ],
+        "Soldier matte cloth roughness": [
+          1,
+          1
+        ],
+        "textures/floor/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/floor/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/floor/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-bark/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-bark/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-bark/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/forest-rock/color.jpg": [
+          2048,
+          2048
+        ],
+        "textures/forest-rock/normal.jpg": [
+          1024,
+          1024
+        ],
+        "textures/forest-rock/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-fabric/color.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-fabric/normal.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-fabric/roughness.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-metal/color.jpg": [
+          1024,
+          1024
+        ],
+        "textures/weapon-metal/normal.jpg": [
+          512,
+          512
+        ],
+        "textures/weapon-metal/roughness.jpg": [
+          512,
+          512
+        ]
+      },
+      "textureMemoryMB": {
+        "foliage": 55.40625,
+        "landscape": 82.09375,
+        "renderTargets": 31.75,
+        "shadows": 21.171875,
+        "sky": 42.671875,
+        "soldiers": 21.3751220703125,
+        "total": 268.5313720703125,
+        "weapons": 14.0625
+      },
+      "textureQuality": "balanced",
+      "unlockedExits": [],
+      "visibleInstances": 3375,
+      "visibleReconMarkers": 0,
+      "walkedDistance": 0,
+      "warmupFrames": 10,
+      "waterContact": null,
+      "waterDisabled": false,
+      "waterExplosionEvents": 0,
+      "waterFootsteps": 0,
+      "waterImpactEvents": 0,
+      "waterImpactPositions": [],
+      "waterLandings": 0,
+      "waterRippleLimit": 32,
+      "waterRipples": 0,
+      "waterSounds": [],
+      "waterZones": [
+        {
+          "id": 2860,
+          "maximum": [
+            10,
+            25
+          ],
+          "minimum": [
+            -10,
+            5
+          ],
+          "surfaceHeight": 1
+        },
+        {
+          "id": 2861,
+          "maximum": [
+            10,
+            -1
+          ],
+          "minimum": [
+            -10,
+            -21
+          ],
+          "surfaceHeight": 1
+        }
+      ],
+      "weatherWarningBeacons": 0,
+      "width": 2560
+    }
+  },
+  "core": {
+    "authoredSpraySources": 0,
+    "authoredWaterZones": 0,
+    "benchmark": "Native authored-map combat",
+    "build": "Swift -O -whole-module-optimization",
+    "deterministic": true,
+    "fixedFrequencyHz": 120,
+    "initialEnemyCount": 9,
+    "mapID": "kessel9",
+    "mapVersion": 1,
+    "measuredSamples": 5,
+    "medianCPUMicrosecondsPerStep": 12.800277777777778,
+    "medianCPUSeconds": 0.092162,
+    "medianWallSeconds": 0.09247883333591744,
+    "obstacleCount": 17,
+    "sampleDurationSeconds": 60,
+    "samples": [
+      {
+        "acceptedGrenades": 14,
+        "checksum": 5098.638321459293,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.092586,
+        "explosionEvents": 11,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 4,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.09294704167405143,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 14,
+        "checksum": 5098.638321459293,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.092162,
+        "explosionEvents": 11,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 4,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.09247883333591744,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 14,
+        "checksum": 5098.638321459293,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.09109800000000001,
+        "explosionEvents": 11,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 4,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.09133200001087971,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 14,
+        "checksum": 5098.638321459293,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.09109699999999998,
+        "explosionEvents": 11,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 4,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.09147358333575539,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      },
+      {
+        "acceptedGrenades": 14,
+        "checksum": 5098.638321459293,
+        "cloudEvents": 0,
+        "cpuSeconds": 0.10168499999999997,
+        "explosionEvents": 11,
+        "maximumLivingEnemies": 11,
+        "minimumLivingEnemies": 9,
+        "peakVolumes": 0,
+        "playerWaterContactSteps": 0,
+        "restartsAfterPlayerDeath": 4,
+        "simulatedSeconds": 59.999999999997236,
+        "steps": 7200,
+        "wallSeconds": 0.11059829164878465,
+        "warningEvents": 0,
+        "waterHearingEvents": 0,
+        "waterImpactEvents": 0
+      }
+    ],
+    "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds, water contacts and optical events expose differing environment workloads; this is CPU simulation cost, not GPU frame time.",
+    "scriptedGrenades": true,
+    "seed": 1745,
+    "sprayEnabled": true,
+    "waterEnabled": true
+  },
+  "gates": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 28,
+    "alarmReporterVisuals": 0,
+    "assets": "/Users/wolfgangbauer/dev/workspace/labyrinth/release/Blacksite.app/Contents/Resources/Assets",
+    "backend": "native Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 256,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "droppedSoldiers": 0,
+    "elapsed": 0.008333333333333333,
+    "enemyCount": 9,
+    "explosions": 0,
+    "farShadowInstances": 681,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 18,
+    "forestTrees": 0,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "height": 800,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 80,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 9,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 319,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "result": "pass",
+    "scene": "kessel-gates",
+    "sceneryInstances": 1587,
+    "screenshot": "/tmp/labyrinth-kessel-gates.png",
+    "seed": 1745,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 9,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 16,
+    "soldierTextureWidth": 2048,
+    "soldierTriangles": 175050,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        8192,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "Soldier body-color": [
+        2048,
+        2048
+      ],
+      "Soldier body-normal": [
+        2048,
+        2048
+      ],
+      "Soldier head-color": [
+        2048,
+        2048
+      ],
+      "Soldier head-normal": [
+        2048,
+        2048
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/asphalt/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-bark/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/alpha.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/roughness.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        1024,
+        1024
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 323.984375,
+      "landscape": 326.765625,
+      "renderTargets": 35.875,
+      "shadows": 33.265625,
+      "sky": 172.015625,
+      "soldiers": 86.0626220703125,
+      "total": 1034.5626220703125,
+      "weapons": 56.59375
+    },
+    "textureQuality": "high",
+    "visibleReconMarkers": 0,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 1280
+  },
+  "switched": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 34,
+    "alarmReporterVisuals": 0,
+    "assets": "/Users/wolfgangbauer/dev/workspace/labyrinth/release/Blacksite.app/Contents/Resources/Assets",
+    "backend": "native Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 256,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "droppedSoldiers": 0,
+    "elapsed": 4.500000000000013,
+    "enemyCount": 11,
+    "explosions": 0,
+    "farShadowInstances": 763,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 13,
+    "forestTrees": 0,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "height": 800,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 80,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 11,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 318,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "result": "pass",
+    "scene": "kessel-switched",
+    "sceneryInstances": 1587,
+    "screenshot": "/tmp/labyrinth-kessel-switched.png",
+    "seed": 1745,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 11,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 16,
+    "soldierTextureWidth": 2048,
+    "soldierTriangles": 213950,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        8192,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "Soldier body-color": [
+        2048,
+        2048
+      ],
+      "Soldier body-normal": [
+        2048,
+        2048
+      ],
+      "Soldier head-color": [
+        2048,
+        2048
+      ],
+      "Soldier head-normal": [
+        2048,
+        2048
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/asphalt/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-bark/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/alpha.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/roughness.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        1024,
+        1024
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 323.984375,
+      "landscape": 326.765625,
+      "renderTargets": 35.875,
+      "shadows": 33.265625,
+      "sky": 172.015625,
+      "soldiers": 86.0626220703125,
+      "total": 1034.5626220703125,
+      "weapons": 56.59375
+    },
+    "textureQuality": "high",
+    "visibleReconMarkers": 0,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 1280
+  },
+  "aftermath": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 34,
+    "alarmReporterVisuals": 1,
+    "assets": "/Users/wolfgangbauer/dev/workspace/labyrinth/release/Blacksite.app/Contents/Resources/Assets",
+    "backend": "native Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 256,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "droppedSoldiers": 0,
+    "elapsed": 4.500000000000013,
+    "enemyCount": 11,
+    "explosions": 3,
+    "farShadowInstances": 763,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 13,
+    "forestTrees": 0,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "height": 800,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 80,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 11,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 327,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "result": "pass",
+    "scene": "kessel-aftermath",
+    "sceneryInstances": 1587,
+    "screenshot": "/tmp/labyrinth-kessel-aftermath.png",
+    "seed": 1745,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 11,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 16,
+    "soldierTextureWidth": 2048,
+    "soldierTriangles": 213950,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        8192,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "Soldier body-color": [
+        2048,
+        2048
+      ],
+      "Soldier body-normal": [
+        2048,
+        2048
+      ],
+      "Soldier head-color": [
+        2048,
+        2048
+      ],
+      "Soldier head-normal": [
+        2048,
+        2048
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/asphalt/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-bark/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/alpha.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/roughness.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        1024,
+        1024
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 323.984375,
+      "landscape": 326.765625,
+      "renderTargets": 35.875,
+      "shadows": 33.265625,
+      "sky": 172.015625,
+      "soldiers": 86.0626220703125,
+      "total": 1034.5626220703125,
+      "weapons": 56.59375
+    },
+    "textureQuality": "high",
+    "visibleReconMarkers": 0,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 1280
+  },
+  "briefing": {
+    "accessibilitySummary": "Kessel-9, schematische Einsatzkarte, 72 mal 80 Meter. Norden oben. Flächen zeigen bekannte Bauten und Deckung; breite Streifen zeigen Straßen. S: Start, im Süden. D: Datenstation, im Norden. F: Funkstation, im Süden. 1: Betriebsausgang Nord, im Nordwesten. 2: Kabelausgang Südost, im Südosten. W: Wartungsschalter, im Süden. T: Servicetor, im Zentrum. T: Servicetor, im Zentrum. G: Generator, im Süden. Betriebsausgang Nord: Zurück durch den Kanal; die Schottstellung bestimmt die verfügbare Spur. Der offene Westweg bietet einen längeren Umweg. Im Bereich 3.0 Sekunden am Boden bleiben.. Kabelausgang Südost: Über die stets offene Kabelrampe mit festen Deckungsbuchten. Im Bereich 3.0 Sekunden am Boden bleiben.",
+    "height": 1180,
+    "mapID": "kessel9",
+    "mission": "operation",
+    "operatorClass": "assault",
+    "scope": "static AppKit briefing layout; no window interaction",
+    "width": 1720
+  },
+  "gpu-high": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 28,
+    "alarmReporterVisuals": 0,
+    "backend": "Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 256,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "cpuAverageMs": 2.908603471587412,
+    "cpuP95Ms": 3.522916667861864,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "drawCalls": 52,
+    "droppedSoldiers": 0,
+    "elapsed": 0.008333333333333333,
+    "explosions": 0,
+    "farShadowInstances": 681,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 18,
+    "forestTrees": 0,
+    "frames": 120,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "gpuAllocatedMB": 1170.640625,
+    "gpuAverageMs": 6.550094791358181,
+    "gpuP95Ms": 12.070124997990206,
+    "height": 1600,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 80,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 9,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 224,
+    "nearShadowResolution": 2048,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 4,
+    "scene": "kessel-overview",
+    "sceneryInstances": 1587,
+    "seed": 1745,
+    "serialFrameAverageMs": 10.196538193849847,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 9,
+    "skyTextureWidth": 8192,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 13,
+    "soldierTextureWidth": 2048,
+    "soldierTriangles": 175050,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        8192,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        4096,
+        4096
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "Soldier body-color": [
+        2048,
+        2048
+      ],
+      "Soldier body-normal": [
+        2048,
+        2048
+      ],
+      "Soldier head-color": [
+        2048,
+        2048
+      ],
+      "Soldier head-normal": [
+        2048,
+        2048
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/asphalt/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/forest-bark/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/alpha.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/color.jpg": [
+        4096,
+        4096
+      ],
+      "textures/pine/normal.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/roughness.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        1024,
+        1024
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 323.984375,
+      "landscape": 326.765625,
+      "renderTargets": 142.875,
+      "shadows": 33.265625,
+      "sky": 172.015625,
+      "soldiers": 86.0626220703125,
+      "total": 1141.5626220703125,
+      "weapons": 56.59375
+    },
+    "textureQuality": "high",
+    "visibleInstances": 1653,
+    "visibleReconMarkers": 0,
+    "warmupFrames": 10,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 2560
+  },
+  "gpu-balanced": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 28,
+    "alarmReporterVisuals": 0,
+    "backend": "Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 128,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "cpuAverageMs": 2.4787444449126874,
+    "cpuP95Ms": 3.137374995276332,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "drawCalls": 52,
+    "droppedSoldiers": 0,
+    "elapsed": 0.008333333333333333,
+    "explosions": 0,
+    "farShadowInstances": 681,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 18,
+    "forestTrees": 0,
+    "frames": 120,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "gpuAllocatedMB": 321.9375,
+    "gpuAverageMs": 5.937611110372624,
+    "gpuP95Ms": 10.093750024680048,
+    "height": 1600,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 40,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 9,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 224,
+    "nearShadowResolution": 1024,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 1,
+    "scene": "kessel-overview",
+    "sceneryInstances": 1587,
+    "seed": 1745,
+    "serialFrameAverageMs": 9.155725695260722,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 9,
+    "skyTextureWidth": 4096,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 13,
+    "soldierTextureWidth": 1024,
+    "soldierTriangles": 175050,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        4096,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        512,
+        512
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        512,
+        512
+      ],
+      "Soldier body-color": [
+        1024,
+        1024
+      ],
+      "Soldier body-normal": [
+        1024,
+        1024
+      ],
+      "Soldier head-color": [
+        1024,
+        1024
+      ],
+      "Soldier head-normal": [
+        1024,
+        1024
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/asphalt/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-bark/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/pine/alpha.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        512,
+        512
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 80.40625,
+      "landscape": 81.09375,
+      "renderTargets": 31.75,
+      "shadows": 21.171875,
+      "sky": 42.671875,
+      "soldiers": 21.3751220703125,
+      "total": 292.5313720703125,
+      "weapons": 14.0625
+    },
+    "textureQuality": "balanced",
+    "visibleInstances": 1653,
+    "visibleReconMarkers": 0,
+    "warmupFrames": 10,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 2560
+  },
+  "gpu-switched": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 34,
+    "alarmReporterVisuals": 0,
+    "backend": "Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 128,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "cpuAverageMs": 3.0723822933699316,
+    "cpuP95Ms": 3.61895834794268,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "drawCalls": 55,
+    "droppedSoldiers": 0,
+    "elapsed": 4.500000000000013,
+    "explosions": 0,
+    "farShadowInstances": 763,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 13,
+    "forestTrees": 0,
+    "frames": 120,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "gpuAllocatedMB": 321.9375,
+    "gpuAverageMs": 6.039436458134635,
+    "gpuP95Ms": 10.711500013712794,
+    "height": 1600,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 40,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 11,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 318,
+    "nearShadowResolution": 1024,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 1,
+    "scene": "kessel-switched",
+    "sceneryInstances": 1587,
+    "seed": 1745,
+    "serialFrameAverageMs": 9.808319793470824,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 11,
+    "skyTextureWidth": 4096,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 16,
+    "soldierTextureWidth": 1024,
+    "soldierTriangles": 213950,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        4096,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        512,
+        512
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        512,
+        512
+      ],
+      "Soldier body-color": [
+        1024,
+        1024
+      ],
+      "Soldier body-normal": [
+        1024,
+        1024
+      ],
+      "Soldier head-color": [
+        1024,
+        1024
+      ],
+      "Soldier head-normal": [
+        1024,
+        1024
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/asphalt/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-bark/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/pine/alpha.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        512,
+        512
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 80.40625,
+      "landscape": 81.09375,
+      "renderTargets": 31.75,
+      "shadows": 21.171875,
+      "sky": 42.671875,
+      "soldiers": 21.3751220703125,
+      "total": 292.5313720703125,
+      "weapons": 14.0625
+    },
+    "textureQuality": "balanced",
+    "visibleInstances": 1506,
+    "visibleReconMarkers": 0,
+    "warmupFrames": 10,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 2560
+  },
+  "cycles": {
+    "activeBreachSurfaces": 0,
+    "activeFlashes": 0,
+    "activeSmoke": 0,
+    "activeSparks": 0,
+    "activeWeatherWarningLights": 0,
+    "alarmPropInstances": 28,
+    "alarmReporterVisuals": 0,
+    "backend": "Metal",
+    "breachChargeVisuals": 0,
+    "breachFrameBodies": 0,
+    "camouflageClothingInstances": 0,
+    "clearGlassShadowCasters": 0,
+    "clearGlassSurfaces": 0,
+    "coastalWaterSurfaces": 0,
+    "coastalWaterVertices": 24576,
+    "combatEffectDrawCalls": 0,
+    "combatParticleDrops": 0,
+    "combatParticleLimit": 128,
+    "combatParticles": 0,
+    "coverCacheEntries": 17,
+    "cpuAverageMs": 2.403080208993439,
+    "cpuP95Ms": 2.7923749876208603,
+    "damagedCoverCount": 0,
+    "debrisCacheEntries": 0,
+    "decalMaterials": {},
+    "decorativeDebrisInstances": 0,
+    "device": "Apple M2 Pro",
+    "devices": [
+      {
+        "blocked": false,
+        "id": 2950,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2951,
+        "moving": false,
+        "open": 0
+      },
+      {
+        "blocked": false,
+        "id": 2952,
+        "moving": false,
+        "open": 1
+      },
+      {
+        "blocked": false,
+        "id": 2953,
+        "moving": false,
+        "open": 0
+      }
+    ],
+    "drawCalls": 52,
+    "droppedSoldiers": 0,
+    "elapsed": 0.008333333333333333,
+    "explosions": 0,
+    "farShadowInstances": 681,
+    "fixtureScope": "short native view with nine authored normal guards and actual held input; not a complete combat playthrough",
+    "footContactPatches": 18,
+    "forestTrees": 0,
+    "frames": 120,
+    "gameplaySmokeVolumes": 0,
+    "gameplayVegetationAlphaWidth": 0,
+    "gameplayVegetationInstances": 0,
+    "gameplayVegetationPlantBudget": 512,
+    "gameplayVegetationPlants": 0,
+    "gameplayVegetationVertices": 0,
+    "gameplayVegetationZones": 0,
+    "gpuAllocatedMB": 298.4375,
+    "gpuAverageMs": 3.375875347167797,
+    "gpuP95Ms": 7.215749996248633,
+    "height": 800,
+    "impactDecalDrops": 0,
+    "impactDecalLimit": 40,
+    "impactDecals": 0,
+    "initialGuardCount": 9,
+    "invalidSoldierPoses": 0,
+    "levelDetailInstanceBudget": 96,
+    "levelDetailInstances": 0,
+    "livingGuardCount": 9,
+    "loadoutCamouflage": "none",
+    "loadoutClass": "assault",
+    "loadoutFragmentationGrenades": 4,
+    "mapCycleCount": 2,
+    "mapCycleMeasurements": [
+      {
+        "activeBreachSurfaces": 2,
+        "activeFlashes": 0,
+        "activeSmoke": 0,
+        "activeSparks": 0,
+        "activeWeatherWarningLights": 0,
+        "alarmPropInstances": 1,
+        "alarmReporterVisuals": 0,
+        "backend": "Metal",
+        "breachChargeVisuals": 0,
+        "breachFrameBodies": 6,
+        "camouflageClothingInstances": 0,
+        "clearGlassShadowCasters": 0,
+        "clearGlassSurfaces": 1,
+        "coastalWaterSurfaces": 0,
+        "coastalWaterVertices": 24576,
+        "combatEffectDrawCalls": 0,
+        "combatParticleDrops": 0,
+        "combatParticleLimit": 128,
+        "combatParticles": 0,
+        "coverCacheEntries": 33,
+        "cpuAverageMs": 0.7732083322480321,
+        "cpuP95Ms": 0.7732083322480321,
+        "damagedCoverCount": 0,
+        "debrisCacheEntries": 0,
+        "decalMaterials": {},
+        "decorativeDebrisInstances": 0,
+        "device": "Apple M2 Pro",
+        "drawCalls": 62,
+        "droppedSoldiers": 0,
+        "farShadowInstances": 6376,
+        "footContactPatches": 0,
+        "forestTrees": 228,
+        "frames": 1,
+        "gameplaySmokeVolumes": 0,
+        "gameplayVegetationAlphaWidth": 512,
+        "gameplayVegetationInstances": 5,
+        "gameplayVegetationPlantBudget": 512,
+        "gameplayVegetationPlants": 160,
+        "gameplayVegetationVertices": 82176,
+        "gameplayVegetationZones": 5,
+        "gpuAllocatedMB": 320.15625,
+        "gpuAverageMs": 3.896249982062727,
+        "gpuP95Ms": 3.896249982062727,
+        "height": 800,
+        "impactDecalDrops": 0,
+        "impactDecalLimit": 40,
+        "impactDecals": 0,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "mapID": "blacksite",
+        "mapSunIntensity": 1,
+        "mapSupportSurfaces": 3,
+        "mapSurfaceWetness": 0,
+        "mapTerrainVertices": 198744,
+        "mapTextureReferences": 29,
+        "mapVersion": 1,
+        "missionPropInstances": 0,
+        "missionPropShadowCasters": 0,
+        "missionRingSegments": 0,
+        "nearShadowInstances": 1671,
+        "nearShadowResolution": 1024,
+        "noiseDecoyVisuals": 0,
+        "noiseEmitterVisuals": 1,
+        "noisePropInstances": 4,
+        "operationExitMarkers": 0,
+        "operationMarkerIDs": [],
+        "operatorVisualParts": 0,
+        "playerCamouflagePattern": "none",
+        "radomeSurfaces": 0,
+        "radomeVertices": 5760,
+        "reconMarkerShadowCasters": 0,
+        "relayTerminalVisuals": 0,
+        "renderTargetAccounting": "current render pass attachments",
+        "samples": 1,
+        "sceneryInstances": 3461,
+        "serialFrameAverageMs": 5.61637498321943,
+        "shallowWaterDrawCalls": 0,
+        "shallowWaterRenderTargets": 0,
+        "shallowWaterTransparencyLayers": 0,
+        "shallowWaterTriangles": 0,
+        "shallowWaterUniformBytes": 144,
+        "shallowWaterZones": 0,
+        "shotsWithoutSurfaceImpact": 0,
+        "skinnedSoldiers": 0,
+        "skyTextureWidth": 4096,
+        "smokeDensities": [],
+        "smokeGrenadeVisuals": 0,
+        "smokeUniformBytes": 336,
+        "smokeVolumeDrawCalls": 0,
+        "soldierDrawCallsIncludingShadows": 0,
+        "soldierTextureWidth": 1024,
+        "soldierTriangles": 0,
+        "solidDebrisCount": 0,
+        "spotlightPowers": [
+          1,
+          1
+        ],
+        "spotShadowInstances": [
+          16,
+          66
+        ],
+        "spotShadowResolution": 512,
+        "spotShadowTerrainVertices": [
+          6732,
+          6732
+        ],
+        "textureDimensions": {
+          "environment/sunrise.jpg": [
+            4096,
+            2048
+          ],
+          "Gameplay foliage fixed coverage": [
+            512,
+            1024
+          ],
+          "Soldier body-color": [
+            1024,
+            1024
+          ],
+          "Soldier body-normal": [
+            1024,
+            1024
+          ],
+          "Soldier head-color": [
+            1024,
+            1024
+          ],
+          "Soldier head-normal": [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness": [
+            1,
+            1
+          ],
+          "textures/asphalt/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/asphalt/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/asphalt/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/floor/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/floor/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/floor/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-bark/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-bark/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-bark/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-earth/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-earth/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-earth/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-ground/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-ground/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-ground/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-rock/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-rock/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-rock/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/pine/alpha.jpg": [
+            512,
+            1024
+          ],
+          "textures/pine/color.jpg": [
+            512,
+            1024
+          ],
+          "textures/pine/normal.jpg": [
+            256,
+            512
+          ],
+          "textures/pine/roughness.jpg": [
+            256,
+            512
+          ],
+          "textures/weapon-fabric/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-fabric/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-metal/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/roughness.jpg": [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB": {
+          "foliage": 36.390625,
+          "landscape": 135.15625,
+          "renderTargets": 8.25,
+          "shadows": 23.203125,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 281.1094970703125,
+          "weapons": 14.0625
+        },
+        "textureQuality": "balanced",
+        "transition": 1,
+        "visibleInstances": 15513,
+        "visibleReconMarkers": 0,
+        "warmupFrames": 10,
+        "waterRippleLimit": 32,
+        "waterRipples": 0,
+        "weatherWarningBeacons": 0,
+        "width": 1280
+      },
+      {
+        "activeBreachSurfaces": 0,
+        "activeFlashes": 0,
+        "activeSmoke": 0,
+        "activeSparks": 0,
+        "activeWeatherWarningLights": 0,
+        "alarmPropInstances": 1,
+        "alarmReporterVisuals": 0,
+        "backend": "Metal",
+        "breachChargeVisuals": 0,
+        "breachFrameBodies": 0,
+        "camouflageClothingInstances": 0,
+        "clearGlassShadowCasters": 0,
+        "clearGlassSurfaces": 0,
+        "coastalWaterSurfaces": 0,
+        "coastalWaterVertices": 24576,
+        "combatEffectDrawCalls": 0,
+        "combatParticleDrops": 0,
+        "combatParticleLimit": 128,
+        "combatParticles": 0,
+        "coverCacheEntries": 17,
+        "cpuAverageMs": 0.16891665291041136,
+        "cpuP95Ms": 0.16891665291041136,
+        "damagedCoverCount": 0,
+        "debrisCacheEntries": 0,
+        "decalMaterials": {},
+        "decorativeDebrisInstances": 0,
+        "device": "Apple M2 Pro",
+        "drawCalls": 27,
+        "droppedSoldiers": 0,
+        "farShadowInstances": 312,
+        "footContactPatches": 0,
+        "forestTrees": 0,
+        "frames": 1,
+        "gameplaySmokeVolumes": 0,
+        "gameplayVegetationAlphaWidth": 0,
+        "gameplayVegetationInstances": 0,
+        "gameplayVegetationPlantBudget": 512,
+        "gameplayVegetationPlants": 0,
+        "gameplayVegetationVertices": 0,
+        "gameplayVegetationZones": 0,
+        "gpuAllocatedMB": 298.4375,
+        "gpuAverageMs": 1.6365000046789646,
+        "gpuP95Ms": 1.6365000046789646,
+        "height": 800,
+        "impactDecalDrops": 0,
+        "impactDecalLimit": 40,
+        "impactDecals": 0,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 0,
+        "mapID": "kessel9",
+        "mapSunIntensity": 0.8500000238418579,
+        "mapSupportSurfaces": 0,
+        "mapSurfaceWetness": 0,
+        "mapTerrainVertices": 84912,
+        "mapTextureReferences": 29,
+        "mapVersion": 1,
+        "missionPropInstances": 0,
+        "missionPropShadowCasters": 0,
+        "missionRingSegments": 0,
+        "nearShadowInstances": 142,
+        "nearShadowResolution": 1024,
+        "noiseDecoyVisuals": 0,
+        "noiseEmitterVisuals": 1,
+        "noisePropInstances": 4,
+        "operationExitMarkers": 0,
+        "operationMarkerIDs": [],
+        "operatorVisualParts": 0,
+        "playerCamouflagePattern": "none",
+        "radomeSurfaces": 0,
+        "radomeVertices": 5760,
+        "reconMarkerShadowCasters": 0,
+        "relayTerminalVisuals": 0,
+        "renderTargetAccounting": "current render pass attachments",
+        "samples": 1,
+        "sceneryInstances": 1587,
+        "serialFrameAverageMs": 2.1364583226386458,
+        "shallowWaterDrawCalls": 0,
+        "shallowWaterRenderTargets": 0,
+        "shallowWaterTransparencyLayers": 0,
+        "shallowWaterTriangles": 0,
+        "shallowWaterUniformBytes": 144,
+        "shallowWaterZones": 0,
+        "shotsWithoutSurfaceImpact": 0,
+        "skinnedSoldiers": 0,
+        "skyTextureWidth": 4096,
+        "smokeDensities": [],
+        "smokeGrenadeVisuals": 0,
+        "smokeUniformBytes": 336,
+        "smokeVolumeDrawCalls": 0,
+        "soldierDrawCallsIncludingShadows": 0,
+        "soldierTextureWidth": 1024,
+        "soldierTriangles": 0,
+        "solidDebrisCount": 0,
+        "spotlightPowers": [],
+        "spotShadowInstances": [],
+        "spotShadowResolution": 512,
+        "spotShadowTerrainVertices": [],
+        "textureDimensions": {
+          "environment/sunrise.jpg": [
+            4096,
+            2048
+          ],
+          "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+            2048,
+            2048
+          ],
+          "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+            1024,
+            1024
+          ],
+          "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+            512,
+            512
+          ],
+          "maps/nebelwacht/textures/concrete/color.jpg": [
+            2048,
+            2048
+          ],
+          "maps/nebelwacht/textures/concrete/normal.jpg": [
+            1024,
+            1024
+          ],
+          "maps/nebelwacht/textures/concrete/roughness.jpg": [
+            512,
+            512
+          ],
+          "Soldier body-color": [
+            1024,
+            1024
+          ],
+          "Soldier body-normal": [
+            1024,
+            1024
+          ],
+          "Soldier head-color": [
+            1024,
+            1024
+          ],
+          "Soldier head-normal": [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness": [
+            1,
+            1
+          ],
+          "textures/asphalt/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/asphalt/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/asphalt/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-bark/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-bark/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-bark/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/pine/alpha.jpg": [
+            2048,
+            2048
+          ],
+          "textures/pine/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/pine/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/pine/roughness.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-fabric/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-metal/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/roughness.jpg": [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB": {
+          "foliage": 80.40625,
+          "landscape": 81.09375,
+          "renderTargets": 8.25,
+          "shadows": 21.171875,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 269.0313720703125,
+          "weapons": 14.0625
+        },
+        "textureQuality": "balanced",
+        "transition": 2,
+        "visibleInstances": 1351,
+        "visibleReconMarkers": 0,
+        "warmupFrames": 10,
+        "waterRippleLimit": 32,
+        "waterRipples": 0,
+        "weatherWarningBeacons": 0,
+        "width": 1280
+      },
+      {
+        "activeBreachSurfaces": 2,
+        "activeFlashes": 0,
+        "activeSmoke": 0,
+        "activeSparks": 0,
+        "activeWeatherWarningLights": 0,
+        "alarmPropInstances": 1,
+        "alarmReporterVisuals": 0,
+        "backend": "Metal",
+        "breachChargeVisuals": 0,
+        "breachFrameBodies": 6,
+        "camouflageClothingInstances": 0,
+        "clearGlassShadowCasters": 0,
+        "clearGlassSurfaces": 1,
+        "coastalWaterSurfaces": 0,
+        "coastalWaterVertices": 24576,
+        "combatEffectDrawCalls": 0,
+        "combatParticleDrops": 0,
+        "combatParticleLimit": 128,
+        "combatParticles": 0,
+        "coverCacheEntries": 33,
+        "cpuAverageMs": 1.1098333343397826,
+        "cpuP95Ms": 1.1098333343397826,
+        "damagedCoverCount": 0,
+        "debrisCacheEntries": 0,
+        "decalMaterials": {},
+        "decorativeDebrisInstances": 0,
+        "device": "Apple M2 Pro",
+        "drawCalls": 62,
+        "droppedSoldiers": 0,
+        "farShadowInstances": 6376,
+        "footContactPatches": 0,
+        "forestTrees": 228,
+        "frames": 1,
+        "gameplaySmokeVolumes": 0,
+        "gameplayVegetationAlphaWidth": 512,
+        "gameplayVegetationInstances": 5,
+        "gameplayVegetationPlantBudget": 512,
+        "gameplayVegetationPlants": 160,
+        "gameplayVegetationVertices": 82176,
+        "gameplayVegetationZones": 5,
+        "gpuAllocatedMB": 320.15625,
+        "gpuAverageMs": 3.831000009085983,
+        "gpuP95Ms": 3.831000009085983,
+        "height": 800,
+        "impactDecalDrops": 0,
+        "impactDecalLimit": 40,
+        "impactDecals": 0,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "mapID": "blacksite",
+        "mapSunIntensity": 1,
+        "mapSupportSurfaces": 3,
+        "mapSurfaceWetness": 0,
+        "mapTerrainVertices": 198744,
+        "mapTextureReferences": 29,
+        "mapVersion": 1,
+        "missionPropInstances": 0,
+        "missionPropShadowCasters": 0,
+        "missionRingSegments": 0,
+        "nearShadowInstances": 1671,
+        "nearShadowResolution": 1024,
+        "noiseDecoyVisuals": 0,
+        "noiseEmitterVisuals": 1,
+        "noisePropInstances": 4,
+        "operationExitMarkers": 0,
+        "operationMarkerIDs": [],
+        "operatorVisualParts": 0,
+        "playerCamouflagePattern": "none",
+        "radomeSurfaces": 0,
+        "radomeVertices": 5760,
+        "reconMarkerShadowCasters": 0,
+        "relayTerminalVisuals": 0,
+        "renderTargetAccounting": "current render pass attachments",
+        "samples": 1,
+        "sceneryInstances": 3461,
+        "serialFrameAverageMs": 5.881416669581085,
+        "shallowWaterDrawCalls": 0,
+        "shallowWaterRenderTargets": 0,
+        "shallowWaterTransparencyLayers": 0,
+        "shallowWaterTriangles": 0,
+        "shallowWaterUniformBytes": 144,
+        "shallowWaterZones": 0,
+        "shotsWithoutSurfaceImpact": 0,
+        "skinnedSoldiers": 0,
+        "skyTextureWidth": 4096,
+        "smokeDensities": [],
+        "smokeGrenadeVisuals": 0,
+        "smokeUniformBytes": 336,
+        "smokeVolumeDrawCalls": 0,
+        "soldierDrawCallsIncludingShadows": 0,
+        "soldierTextureWidth": 1024,
+        "soldierTriangles": 0,
+        "solidDebrisCount": 0,
+        "spotlightPowers": [
+          1,
+          1
+        ],
+        "spotShadowInstances": [
+          16,
+          66
+        ],
+        "spotShadowResolution": 512,
+        "spotShadowTerrainVertices": [
+          6732,
+          6732
+        ],
+        "textureDimensions": {
+          "environment/sunrise.jpg": [
+            4096,
+            2048
+          ],
+          "Gameplay foliage fixed coverage": [
+            512,
+            1024
+          ],
+          "Soldier body-color": [
+            1024,
+            1024
+          ],
+          "Soldier body-normal": [
+            1024,
+            1024
+          ],
+          "Soldier head-color": [
+            1024,
+            1024
+          ],
+          "Soldier head-normal": [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness": [
+            1,
+            1
+          ],
+          "textures/asphalt/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/asphalt/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/asphalt/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/floor/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/floor/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/floor/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-bark/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-bark/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-bark/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-earth/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-earth/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-earth/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-ground/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-ground/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-ground/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-rock/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-rock/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-rock/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/pine/alpha.jpg": [
+            512,
+            1024
+          ],
+          "textures/pine/color.jpg": [
+            512,
+            1024
+          ],
+          "textures/pine/normal.jpg": [
+            256,
+            512
+          ],
+          "textures/pine/roughness.jpg": [
+            256,
+            512
+          ],
+          "textures/weapon-fabric/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-fabric/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-metal/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/roughness.jpg": [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB": {
+          "foliage": 36.390625,
+          "landscape": 135.15625,
+          "renderTargets": 8.25,
+          "shadows": 23.203125,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 281.1094970703125,
+          "weapons": 14.0625
+        },
+        "textureQuality": "balanced",
+        "transition": 3,
+        "visibleInstances": 15513,
+        "visibleReconMarkers": 0,
+        "warmupFrames": 10,
+        "waterRippleLimit": 32,
+        "waterRipples": 0,
+        "weatherWarningBeacons": 0,
+        "width": 1280
+      },
+      {
+        "activeBreachSurfaces": 0,
+        "activeFlashes": 0,
+        "activeSmoke": 0,
+        "activeSparks": 0,
+        "activeWeatherWarningLights": 0,
+        "alarmPropInstances": 1,
+        "alarmReporterVisuals": 0,
+        "backend": "Metal",
+        "breachChargeVisuals": 0,
+        "breachFrameBodies": 0,
+        "camouflageClothingInstances": 0,
+        "clearGlassShadowCasters": 0,
+        "clearGlassSurfaces": 0,
+        "coastalWaterSurfaces": 0,
+        "coastalWaterVertices": 24576,
+        "combatEffectDrawCalls": 0,
+        "combatParticleDrops": 0,
+        "combatParticleLimit": 128,
+        "combatParticles": 0,
+        "coverCacheEntries": 17,
+        "cpuAverageMs": 0.11729166726581752,
+        "cpuP95Ms": 0.11729166726581752,
+        "damagedCoverCount": 0,
+        "debrisCacheEntries": 0,
+        "decalMaterials": {},
+        "decorativeDebrisInstances": 0,
+        "device": "Apple M2 Pro",
+        "drawCalls": 27,
+        "droppedSoldiers": 0,
+        "farShadowInstances": 312,
+        "footContactPatches": 0,
+        "forestTrees": 0,
+        "frames": 1,
+        "gameplaySmokeVolumes": 0,
+        "gameplayVegetationAlphaWidth": 0,
+        "gameplayVegetationInstances": 0,
+        "gameplayVegetationPlantBudget": 512,
+        "gameplayVegetationPlants": 0,
+        "gameplayVegetationVertices": 0,
+        "gameplayVegetationZones": 0,
+        "gpuAllocatedMB": 298.4375,
+        "gpuAverageMs": 1.0121250234078616,
+        "gpuP95Ms": 1.0121250234078616,
+        "height": 800,
+        "impactDecalDrops": 0,
+        "impactDecalLimit": 40,
+        "impactDecals": 0,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 0,
+        "mapID": "kessel9",
+        "mapSunIntensity": 0.8500000238418579,
+        "mapSupportSurfaces": 0,
+        "mapSurfaceWetness": 0,
+        "mapTerrainVertices": 84912,
+        "mapTextureReferences": 29,
+        "mapVersion": 1,
+        "missionPropInstances": 0,
+        "missionPropShadowCasters": 0,
+        "missionRingSegments": 0,
+        "nearShadowInstances": 142,
+        "nearShadowResolution": 1024,
+        "noiseDecoyVisuals": 0,
+        "noiseEmitterVisuals": 1,
+        "noisePropInstances": 4,
+        "operationExitMarkers": 0,
+        "operationMarkerIDs": [],
+        "operatorVisualParts": 0,
+        "playerCamouflagePattern": "none",
+        "radomeSurfaces": 0,
+        "radomeVertices": 5760,
+        "reconMarkerShadowCasters": 0,
+        "relayTerminalVisuals": 0,
+        "renderTargetAccounting": "current render pass attachments",
+        "samples": 1,
+        "sceneryInstances": 1587,
+        "serialFrameAverageMs": 1.4429583097808063,
+        "shallowWaterDrawCalls": 0,
+        "shallowWaterRenderTargets": 0,
+        "shallowWaterTransparencyLayers": 0,
+        "shallowWaterTriangles": 0,
+        "shallowWaterUniformBytes": 144,
+        "shallowWaterZones": 0,
+        "shotsWithoutSurfaceImpact": 0,
+        "skinnedSoldiers": 0,
+        "skyTextureWidth": 4096,
+        "smokeDensities": [],
+        "smokeGrenadeVisuals": 0,
+        "smokeUniformBytes": 336,
+        "smokeVolumeDrawCalls": 0,
+        "soldierDrawCallsIncludingShadows": 0,
+        "soldierTextureWidth": 1024,
+        "soldierTriangles": 0,
+        "solidDebrisCount": 0,
+        "spotlightPowers": [],
+        "spotShadowInstances": [],
+        "spotShadowResolution": 512,
+        "spotShadowTerrainVertices": [],
+        "textureDimensions": {
+          "environment/sunrise.jpg": [
+            4096,
+            2048
+          ],
+          "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+            2048,
+            2048
+          ],
+          "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+            1024,
+            1024
+          ],
+          "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+            512,
+            512
+          ],
+          "maps/nebelwacht/textures/concrete/color.jpg": [
+            2048,
+            2048
+          ],
+          "maps/nebelwacht/textures/concrete/normal.jpg": [
+            1024,
+            1024
+          ],
+          "maps/nebelwacht/textures/concrete/roughness.jpg": [
+            512,
+            512
+          ],
+          "Soldier body-color": [
+            1024,
+            1024
+          ],
+          "Soldier body-normal": [
+            1024,
+            1024
+          ],
+          "Soldier head-color": [
+            1024,
+            1024
+          ],
+          "Soldier head-normal": [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness": [
+            1,
+            1
+          ],
+          "textures/asphalt/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/asphalt/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/asphalt/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/forest-bark/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/forest-bark/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/forest-bark/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/pine/alpha.jpg": [
+            2048,
+            2048
+          ],
+          "textures/pine/color.jpg": [
+            2048,
+            2048
+          ],
+          "textures/pine/normal.jpg": [
+            1024,
+            1024
+          ],
+          "textures/pine/roughness.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-fabric/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-fabric/roughness.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/color.jpg": [
+            1024,
+            1024
+          ],
+          "textures/weapon-metal/normal.jpg": [
+            512,
+            512
+          ],
+          "textures/weapon-metal/roughness.jpg": [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB": {
+          "foliage": 80.40625,
+          "landscape": 81.09375,
+          "renderTargets": 8.25,
+          "shadows": 21.171875,
+          "sky": 42.671875,
+          "soldiers": 21.3751220703125,
+          "total": 269.0313720703125,
+          "weapons": 14.0625
+        },
+        "textureQuality": "balanced",
+        "transition": 4,
+        "visibleInstances": 1351,
+        "visibleReconMarkers": 0,
+        "warmupFrames": 10,
+        "waterRippleLimit": 32,
+        "waterRipples": 0,
+        "weatherWarningBeacons": 0,
+        "width": 1280
+      }
+    ],
+    "mapID": "kessel9",
+    "mapSunIntensity": 0.8500000238418579,
+    "mapSupportSurfaces": 0,
+    "mapSurfaceWetness": 0,
+    "mapTerrainVertices": 84912,
+    "mapTextureReferences": 29,
+    "mapVersion": 1,
+    "missionPropInstances": 0,
+    "missionPropShadowCasters": 0,
+    "missionRingSegments": 0,
+    "nearShadowInstances": 224,
+    "nearShadowResolution": 1024,
+    "noiseDecoyVisuals": 0,
+    "noiseEmitterVisuals": 1,
+    "noisePropInstances": 4,
+    "operationExitMarkers": 0,
+    "operationMarkerIDs": [],
+    "operatorVisualParts": 0,
+    "playerCamouflagePattern": "none",
+    "radomeSurfaces": 0,
+    "radomeVertices": 5760,
+    "reconMarkerShadowCasters": 0,
+    "relayTerminalVisuals": 0,
+    "renderTargetAccounting": "current render pass attachments",
+    "samples": 1,
+    "scene": "kessel-overview",
+    "sceneryInstances": 1587,
+    "seed": 1745,
+    "serialFrameAverageMs": 6.5079468743836815,
+    "shallowWaterDrawCalls": 0,
+    "shallowWaterRenderTargets": 0,
+    "shallowWaterTransparencyLayers": 0,
+    "shallowWaterTriangles": 0,
+    "shallowWaterUniformBytes": 144,
+    "shallowWaterZones": 0,
+    "shotsWithoutSurfaceImpact": 0,
+    "skinnedSoldiers": 9,
+    "skyTextureWidth": 4096,
+    "smokeDensities": [],
+    "smokeGrenadeVisuals": 0,
+    "smokeUniformBytes": 336,
+    "smokeVolumeDrawCalls": 0,
+    "soldierDrawCallsIncludingShadows": 13,
+    "soldierTextureWidth": 1024,
+    "soldierTriangles": 175050,
+    "solidDebrisCount": 0,
+    "spotlightPowers": [],
+    "spotShadowInstances": [],
+    "spotShadowResolution": 512,
+    "spotShadowTerrainVertices": [],
+    "textureDimensions": {
+      "environment/sunrise.jpg": [
+        4096,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/coastal-rock/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/coastal-rock/roughness.jpg": [
+        512,
+        512
+      ],
+      "maps/nebelwacht/textures/concrete/color.jpg": [
+        2048,
+        2048
+      ],
+      "maps/nebelwacht/textures/concrete/normal.jpg": [
+        1024,
+        1024
+      ],
+      "maps/nebelwacht/textures/concrete/roughness.jpg": [
+        512,
+        512
+      ],
+      "Soldier body-color": [
+        1024,
+        1024
+      ],
+      "Soldier body-normal": [
+        1024,
+        1024
+      ],
+      "Soldier head-color": [
+        1024,
+        1024
+      ],
+      "Soldier head-normal": [
+        1024,
+        1024
+      ],
+      "Soldier matte cloth roughness": [
+        1,
+        1
+      ],
+      "textures/asphalt/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/asphalt/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/asphalt/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/forest-bark/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/forest-bark/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/forest-bark/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/pine/alpha.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/color.jpg": [
+        2048,
+        2048
+      ],
+      "textures/pine/normal.jpg": [
+        1024,
+        1024
+      ],
+      "textures/pine/roughness.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-fabric/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-fabric/roughness.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/color.jpg": [
+        1024,
+        1024
+      ],
+      "textures/weapon-metal/normal.jpg": [
+        512,
+        512
+      ],
+      "textures/weapon-metal/roughness.jpg": [
+        512,
+        512
+      ]
+    },
+    "textureMemoryMB": {
+      "foliage": 80.40625,
+      "landscape": 81.09375,
+      "renderTargets": 8.25,
+      "shadows": 21.171875,
+      "sky": 42.671875,
+      "soldiers": 21.3751220703125,
+      "total": 269.0313720703125,
+      "weapons": 14.0625
+    },
+    "textureQuality": "balanced",
+    "visibleInstances": 1653,
+    "visibleReconMarkers": 0,
+    "warmupFrames": 10,
+    "waterRippleLimit": 32,
+    "waterRipples": 0,
+    "weatherWarningBeacons": 0,
+    "width": 1280
+  },
+  "verification": {
+    "fullCoreTests": 219,
+    "fullMacTests": 209,
+    "finalTargetedMacTests": 5,
+    "nativeActions": [
+      "select Kessel-9",
+      "select field operation",
+      "start",
+      "throw grenade: 4 to 3",
+      "pause",
+      "resume",
+      "pause again"
+    ],
+    "limitations": [
+      "Physical mission tests isolate combat; they do not constitute human combat playthroughs.",
+      "First graphics captures preceded diagnostic per-tick event forwarding and briefing marker offset; terrain/device gameplay geometry unchanged."
+    ]
+  }
+}

@@ -1,8 +1,8 @@
 import Foundation
 import simd
 
-public enum WorldDeviceKind: String, Sendable { case generator, serviceGate }
-public enum DeviceAction: String, Sendable { case enableGenerator, disableGenerator, openGate, closeGate }
+public enum WorldDeviceKind: String, Sendable { case generator, serviceGate, maintenanceSwitch }
+public enum DeviceAction: String, Sendable { case enableGenerator, disableGenerator, openGate, closeGate, switchBulkheads }
 public enum DeviceInterruption: String, Sendable {
     case outOfRange, notGrounded, occluded, interactionReleased, releaseRequired, moving, blockedByActor, destroyed
 }
@@ -16,10 +16,16 @@ public struct WorldInteractableDefinition: Sendable {
     public let generatorID: Int?
     public let noiseEmitterIDs: [Int], lightIDs: [Int]
     public let openOffset: SIMD3<Float>
+    /// A maintenance switch controls exactly two opposed lift gates, in A/B order.
+    public let linkedGateIDs: [Int]
+    public let controllerID: Int?
+    public let initiallyOpen: Bool
     public init(id: Int, kind: WorldDeviceKind, ownerObstacleID: Int, interactionPoints: [SIMD3<Float>],
-                generatorID: Int? = nil, noiseEmitterIDs: [Int] = [], lightIDs: [Int] = [], openOffset: SIMD3<Float> = .zero) {
+                generatorID: Int? = nil, noiseEmitterIDs: [Int] = [], lightIDs: [Int] = [], openOffset: SIMD3<Float> = .zero,
+                linkedGateIDs: [Int] = [], controllerID: Int? = nil, initiallyOpen: Bool = false) {
         self.id = id; self.kind = kind; self.ownerObstacleID = ownerObstacleID; self.interactionPoints = interactionPoints
         self.generatorID = generatorID; self.noiseEmitterIDs = noiseEmitterIDs; self.lightIDs = lightIDs; self.openOffset = openOffset
+        self.linkedGateIDs = linkedGateIDs; self.controllerID = controllerID; self.initiallyOpen = initiallyOpen
     }
 }
 public struct WorldInteractableState: Sendable {
