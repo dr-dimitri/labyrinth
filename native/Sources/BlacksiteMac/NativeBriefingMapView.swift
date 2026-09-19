@@ -48,8 +48,14 @@ final class NativeBriefingMapView: NSView {
         known.append(Marker(position:map.dataSite,code:"D",title:"Datenstation",symbol:.objective,
                             emphasized:dataMission,color:Self.objective))
         known.append(Marker(position:map.radioSite,code:"F",title:"Funkstation",symbol:.objective,
-                            emphasized:mission == .secureRadio,color:Self.objective))
+                            emphasized:mission == .secureRadio || (mission == .operation &&
+                                map.operation?.requiredStages.contains { $0.kind == .radioTransfer } == true),color:Self.objective))
         if mission == .operation, let operation=map.operation {
+            let relays = operation.requiredStages.filter { $0.kind == .relayGroup }.flatMap(\.targets)
+            for (index, relay) in relays.enumerated() {
+                known.append(Marker(position: relay.position, code: "R\(index + 1)", title: relay.title,
+                    symbol: .objective, emphasized: true, color: Self.objective))
+            }
             for (index,exit) in operation.extractions.enumerated() {
                 known.append(Marker(position:exit.position,code:String(index+1),title:exit.title,
                     symbol:.extraction,emphasized:true,color:Self.exit))
@@ -72,7 +78,9 @@ final class NativeBriefingMapView: NSView {
             descriptions += operation.extractions.map { "\($0.title): \($0.detail) Im Bereich \(formatted($0.holdDuration)) Sekunden am Boden bleiben." }
         }
         accessibilitySummary="\(map.displayName), schematische Einsatzkarte, \(dimensions). Norden oben. " +
-            "Flächen zeigen bekannte Bauten und Deckung; breite Streifen zeigen Straßen. " + descriptions.joined(separator:". ")
+            "Flächen zeigen bekannte Bauten und Deckung; breite Streifen zeigen Straßen. " +
+            (map.environment.shallowWaterZones.isEmpty ? "" : "Blaue Flächen zeigen flache Watbecken; trockene Umgehungen bleiben frei. ") +
+            descriptions.joined(separator:". ")
         setAccessibilityLabel("Einsatzkarte: \(map.displayName)")
         setAccessibilityValue(accessibilitySummary)
         needsDisplay=true
@@ -92,6 +100,13 @@ final class NativeBriefingMapView: NSView {
         NSGraphicsContext.saveGraphicsState()
         NSBezierPath(rect:frame).addClip()
         drawGrid(in:frame)
+        for water in map.environment.shallowWaterZones {
+            let minimum = project(SIMD3(water.minimum.x, 0, water.minimum.y), in: frame)
+            let maximum = project(SIMD3(water.maximum.x, 0, water.maximum.y), in: frame)
+            NSColor(calibratedRed: 0.11, green: 0.25, blue: 0.30, alpha: 1).setFill()
+            NSBezierPath(rect: NSRect(x: minimum.x, y: minimum.y,
+                width: maximum.x - minimum.x, height: maximum.y - minimum.y)).fill()
+        }
         for road in map.roads {
             let minimum=project(SIMD3(road.minimum.x,0,road.minimum.y),in:frame)
             let maximum=project(SIMD3(road.maximum.x,0,road.maximum.y),in:frame)
@@ -117,7 +132,11 @@ final class NativeBriefingMapView: NSView {
         let legendY=bounds.height-52
         label("S Start  ·  D Daten  ·  F Funk",rect:NSRect(x:14,y:legendY,width:bounds.width-28,height:15),size:9,color:Self.ink)
         let exits=mission == .operation && map.operation != nil ? "1 / 2 Ausgänge":"X Ausgang"
-        label(exits+"  ·  G Generator  ·  T Tor",rect:NSRect(x:14,y:legendY+17,width:bounds.width-28,height:15),size:9,color:Self.muted)
+        var legend = [exits]
+        if markers.contains(where: { $0.code.hasPrefix("R") }) { legend.append("R Relais") }
+        if markers.contains(where: { $0.code == "G" }) { legend.append("G Strom") }
+        if markers.contains(where: { $0.code == "T" }) { legend.append("T Tor") }
+        label(legend.joined(separator: " · "),rect:NSRect(x:14,y:legendY+17,width:bounds.width-28,height:15),size:9,color:Self.muted)
         drawScale(in:frame)
     }
 

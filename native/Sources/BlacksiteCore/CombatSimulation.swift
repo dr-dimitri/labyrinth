@@ -92,20 +92,34 @@ public final class CombatSimulation {
     private var groundedAtRadio: Bool {
         player.grounded && climbing == nil && abs(player.position.y - groundedPoint(map.radioSite).y) <= 2.5
     }
+    public var missionContextAvailable: Bool {
+        if hasRequiredOperationStages {
+            return state == .active && operationDefinitions.contains { stage in
+                stage.targets.contains { !completedOperationTargets.contains($0.id) && simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+            }
+        }
+        return missionInteractionAvailable
+    }
     public var missionInteractionAvailable: Bool {
+        if hasRequiredOperationStages, activeRequiredStage != nil {
+            guard state == .active, missionPhase != .holdRadio, !operationInteractionLatch,
+                  let target = nearestRequiredTarget else { return false }
+            return requiredTargetInterruption(target) == nil
+        }
         guard state == .active, missionPhase == .prepareOperation || missionPhase == .collectData || missionPhase == .activateRadio,
               player.grounded, climbing == nil else { return false }
         let target = groundedPoint(missionPhase == .activateRadio ? map.radioSite : map.dataSite)
         return simd_distance(player.position, target) <= 1.6
     }
     public var missionStatus: MissionStatus {
+        if hasRequiredOperationStages, let status = requiredOperationMissionStatus { return status }
         let phase: MissionPhase = state == .won ? .completed : missionKind == .waves ? (extractionReady ? .extract : .waves) : missionPhase
         let target: SIMD3<Float>?, radius: Float, progress: Float, required: Float
         var interruption: MissionInterruption?
         switch phase {
         case .waves:
             target = nil; radius = 0; progress = Float(kills); required = 21
-        case .prepareOperation, .collectData, .activateRadio:
+        case .prepareOperation, .activateRelays, .collectData, .activateRadio:
             target = groundedPoint(phase == .activateRadio ? map.radioSite : map.dataSite)
             radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .activateRadio ? 1 : 0.8
             if !player.grounded || climbing != nil { interruption = .notGrounded }
@@ -168,6 +182,10 @@ public final class CombatSimulation {
     private var missionPhase: MissionPhase
     private var missionStarted = false
     private var missionProgressTicks = 0
+    private var operationStageIndex = 0
+    private var completedOperationTargets = Set<String>()
+    private var activeOperationTargetID: String?
+    private var operationInteractionLatch = false
     private var interactionHeld = false
     private var reinforcementTimer: Float = 0
     private var reinforcementCursor = 0
@@ -453,12 +471,13 @@ public final class CombatSimulation {
             hitPoint = muzzle + corrected * hit.distance
         }
         let surfaceImpact = makeSurfaceImpact(for: hit, at: hitPoint)
+        let water = waterImpact(from: muzzle,to: hitPoint)
         let damage = activeWeapon.damage * (hit.headshot ? 2.4 : 1)
         if let index = hit.enemyIndex { damageEnemy(index: index, amount: damage, headshot: hit.headshot, from: eye) }
         if let index = hit.obstacleIndex { damageCover(index: index, amount: activeWeapon.damage) }
         emit(GameEvent(kind: .shot, position: muzzle, endPosition: hitPoint,
                        amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon,
-                       surfaceImpact: surfaceImpact, hearing: hearing))
+                       surfaceImpact: surfaceImpact, hearing: hearing, waterImpact: water))
         return true
     }
 
@@ -592,7 +611,8 @@ public final class CombatSimulation {
         // Iterative queue prevents deep recursion and ensures every barrel detonates once.
         var pending = [position], next = 0
         while next < pending.count {
-            let center = pending[next] + SIMD3<Float>(0, 0.18, 0); next += 1
+            let detonation = pending[next]
+            let center = detonation + SIMD3<Float>(0, 0.18, 0); next += 1
             let hearing = recordHearing(kind: .explosion, position: center, strength: 1, range: 34, source: .world)
             for index in enemies.indices where enemies[index].health > 0 {
                 let target = EnemyPose(enemies[index]).bodyCenter
@@ -612,7 +632,7 @@ public final class CombatSimulation {
             for (index, amount) in hits {
                 if let barrel = applyCoverDamage(index: index, amount: amount) { pending.append(barrel) }
             }
-            emit(GameEvent(kind: .explosion, position: center, amount: 8, hearing: hearing))
+            emit(GameEvent(kind: .explosion, position: center, amount: 8, hearing: hearing, waterImpact: submergedExplosionSurface(at: detonation)))
         }
         finishCoverDestruction()
     }
@@ -685,7 +705,8 @@ public final class CombatSimulation {
         if player.exhausted && player.stamina >= 25 { player.exhausted = false }
         isSprinting = input.sprint && !player.prone && !isAiming && !player.exhausted &&
             player.stamina > 1 && forward > 0 && length > 0 && climbing == nil
-        let speed: Float = player.prone ? 1.65 : isSprinting ? 7.5 : isAiming ? 2.8 : 4.7
+        let drySpeed: Float = player.prone ? 1.65 : isSprinting ? 7.5 : isAiming ? 2.8 : 4.7
+        let speed = drySpeed * (waterContact(at: player.position, grounded: player.grounded && climbing == nil)?.movementMultiplier ?? 1)
         let before = player.position
         if length > 0 && climbing == nil {
             let denominator = max(1, length)
@@ -727,11 +748,9 @@ public final class CombatSimulation {
             }
             if player.position.y <= floor {
                 player.position.y = floor
-                if !player.grounded && player.verticalVelocity < -4 {
-                    let surface = environmentSample(at: player.position).soundSurface
-                    let hearing = recordHearing(kind: .landing, position: player.position + SIMD3(0,0.1,0), surface: surface,
-                        strength: min(1, abs(player.verticalVelocity) / 8), range: surface.stepRange * 1.2, source: .player)
-                    emit(GameEvent(kind: .land, position: player.position, hearing: hearing))
+                let water = waterContact(at: player.position)
+                if !player.grounded && (player.verticalVelocity < -4 || (water != nil && player.verticalVelocity < -0.5)) {
+                    emitLanding(at: player.position,velocity: player.verticalVelocity,water: water,source: .player)
                 }
                 player.verticalVelocity = 0; player.grounded = true
             } else { player.grounded = false }
@@ -804,7 +823,9 @@ public final class CombatSimulation {
                            missionPhase: missionPhase))
             queueMissionReinforcements(missionKind == .secureRadio ? 3 : 4)
         }
+        if hasRequiredOperationStages { updateRequiredOperation(input: input); return }
         switch missionPhase {
+        case .activateRelays: break
         case .prepareOperation:
             if missionInteractionAvailable && input.interact {
                 changeMissionPhase(to: .collectData)
@@ -1187,7 +1208,11 @@ extension CombatSimulation {
             }
         }
         if enemy.position.y <= floor {
-            enemy.position.y = floor; enemy.verticalVelocity = 0; enemy.grounded = true
+            enemy.position.y = floor
+            if !enemy.grounded, enemy.verticalVelocity < -0.5, let water = waterContact(at: enemy.position) {
+                emitLanding(at: enemy.position,velocity: enemy.verticalVelocity,water: water,source: .enemy,sourceID: enemy.id)
+            }
+            enemy.verticalVelocity = 0; enemy.grounded = true
         } else { enemy.grounded = false }
     }
 
@@ -1289,7 +1314,8 @@ extension CombatSimulation {
         if length < 0.2 { brain.pathIndex += 1; return }
         startUsefulJump(&enemy, brain: &brain, toward: next)
         enemy.isRunning = running && enemy.crouchAmount < 0.3
-        let speed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
+        let drySpeed: Float = enemy.isRunning ? 4.6 + Float(wave) * 0.12 : enemy.crouchAmount > 0.5 ? 1.25 : 2.5
+        let speed = drySpeed * (waterContact(at: enemy.position,grounded: enemy.grounded)?.movementMultiplier ?? 1)
         let direction = SIMD3<Float>(next.x - enemy.position.x, 0, next.z - enemy.position.z) / length
         enemy.position = moved(enemy.position, delta: direction * min(length, dt * speed),
                                height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
@@ -1385,6 +1411,7 @@ extension CombatSimulation {
                         let stopped = obstruction.distance < length-0.01
                         let impactPoint = stopped ? pose.muzzlePosition+direction*obstruction.distance : target
                         let surface = stopped ? makeSurfaceImpact(for: obstruction,at: impactPoint) : nil
+                        let water = waterImpact(from: pose.muzzlePosition,to: impactPoint)
                         // The very shot that opens a pane ends there. Only a
                         // later shot may cross the newly navigable aperture.
                         if let owner = obstruction.obstacleIndex,
@@ -1392,7 +1419,7 @@ extension CombatSimulation {
                             damageCover(index: owner,amount: damage)
                         }
                         emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: impactPoint,
-                                       amount: hit && !stopped ? damage : 0, id: enemy.id, surfaceImpact: surface, hearing: hearing))
+                                       amount: hit && !stopped ? damage : 0, id: enemy.id, surfaceImpact: surface, hearing: hearing, waterImpact: water))
                         if hit && !stopped { damagePlayer(amount: damage, from: pose.muzzlePosition) }
                         enemy.recoil = 1; brain.holdTimer = 0.32
                     }
@@ -1424,7 +1451,7 @@ extension CombatSimulation {
                     let strafe = brain.side * 1.1 * dt, retreat: Float = distance < 7 ? -1.7 * dt : 0
                     let delta = SIMD3(cos(enemy.yaw) * strafe + sin(enemy.yaw) * retreat, 0,
                                       -sin(enemy.yaw) * strafe + cos(enemy.yaw) * retreat)
-                    enemy.position = moved(enemy.position, delta: delta, height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
+                    enemy.position = moved(enemy.position, delta: delta * (waterContact(at: enemy.position,grounded: enemy.grounded)?.movementMultiplier ?? 1), height: EnemyPose(enemy).totalHeight, radius: 0.38, grounded: enemy.grounded)
                     if horizontalDistance(enemy.position, before) < 0.001 { brain.side *= -1 }
                 } else if brain.repositionTimer < -3.3 { brain.repositionTimer = 0.65 + random() * 0.5 }
             }
@@ -1484,12 +1511,22 @@ extension CombatSimulation {
         accumulated += distance
         guard accumulated >= stride else { return }
         accumulated -= stride
-        let surface: SurfaceSound = standingOnGlassShards(at: position) ? .glass : environmentSample(at: position).soundSurface
-        let strength = clamp(0.25 + speed / 10, 0.25, 1) * (lowPosture ? 0.32 : 1)
-        let hearing = recordHearing(kind: .footstep, position: position + SIMD3(0,0.1,0), surface: surface,
-            strength: strength, range: surface.stepRange, source: source, sourceID: sourceID)
+        let water = waterContact(at: position)
+        let surface: SurfaceSound = water != nil ? .water : standingOnGlassShards(at: position) ? .glass : environmentSample(at: position).soundSurface
+        let strength = max(water != nil ? 0.4 : 0, clamp(0.25 + speed / 10, 0.25, 1) * (lowPosture ? 0.32 : 1))
+        let soundPosition = SIMD3(position.x,water.map { $0.surfaceHeight + 0.06 } ?? position.y + 0.1,position.z)
+        let hearing = recordHearing(kind: .footstep, position: soundPosition, surface: surface,
+                        strength: strength, range: surface.stepRange, source: source, sourceID: sourceID)
         emit(GameEvent(kind: .footstep, position: hearing.position, amount: strength,
                        id: hearing.id, hearing: hearing))
+    }
+
+    private func emitLanding(at position: SIMD3<Float>, velocity: Float, water: WaterContact?, source: NoiseSource, sourceID: Int? = nil) {
+        let surface: SurfaceSound = water != nil ? .water : environmentSample(at: position).soundSurface
+        let soundPosition = SIMD3(position.x,water.map { $0.surfaceHeight + 0.06 } ?? position.y + 0.1,position.z)
+        let hearing = recordHearing(kind: .landing,position: soundPosition,surface: surface,
+            strength: max(water != nil ? 0.55 : 0,min(1,abs(velocity)/8)),range: surface.stepRange * 1.2,source: source,sourceID: sourceID)
+        emit(GameEvent(kind: .land,position: position,hearing: hearing))
     }
 
     /// A finite diagnostic history; events and AI receive the same immutable value.
@@ -1572,7 +1609,7 @@ extension CombatSimulation {
         return status.distance <= 1.6 && status.interruption != .occluded
     }
     public var deviceInteractionStatus: DeviceInteractionStatus? {
-        guard state == .active, !missionInteractionAvailable else { return nil }
+        guard state == .active, !missionContextAvailable else { return nil }
         var nearest: (index: Int, point: SIMD3<Float>, distance: Float)?
         for index in devices.indices {
             for point in devices[index].interactionPoints {
@@ -1652,7 +1689,7 @@ extension CombatSimulation {
         if !input.interact { deviceInteractionLatch = false }
         // Holding E through the end of an objective cannot also activate a
         // nearby device. Release starts a new, explicit contextual action.
-        if missionInteractionAvailable && input.interact { deviceInteractionLatch = true }
+        if missionContextAvailable && input.interact { deviceInteractionLatch = true }
         if input.interact, !deviceInteractionLatch,
            let status = deviceInteractionStatus, status.interactionAvailable,
            let index = devices.firstIndex(where: { $0.id == status.id }) {
@@ -1904,7 +1941,7 @@ extension CombatSimulation {
             return OperationPreparationStatus(kind: definition.kind, deviceID: definition.deviceID, completed: completed, unavailable: device.destroyed && !completed)
         }
         return OperationStatus(preparations: preparations, extractions: operation.extractions.map(extractionSnapshot),
-                               selectedExtractionID: selectedExtractionID)
+                               selectedExtractionID: selectedExtractionID, stages: operationStageSnapshots, activeStageID: activeRequiredStage?.id)
     }
 
     private var presentedOperationExtraction: ExtractionDefinition? {
@@ -2123,6 +2160,115 @@ extension CombatSimulation {
                 emit(GameEvent(kind: .breachChargeDetonated,position: charge.position,id: charge.id,charge: charge))
                 explode(at: charge.position)
             } else { breachCharges[index] = charge; index += 1 }
+        }
+    }
+}
+
+// A bounded linear operation with one active interaction timer. Legacy maps
+// have no requiredStages and continue through the original mission code above.
+extension CombatSimulation {
+    private var operationDefinitions: [OperationStageDefinition] { missionKind == .operation ? map.operation?.requiredStages ?? [] : [] }
+    private var hasRequiredOperationStages: Bool { !operationDefinitions.isEmpty }
+    private var activeRequiredStage: OperationStageDefinition? {
+        let stages = operationDefinitions
+        return stages.indices.contains(operationStageIndex) ? stages[operationStageIndex] : nil
+    }
+    private var nearestRequiredTarget: OperationTargetDefinition? {
+        activeRequiredStage?.targets.filter { !completedOperationTargets.contains($0.id) }.min {
+            simd_distance_squared(player.position,map.grounded($0.position)) < simd_distance_squared(player.position,map.grounded($1.position))
+        }
+    }
+    private func requiredTargetInterruption(_ target: OperationTargetDefinition) -> MissionInterruption? {
+        if operationInteractionLatch { return .releaseRequired }
+        if !player.grounded || climbing != nil { return .notGrounded }
+        let point = map.grounded(target.position)
+        if simd_distance(player.position,point) > 1.6 { return .outOfRange }
+        let owner = target.ownerObstacleID.flatMap { id in obstacles.firstIndex { $0.id == id } }
+        if !clearLine(eyePosition,point + SIMD3(0,1,0),excludingObstacle: owner) { return .blocked }
+        return nil
+    }
+    private var operationStageSnapshots: [OperationStageSnapshot] {
+        operationDefinitions.enumerated().map { index, stage in
+            let active = index == operationStageIndex && state == .active
+            return OperationStageSnapshot(id: stage.id,title: stage.title,kind: stage.kind,
+                completed: stage.targets.allSatisfy { completedOperationTargets.contains($0.id) },active: active,
+                targets: stage.targets.map { target in
+                    let completed = completedOperationTargets.contains(target.id)
+                    let hold = active && missionPhase == .holdRadio
+                    let required = hold ? stage.holdDuration : stage.interactionDuration
+                    var interruption: MissionInterruption? = completed ? nil : active ? requiredTargetInterruption(target) : .prerequisites
+                    if hold { interruption = requiredRadioInterruption(target) }
+                    return OperationTargetSnapshot(id: target.id,title: target.title,stageID: stage.id,kind: stage.kind,
+                        position: map.grounded(target.position),ownerObstacleID: target.ownerObstacleID,
+                        completed: completed,available: active && !completed,
+                        progress: completed ? required : activeOperationTargetID == target.id || hold ? Float(missionProgressTicks)/120 : 0,
+                        requiredProgress: required,interruption: interruption)
+                })
+        }
+    }
+    private var requiredOperationMissionStatus: MissionStatus? {
+        guard let stage = activeRequiredStage, let nearest = nearestRequiredTarget,
+              missionPhase != .extract, state != .won else { return nil }
+        // A physically approached future terminal explains its prerequisite;
+        // its existence and authored location are not hidden enemy knowledge.
+        let futureStage = operationDefinitions.dropFirst(operationStageIndex+1).first { definition in
+            definition.targets.contains { simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+        }
+        let future = futureStage?.targets.first { simd_distance(player.position,map.grounded($0.position)) <= 1.6 }
+        let target = future ?? nearest, holding = missionPhase == .holdRadio && future == nil
+        var reason = future != nil ? MissionInterruption.prerequisites : holding ? requiredRadioInterruption(target) : requiredTargetInterruption(target)
+        if reason == nil && !holding && !interactionHeld { reason = .interactionReleased }
+        return MissionStatus(kind: .operation,phase: missionPhase,objectivePosition: map.grounded(target.position),
+            objectiveRadius: holding ? 5 : 1.6,distance: simd_distance(player.position,map.grounded(target.position)),
+            progress: future == nil ? Float(missionProgressTicks)/120 : 0,
+            requiredProgress: holding ? stage.holdDuration : (futureStage ?? stage).interactionDuration,interruption: reason,
+            interactionAvailable: missionInteractionAvailable,objectiveID: target.id,objectiveTitle: target.title,
+            completedObjectives: stage.targets.filter { completedOperationTargets.contains($0.id) }.count,
+            requiredObjectives: stage.targets.count)
+    }
+    private func requiredRadioInterruption(_ target: OperationTargetDefinition) -> MissionInterruption? {
+        let point = map.grounded(target.position)
+        if !player.grounded || climbing != nil || abs(player.position.y-point.y) > 2.5 { return .notGrounded }
+        if horizontalDistance(player.position,point) > 5 { return .outOfRange }
+        if enemies.contains(where: { $0.health > 0 && horizontalDistance($0.position,point) <= 5 && abs($0.position.y-point.y) <= 2.5 }) { return .contested }
+        return nil
+    }
+    private func phase(for stage: OperationStageDefinition) -> MissionPhase {
+        switch stage.kind { case .relayGroup: return .activateRelays; case .collectData: return .collectData; case .radioTransfer: return .activateRadio }
+    }
+    private func updateRequiredOperation(input: GameInput) {
+        if !input.interact { operationInteractionLatch = false }
+        if missionPhase == .extract { updateOperationExtraction(); return }
+        guard let stage = activeRequiredStage, let target = nearestRequiredTarget else { return }
+        if missionPhase == .holdRadio {
+            guard requiredRadioInterruption(target) == nil else { return }
+            missionProgressTicks += 1
+            if missionProgressTicks >= Int((stage.holdDuration*120).rounded(.up)) { completeOperationTarget(target,stage: stage) }
+            return
+        }
+        guard input.interact, missionInteractionAvailable else {
+            missionProgressTicks = 0; activeOperationTargetID = nil; return
+        }
+        if missionPhase == .prepareOperation { changeMissionPhase(to: phase(for: stage)) }
+        if activeOperationTargetID != target.id { activeOperationTargetID = target.id; missionProgressTicks = 0 }
+        missionProgressTicks += 1
+        guard missionProgressTicks >= Int((stage.interactionDuration*120).rounded(.up)) else { return }
+        if stage.kind == .radioTransfer && stage.holdDuration > 0 {
+            operationInteractionLatch = true; changeMissionPhase(to: .holdRadio)
+        } else { completeOperationTarget(target,stage: stage) }
+    }
+    private func completeOperationTarget(_ target: OperationTargetDefinition, stage: OperationStageDefinition) {
+        guard completedOperationTargets.insert(target.id).inserted else { return }
+        let snapshot = OperationTargetSnapshot(id: target.id,title: target.title,stageID: stage.id,kind: stage.kind,
+            position: map.grounded(target.position),ownerObstacleID: target.ownerObstacleID,completed: true,
+            progress: stage.holdDuration > 0 ? stage.holdDuration : stage.interactionDuration,
+            requiredProgress: stage.holdDuration > 0 ? stage.holdDuration : stage.interactionDuration)
+        emit(GameEvent(kind: .operationObjectiveCompleted,position: snapshot.position,operationObjective: snapshot))
+        operationInteractionLatch = true; missionProgressTicks = 0; activeOperationTargetID = nil
+        if stage.kind == .collectData { queueMissionReinforcements(3) }
+        if stage.targets.allSatisfy({ completedOperationTargets.contains($0.id) }) {
+            operationStageIndex += 1
+            changeMissionPhase(to: activeRequiredStage.map { phase(for: $0) } ?? .extract)
         }
     }
 }

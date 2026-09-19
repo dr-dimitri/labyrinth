@@ -170,6 +170,8 @@ public struct EnvironmentSample: Sendable {
     public let groundHeight: Float
     public let supportHeight: Float
     public let supportingObstacleID: Int?
+    public let waterDepth: Float
+    public let waterSurfaceHeight: Float?
 }
 
 extension MapDefinition {
@@ -215,8 +217,10 @@ extension CombatSimulation {
                     (camouflage == .vegetation ? .vegetation : sound)
             }
         }
+        let water = waterContact(at: point)
+        if water != nil { sound = .water; camouflage = .none; density = 0 }
         return EnvironmentSample(surfaceMaterial: material, soundSurface: sound, camouflageGround: camouflage, foliageDensity: min(1, density),
-                                 groundHeight: ground, supportHeight: floor, supportingObstacleID: owner?.id)
+                                 groundHeight: ground, supportHeight: floor, supportingObstacleID: owner?.id, waterDepth: water?.depth ?? 0, waterSurfaceHeight: water?.surfaceHeight)
     }
 
     /// Only recognition speed is reduced. Hard eye sight remains authoritative,

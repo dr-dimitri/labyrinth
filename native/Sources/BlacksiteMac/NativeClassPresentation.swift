@@ -11,7 +11,7 @@ enum NativeClassPresentation {
         case .recon:
             return "\(gadgetKey) beim Zielen: sichtbaren Kontaktpunkt merken. Höchstens 3 Punkte, 12 s; sie folgen keinem Gegner. Ein Köder unterstützt die Umgehung. Weniger Splittergranaten; kein Rauch, keine Ladung."
         case .engineer:
-            return "\(gadgetKey): eine Ladung an einem erreichbaren Zugang anbringen (bis 2 m). 3 s Zünder — zurückziehen, die Explosion verletzt auch dich. Geräte mit 35 % kürzerer Bedienzeit. Weniger AR-Reserve; kein Rauch oder Köder."
+            return "\(gadgetKey): eine Ladung an einem erreichbaren Zugang anbringen (bis 2 m). 3 s Zünder — zurückziehen, die Explosion verletzt auch dich. Generatoren und Tore: 35 % kürzere Bedienzeit. Weniger AR-Reserve; kein Rauch oder Köder."
         case .assault:
             return "\(gadgetKey): Rauch werfen, alternativ die Rauch-Taste. Zwei Rauchgranaten und zusätzliche AR-Reserve erleichtern Querung und Rückzug. Kein Beobachtungswerkzeug, keine Durchbruchladung, kein Köder."
         }

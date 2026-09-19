@@ -14,6 +14,7 @@ enum NativeBriefingCheck {
         if let map = PublishedMapRegistry.map(id: id) { return map }
         // Explicit prepublication layout diagnostic, never a menu entry.
         if id == "nebelwacht" { return .nebelwacht }
+        if id == "sundkai" { return .sundkai }
         throw NativeRunConfigurationError.unavailableMap(id)
     }
     static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral), map: MapDefinition = .blacksite) throws -> [String: Any] {

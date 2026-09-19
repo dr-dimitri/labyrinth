@@ -1,0 +1,31 @@
+NACHTGANG — SUNDKAI PHOTOGRAPHIC MATERIAL CREDITS
+
+Mud Forest — eye-candy.xyz / Poly Haven
+https://polyhaven.com/a/mud_forest
+Original 4096x4096 color, 2048x2048 OpenGL normal and 1024x1024 roughness JPEGs.
+Photographed wet forest soil includes leaves and twigs. Used as organic bank
+litter, not presented as bare black underwater mud. Source scale about 2.35 m.
+
+Island Tree 01 — Rob Tuytel (Scanning, Processing),
+Rico Cilliers (Cleanup, Processing) / Poly Haven
+https://polyhaven.com/a/island_tree_01
+Original leaves_diff 4096x4096, leaves_nor_gl 2048x2048,
+leaves_alpha 2048x2048 and leaves_rough 1024x1024 JPEG atlas maps.
+Photographic broad coastal-tree leaves; the source does not establish a
+particular mangrove species. The original 3D tree model is not bundled.
+Leaf arrangement, roots and other map geometry are authored game geometry.
+
+Both sources: CC0 1.0 Universal
+https://polyhaven.com/license
+https://creativecommons.org/publicdomain/zero/1.0/
+Powered by Poly Haven.
+
+All seven source images are unchanged original bytes. No resizing, recoloring,
+recompression or baked atlas crop. Color is sRGB; alpha, normal and roughness
+are linear data. Normal maps follow OpenGL (+Y). The shared native loader
+creates the selected runtime texture size and mipmaps.
+
+The native-sundkai-sources.json manifest records official API and download URLs,
+exact file API paths, original pixel dimensions, bytes, upstream MD5 and SHA-256.
+Shared existing native bark, bare mud and concrete keep their original credits.
+The SWAT/Mixamo character is separately licensed and is not covered by CC0.

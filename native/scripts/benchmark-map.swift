@@ -7,7 +7,7 @@ import simd
 @main
 enum MapCoreBenchmark {
     private struct Options {
-        var mapID = "nebelwacht", spray = true, seconds = 60, samples = 5, enemyCount = 9, seed: UInt64 = 1745
+        var mapID = "nebelwacht", spray = true, water = true, seconds = 60, samples = 5, enemyCount = 9, seed: UInt64 = 1745
         var grenades = false
         init() throws {
             let args = Array(CommandLine.arguments.dropFirst()); var index = 0
@@ -21,6 +21,9 @@ enum MapCoreBenchmark {
                 case "--spray":
                     guard ["on","off"].contains(value) else { throw Failure("--spray must be on or off") }
                     spray = value == "on"
+                case "--water":
+                    guard ["on","off"].contains(value) else { throw Failure("--water must be on or off") }
+                    water = value == "on"
                 case "--seconds":
                     guard let parsed = Int(value), (10...300).contains(parsed) else { throw Failure("--seconds must be 10…300") }; seconds = parsed
                 case "--samples":
@@ -42,6 +45,7 @@ enum MapCoreBenchmark {
         let cpuSeconds, wallSeconds, simulatedSeconds: Double
         let steps, restartsAfterPlayerDeath, minimumLivingEnemies, maximumLivingEnemies: Int
         let warningEvents, cloudEvents, peakVolumes, acceptedGrenades, explosionEvents: Int
+        let playerWaterContactSteps, waterHearingEvents, waterImpactEvents: Int
         let checksum: Double
         var cpuMicrosecondsPerStep: Double { cpuSeconds * 1_000_000 / Double(steps) }
     }
@@ -50,15 +54,17 @@ enum MapCoreBenchmark {
         switch options.mapID {
         case "nebelwacht": original = .nebelwacht
         case "blacksite": original = .blacksite
-        default: throw Failure("Unknown map ID; use blacksite or nebelwacht")
+        case "sundkai": original = .sundkai
+        default: throw Failure("Unknown map ID; use blacksite, nebelwacht or sundkai")
         }
         guard options.enemyCount <= original.spawns.count else {
             throw Failure("Map \(original.id) has only \(original.spawns.count) authored starts")
         }
-        guard !options.spray else { return original }
+        guard !options.spray || !options.water else { return original }
         var environment = original.environment
         // Keep other smoke kinds, devices, alarms, geometry and resource data.
-        environment.smokeEmitters.removeAll { $0.kind == .spray }
+        if !options.spray { environment.smokeEmitters.removeAll { $0.kind == .spray } }
+        if !options.water { environment.shallowWaterZones = [] }
         return try MapDefinition(id: original.id,version: original.version,displayName: original.displayName,
             minimum: original.minimum,maximum: original.maximum,terrain: original.terrain,obstacles: original.obstacles,
             playerStart: original.playerStart,spawns: original.spawns,reinforcementEntries: original.reinforcementEntries,
@@ -89,6 +95,7 @@ enum MapCoreBenchmark {
     private static func measure(_ map: MapDefinition, _ options: Options, seconds: Int) -> Sample {
         var game = scenario(map,options), restarts = 0, minimum = options.enemyCount, maximum = options.enemyCount
         var warnings = 0, clouds = 0, peak = 0, throwsAccepted = 0, explosions = 0, runThrows = 0
+        var wetSteps = 0, wetSounds = 0, splashes = 0
         var simulated: Double = 0, checksum: Double = 0
         let steps = seconds * 120, cpuStart = cpuTime(), wallStart = ProcessInfo.processInfo.systemUptime
         for step in 0..<steps {
@@ -104,6 +111,7 @@ enum MapCoreBenchmark {
             if step % 600 == 0 { game.jump() }
             let before = game.elapsed
             game.step(deltaTime: 1.0/120,input: input); simulated += game.elapsed-before
+            if game.waterContact(at: game.player.position,grounded: game.player.grounded) != nil { wetSteps += 1 }
             minimum = min(minimum,game.aliveCount); maximum = max(maximum,game.aliveCount)
             peak = max(peak,game.smokeVolumes.count)
             if step % 2 == 1 {
@@ -111,6 +119,8 @@ enum MapCoreBenchmark {
                     if event.kind == .smokeWarning { warnings += 1 }
                     if event.kind == .smokeActivated { clouds += 1 }
                     if event.kind == .explosion { explosions += 1 }
+                    if event.hearing?.surface == .water { wetSounds += 1 }
+                    if event.waterImpact != nil { splashes += 1 }
                 }
             }
             if step % 60 == 0 {
@@ -126,7 +136,7 @@ enum MapCoreBenchmark {
         return Sample(cpuSeconds: cpu,wallSeconds: wall,simulatedSeconds: simulated,steps: steps,
             restartsAfterPlayerDeath: restarts,minimumLivingEnemies: minimum,maximumLivingEnemies: maximum,
             warningEvents: warnings,cloudEvents: clouds,peakVolumes: peak,acceptedGrenades: throwsAccepted,
-            explosionEvents: explosions,checksum: checksum)
+            explosionEvents: explosions,playerWaterContactSteps: wetSteps,waterHearingEvents: wetSounds,waterImpactEvents: splashes,checksum: checksum)
     }
     static func main() throws {
         let options = try Options(), map = try definition(options)
@@ -137,7 +147,8 @@ enum MapCoreBenchmark {
         let deterministic = samples.allSatisfy {
             $0.checksum == baseline.checksum && $0.restartsAfterPlayerDeath == baseline.restartsAfterPlayerDeath &&
             $0.minimumLivingEnemies == baseline.minimumLivingEnemies && $0.maximumLivingEnemies == baseline.maximumLivingEnemies &&
-            $0.warningEvents == baseline.warningEvents && $0.cloudEvents == baseline.cloudEvents && $0.explosionEvents == baseline.explosionEvents
+            $0.warningEvents == baseline.warningEvents && $0.cloudEvents == baseline.cloudEvents && $0.explosionEvents == baseline.explosionEvents &&
+            $0.playerWaterContactSteps == baseline.playerWaterContactSteps && $0.waterHearingEvents == baseline.waterHearingEvents && $0.waterImpactEvents == baseline.waterImpactEvents
         }
         precondition(deterministic,"Repeated fixed-seed runs diverged")
         let medianCPU = samples.map(\.cpuSeconds).sorted()[samples.count/2]
@@ -146,12 +157,13 @@ enum MapCoreBenchmark {
             "benchmark": "Native authored-map combat", "build": "Swift -O -whole-module-optimization",
             "mapID": map.id, "mapVersion": map.version, "seed": options.seed,
             "sprayEnabled": options.spray, "authoredSpraySources": map.environment.smokeEmitters.filter { $0.kind == .spray }.count,
+            "waterEnabled": options.water, "authoredWaterZones": map.environment.shallowWaterZones.count,
             "initialEnemyCount": options.enemyCount, "obstacleCount": map.obstacles.count,
             "fixedFrequencyHz": 120, "sampleDurationSeconds": options.seconds, "measuredSamples": samples.count,
             "scriptedGrenades": options.grenades, "deterministic": deterministic,
             "medianCPUMicrosecondsPerStep": medianCPU*1_000_000/Double(options.seconds*120),
             "medianCPUSeconds": medianCPU, "medianWallSeconds": samples.map(\.wallSeconds).sorted()[samples.count/2],
-            "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds and optical events expose differing spray workloads; this is CPU simulation cost, not GPU frame time.",
+            "scenario": "Authored starts, initially alerted live AI, scripted movement/jumps, real alarm response and optional ordinary frag throws. Death restarts are measured. Population bounds, water contacts and optical events expose differing environment workloads; this is CPU simulation cost, not GPU frame time.",
             "samples": sampleJSON
         ]
         let data = try JSONSerialization.data(withJSONObject: report,options: [.prettyPrinted,.sortedKeys])

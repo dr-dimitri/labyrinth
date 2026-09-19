@@ -233,6 +233,11 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                     interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings), operation: simulation.operationStatus, map: simulation.map) {
                     banner(notice.label, notice.title, notice.detail, duration: 4)
                 }
+            case .operationObjectiveCompleted:
+                if let target = event.operationObjective,
+                   !events.contains(where: { $0.kind == .missionPhaseChanged }) {
+                    toast("\(target.title) · ERLEDIGT", duration: 2)
+                }
             case .extractionSelected:
                 if let exit = simulation.operationStatus?.extractions.first(where: { $0.id == event.extractionID }) {
                     toast("\(exit.title) · \(String(format: "%.1f", exit.requiredProgress)) s am Boden im Ring bleiben", duration: 3)
@@ -300,7 +305,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .jump: simulation.jump()
             case .prone: simulation.toggleProne()
             case .interact:
-                if !simulation.missionInteractionAvailable && !simulation.deviceContextAvailable { simulation.mantle() }
+                if !simulation.missionContextAvailable && !simulation.deviceContextAvailable { simulation.mantle() }
             case .grenade: simulation.throwGrenade()
             case .decoy: simulation.throwNoiseDecoy()
             case .smoke: simulation.throwSmokeGrenade()

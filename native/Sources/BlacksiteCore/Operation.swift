@@ -21,8 +21,9 @@ public struct OperationPreparationDefinition: Sendable {
 public struct MapOperationDefinition: Sendable {
     public let preparations: [OperationPreparationDefinition]
     public let extractions: [ExtractionDefinition]
-    public init(preparations: [OperationPreparationDefinition] = [], extractions: [ExtractionDefinition]) {
-        self.preparations = preparations; self.extractions = extractions
+    public let requiredStages: [OperationStageDefinition]
+    public init(preparations: [OperationPreparationDefinition] = [], extractions: [ExtractionDefinition], requiredStages: [OperationStageDefinition] = []) {
+        self.preparations = preparations; self.extractions = extractions; self.requiredStages = requiredStages
     }
 }
 public struct OperationPreparationStatus: Sendable {
@@ -56,11 +57,14 @@ public struct OperationStatus: Sendable {
     public let extractions: [ExtractionSnapshot]
     /// Last exit deliberately entered; nil before the first choice. Leaving its
     /// zone resets only its timer. Entering the other zone replaces this choice.
+    public let stages: [OperationStageSnapshot]
+    public let activeStageID: String?
     public let selectedExtractionID: String?
     public var activeExtractionID: String? { extractions.first { $0.active }?.id }
     public var activeExtractionTitle: String? { extractions.first { $0.active }?.title }
     public var selectedExtractionTitle: String? { extractions.first { $0.id == selectedExtractionID }?.title }
-    public init(preparations: [OperationPreparationStatus], extractions: [ExtractionSnapshot], selectedExtractionID: String?) {
+    public init(preparations: [OperationPreparationStatus], extractions: [ExtractionSnapshot], selectedExtractionID: String?, stages: [OperationStageSnapshot] = [], activeStageID: String? = nil) {
         self.preparations = preparations; self.extractions = extractions; self.selectedExtractionID = selectedExtractionID
+        self.stages = stages; self.activeStageID = activeStageID
     }
 }

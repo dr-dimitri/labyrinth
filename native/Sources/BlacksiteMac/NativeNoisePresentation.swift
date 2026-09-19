@@ -37,8 +37,8 @@ final class NativeNoisePresentation {
             case .gunshot:label="SCHÜSSE";priority=4;lifetime=2.4
             case .explosion:label="EXPLOSION";priority=5;lifetime=2.8
             case .decoy:label="KÖDER";priority=3;lifetime=1.6
-            case .landing:label="AUFPRALL";priority=2;lifetime=1.6
-            case .footstep:label="SCHRITTE";priority=2;lifetime=1.4
+            case .landing:label=sound.surface == .water ? "PLATSCHEN":"AUFPRALL";priority=2;lifetime=1.6
+            case .footstep:label=sound.surface == .water ? "WASSERSCHRITTE":"SCHRITTE";priority=2;lifetime=1.4
             case .shout:label="KONTAKTRUF";priority=4;lifetime=2.2
             case .breakage:label=sound.surface == .glass ? "GLASBRUCH":"DURCHBRUCH";priority=4;lifetime=2.6
             case .gust:

@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "map_id": "sundkai",
+  "retrieved_at_utc": "2026-09-19T18:12:33.261384+00:00",
+  "provider": "Poly Haven",
+  "api_credit": "Powered by Poly Haven",
+  "license": {
+    "spdx": "CC0-1.0",
+    "provider_license_url": "https://polyhaven.com/license",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "scope": "Only the seven photographic Sundkai mud and broadleaf files listed here."
+  },
+  "processing": "Original JPEG bytes; no resizing, painting, color adjustment, recompression or baked atlas crop. Balanced downsamples at runtime through the shared native texture loader. Alpha is the original 8-bit JPEG; normal and roughness are linear data.",
+  "usage": {
+    "mud": "Wet forest soil with photographic leaves and twigs, used explicitly as organic bank litter; not described as bare underwater mud. Source repeats every approximately 2.35 meters.",
+    "broadleaf": "Eight photographed coastal-tree leaf shapes, five above and three below. Source identifies a coastal tree, not a botanically verified mangrove species. Used with authored broadleaf/root geometry; the source 3D model is not bundled.",
+    "atlas": "Full original atlas, aligned color/alpha/normal/roughness; top-left image-coordinate UV convention for material sampling. No global Pine-twig crop.",
+    "shared_existing": "Bare bed mud, bark and concrete reference existing pinned native assets; their separate original manifests/credits remain authoritative."
+  },
+  "files": [
+    {
+      "asset_id": "mud_forest",
+      "name": "Mud Forest",
+      "authors": {
+        "eye-candy.xyz": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/mud_forest",
+      "info_url": "https://api.polyhaven.com/info/mud_forest",
+      "files_url": "https://api.polyhaven.com/files/mud_forest",
+      "api_path": [
+        "Diffuse",
+        "4k",
+        "jpg"
+      ],
+      "channel": "color",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/mud_forest/mud_forest_diff_4k.jpg",
+      "upstream_md5": "7cea75ffd275e7563858f9feb0035c74",
+      "upstream_bytes": 13867741,
+      "color_space": "sRGB",
+      "physical_size_m": [
+        2.3499999046325684,
+        2.3499999046325684
+      ],
+      "path": "native/Assets/maps/sundkai/textures/mud/color.jpg",
+      "width": 4096,
+      "height": 4096,
+      "bytes": 13867741,
+      "sha256": "2bb08b92389e233fc63a82b6384ce1b3bcc802d834bd19108aeae9635ab6665b",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "mud_forest",
+      "name": "Mud Forest",
+      "authors": {
+        "eye-candy.xyz": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/mud_forest",
+      "info_url": "https://api.polyhaven.com/info/mud_forest",
+      "files_url": "https://api.polyhaven.com/files/mud_forest",
+      "api_path": [
+        "nor_gl",
+        "2k",
+        "jpg"
+      ],
+      "channel": "normal",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/mud_forest/mud_forest_nor_gl_2k.jpg",
+      "upstream_md5": "17635ab324ff50542465d7a4284502e3",
+      "upstream_bytes": 5909919,
+      "color_space": "linear OpenGL +Y",
+      "physical_size_m": [
+        2.3499999046325684,
+        2.3499999046325684
+      ],
+      "path": "native/Assets/maps/sundkai/textures/mud/normal.jpg",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 5909919,
+      "sha256": "8d0ad08c4d0df9aabd2fc42ef34e0d34010d9a63eb472eed214be6fad5bc2d4e",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "mud_forest",
+      "name": "Mud Forest",
+      "authors": {
+        "eye-candy.xyz": "All"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/mud_forest",
+      "info_url": "https://api.polyhaven.com/info/mud_forest",
+      "files_url": "https://api.polyhaven.com/files/mud_forest",
+      "api_path": [
+        "Rough",
+        "1k",
+        "jpg"
+      ],
+      "channel": "roughness",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/mud_forest/mud_forest_rough_1k.jpg",
+      "upstream_md5": "7e8295bca2f2e7fe13c09b9ab0d6f67d",
+      "upstream_bytes": 251645,
+      "color_space": "linear",
+      "physical_size_m": [
+        2.3499999046325684,
+        2.3499999046325684
+      ],
+      "path": "native/Assets/maps/sundkai/textures/mud/roughness.jpg",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 251645,
+      "sha256": "311356ce27ac527a429184145a5939c015b6f1671886e6f6370591cb03331861",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded JPEG bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "island_tree_01",
+      "name": "Island Tree 01",
+      "authors": {
+        "Rob Tuytel": "scanning, processing",
+        "Rico Cilliers": "cleanup, processing"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/island_tree_01",
+      "info_url": "https://api.polyhaven.com/info/island_tree_01",
+      "files_url": "https://api.polyhaven.com/files/island_tree_01",
+      "api_path": [
+        "leaves_diff",
+        "4k",
+        "jpg"
+      ],
+      "channel": "color",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/4k/island_tree_01/island_tree_01_leaves_diff_4k.jpg",
+      "upstream_md5": "baccfba7b811f8e5451b4f76b89f70a5",
+      "upstream_bytes": 2569674,
+      "color_space": "sRGB",
+      "path": "native/Assets/maps/sundkai/foliage/broadleaf/color.jpg",
+      "width": 4096,
+      "height": 4096,
+      "bytes": 2569674,
+      "sha256": "665a429f6446f44d5c9ee7b01f1663ce74a25a7a7f095358a8ec78819e0ded89",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded image bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "island_tree_01",
+      "name": "Island Tree 01",
+      "authors": {
+        "Rob Tuytel": "scanning, processing",
+        "Rico Cilliers": "cleanup, processing"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/island_tree_01",
+      "info_url": "https://api.polyhaven.com/info/island_tree_01",
+      "files_url": "https://api.polyhaven.com/files/island_tree_01",
+      "api_path": [
+        "leaves_nor_gl",
+        "2k",
+        "jpg"
+      ],
+      "channel": "normal",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/island_tree_01/island_tree_01_leaves_nor_gl_2k.jpg",
+      "upstream_md5": "b7d1e6306288a64119e1d17dae3c272d",
+      "upstream_bytes": 1378585,
+      "color_space": "linear OpenGL +Y",
+      "path": "native/Assets/maps/sundkai/foliage/broadleaf/normal.jpg",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 1378585,
+      "sha256": "efa74b8b59a7466a295bf210505560002990183817b6c33663f3ec0dd438dd73",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded image bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "island_tree_01",
+      "name": "Island Tree 01",
+      "authors": {
+        "Rob Tuytel": "scanning, processing",
+        "Rico Cilliers": "cleanup, processing"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/island_tree_01",
+      "info_url": "https://api.polyhaven.com/info/island_tree_01",
+      "files_url": "https://api.polyhaven.com/files/island_tree_01",
+      "api_path": [
+        "leaves_rough",
+        "1k",
+        "jpg"
+      ],
+      "channel": "roughness",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/island_tree_01/island_tree_01_leaves_rough_1k.jpg",
+      "upstream_md5": "620f7b7309a637d45b267504dae2beab",
+      "upstream_bytes": 394461,
+      "color_space": "linear",
+      "path": "native/Assets/maps/sundkai/foliage/broadleaf/roughness.jpg",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 394461,
+      "sha256": "a9125d51b99a20f76bbbe4f0b9b20c9f9062f7510869997a2a9d58439283ea95",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded image bytes; directory and filenames only changed."
+    },
+    {
+      "asset_id": "island_tree_01",
+      "name": "Island Tree 01",
+      "authors": {
+        "Rob Tuytel": "scanning, processing",
+        "Rico Cilliers": "cleanup, processing"
+      },
+      "license": "CC0-1.0",
+      "license_url": "https://polyhaven.com/license",
+      "asset_url": "https://polyhaven.com/a/island_tree_01",
+      "info_url": "https://api.polyhaven.com/info/island_tree_01",
+      "files_url": "https://api.polyhaven.com/files/island_tree_01",
+      "api_path": [
+        "leaves_alpha",
+        "2k",
+        "jpg"
+      ],
+      "channel": "alpha",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/island_tree_01/island_tree_01_leaves_alpha_2k.jpg",
+      "upstream_md5": "38e12b7531d4c13ec9d3cf70342ccb6c",
+      "upstream_bytes": 189384,
+      "color_space": "linear",
+      "path": "native/Assets/maps/sundkai/foliage/broadleaf/alpha.jpg",
+      "width": 2048,
+      "height": 2048,
+      "bytes": 189384,
+      "sha256": "d202ec020ad2dda57a9d36cfd4045e530146f8793bd46ce3ab779e7845fb28f5",
+      "upstream_verified": true,
+      "modifications": "None. Original downloaded image bytes; directory and filenames only changed."
+    }
+  ]
+}

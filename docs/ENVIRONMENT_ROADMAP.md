@@ -25,7 +25,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #22 | Durchbrechbare Zugänge | Umgesetzt, Reviews, Tests, reale Routen, Audio und Bilder bestanden |
 | #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Eingaben vorgemerkt |
 | #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik- und Speicherprüfung bestanden; native Eingaben vorgemerkt |
-| #28 | Sundkai | Offen |
+| #28 | Sundkai | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik-/Speicherprüfung und native Start-/Eingabeprüfung bestanden |
 | #29 | Kessel-9 | Offen |
 | #30 | Sirocco | Offen |
 | #31 | Varianten und Einsatzbericht | Offen |
@@ -378,3 +378,54 @@ Freischaltung der Karte. Die native Bedienprüfung bleibt vorgemerkt: macOS ist
 gesperrt, CUA konnte das gestartete Fenster nicht übernehmen. Die bereits
 angefragte Entsperrung steht noch aus; Auswahl/Retry und Darstellung wurden
 zusätzlich automatisiert geprüft.
+
+
+### #28 – Sundkai
+
+Der Kühlhafen bietet einen gedeckten Lagerweg, zwei flache Watbecken und einen
+höheren Dammweg. Zwei Relais können in beliebiger Reihenfolge bedient werden.
+Danach lassen sich Versanddaten bergen; erst dadurch werden beide trockenen
+Ausgänge freigegeben. Alle
+Pflichtziele liegen im Trockenen. Drei Holzquerungen liegen auf echtem erhöhtem
+Gelände; zerstörbare optionale Deckung sperrt die Hauptwege nicht. Sichtbare
+Zäune markieren die tatsächlichen Arenagrenzen vor der tiefen Meereskulisse.
+
+Wasserfläche, 25 cm tiefer Grund, Auflage und Einschläge stammen aus denselben
+Daten. Tatsächlich watende Spieler und Gegner bewegen sich mit Faktor 0,65;
+Schritte und Landungen erzeugen ortbare Wassergeräusche. Springen beendet den
+Bodenkontakt, die Landung bleibt hörbar. Wasser bietet keine automatische
+Tarnwirkung. Eine gemeinsame Wasserzeichnung ohne zusätzliche Renderziele und
+höchstens 32 Kontaktringe ergänzen die begrenzten vorhandenen Effekte.
+
+Unabhängige Reviews korrigierten von Nachbarfundamenten angehobene Bodenränder,
+fehlende Wasserspritzer bei untergetauchten Granaten sowie irreführende Hinweise
+zu Pflichtrelais und E-Interaktion. Alle 209 Core- und 205 Mac-Tests bestanden,
+einschließlich echtem Audio, Texturupload und Metal-Rauchabgleich. Zwei ergänzte
+Auswahl-/Kontaktprüfungen bringen die abgedeckten Mac-Tests auf 207; der letzte
+gezielte Lauf mit 14 Tests bestand. Sechs vollständige Operationsläufe decken
+alle drei Klassen und beide Relaisreihenfolgen ab. Diese tatsächlichen Bewegungs-
+und Interaktionsläufe isolieren den Kampf ausdrücklich.
+
+High/Balanced-Bilder prüfen Wasser, Ufer, Landung, Schuss, drei Explosionen,
+beide Relaisreihenfolgen und Figuren auf Wasserboden, Ufer und Containerdach.
+Fotografische PBR-Bilder für Schlamm und Blattwerk sind als sieben unveränderte
+CC0-Originale dokumentiert; die gesamte Offline-Prüfung bestätigt 43 Bilddateien.
+
+Der Core benötigt mit Wasser im Median 9,40 µs pro Schritt, ohne 9,93 µs.
+Neun ursprüngliche Gegner, echte Alarmverstärkung und unterschiedliche
+Kampfverläufe erlauben daraus keine isolierte Aussage über Wasser-Mehrkosten.
+GPU-P95 bei 2560 × 1600 beträgt beim Waten 14,77 ms High bzw. 11,24 ms Balanced;
+mit drei echten Wasserexplosionen 15,49 bzw. 13,45 ms. Die Allokationen betragen
+1077,69 bzw. 301,28 MiB. Alle Werte liegen unter den vorher gesetzten Budgets.
+Drei Kartenrundwechsel je Profil halten die Allokation pro Karte konstant.
+Dies sind Teilsystemmessungen, keine Spiel-FPS. [Prüfdaten](native-environment/issue28.json).
+
+Die optimierte ARM64-App mit Sundkai-Auswahl, Signatur und Metal-Startprüfung
+besteht. Nach Verfügbarkeit des Macs wurde auch die echte native Bedienung
+geprüft: Kartenauswahl, Missionsstart mit 0/2 Pflichtrelais, Pause/Fortsetzen,
+Granatenwurf, Hinlegen, tatsächlicher Gegnerschaden und ein neuer Einsatz mit
+vollständigem Startvorrat. Die ursprüngliche Auswahl wurde anschließend
+wiederhergestellt. Deterministischer Retry und vollständige Missionswege sind
+automatisiert geprüft; der native Kurztest ist kein kompletter manueller Einsatz.
+Auf Wunsch des Nutzers endet die Arbeit nach diesem Issue. Weitere Karten,
+Varianten und die gemeinsame Veröffentlichung bleiben offen.

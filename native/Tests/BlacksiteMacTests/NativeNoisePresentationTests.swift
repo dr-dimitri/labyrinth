@@ -49,6 +49,25 @@ struct NativeNoisePresentationTests {
         presentation.clear()
         #expect(presentation.lines.isEmpty)
     }
+
+    @Test func waterCaptionsUseTheActualHeardSurfaceWithoutRevealingOwnOrRemoteSteps() {
+        let game=simulation(),presentation=NativeNoisePresentation()
+        func step(_ id:Int,_ surface:SurfaceSound,_ kind:HearingKind = .footstep,
+                  source:NoiseSource = .enemy,position:SIMD3<Float> = SIMD3(5,1,0))->GameEvent {
+            GameEvent(kind:kind == .landing ? .land:.footstep,position:position,
+                hearing:HearingStimulus(id:id,kind:kind,position:position,surface:surface,
+                    time:game.elapsed,strength:1,range:15,source:source,sourceID:40))
+        }
+        presentation.consume(events:[step(1,.water,source:.player),step(2,.water,position:SIMD3(100,1,0))],simulation:game)
+        #expect(presentation.lines.isEmpty)
+        presentation.consume(events:[step(3,.water)],simulation:game)
+        #expect(presentation.lines == ["WASSERSCHRITTE · RECHTS"])
+        presentation.consume(events:[step(4,.wood)],simulation:game)
+        #expect(presentation.lines == ["SCHRITTE · RECHTS"])
+        presentation.clear()
+        presentation.consume(events:[step(5,.water,.landing)],simulation:game)
+        #expect(presentation.lines == ["PLATSCHEN · RECHTS"])
+    }
     @Test func radioPhasesReplaceTheirCaptionAndUnheardCallsRemainHidden() {
         let game=simulation(),presentation=NativeNoisePresentation()
         func report(_ id:Int,_ kind:GameEvent.Kind,_ sound:HearingKind = .radio,_ position:SIMD3<Float> = SIMD3(4,1,0))->GameEvent {

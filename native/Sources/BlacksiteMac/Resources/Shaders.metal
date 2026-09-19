@@ -9,6 +9,27 @@ struct WorldLight { float4x4 matrix; float4 positionRange; float4 directionOuter
 struct WorldLighting { float4 counts; WorldLight first; WorldLight second; };
 struct WorldSmokeVolume { float4 centerDensity; float4 radiiKind; float4 clipMinimum; float4 clipMaximum; float4 scatterColor; };
 struct WorldSmoke { float4 counts; WorldSmokeVolume volumes[4]; };
+struct ShallowWaterZone { float4 bounds; float4 parameters; };
+struct ShallowWater { float4 counts; ShallowWaterZone zones[4]; };
+// Count real surface crossings along the eye ray. Testing just world.xz would
+// misorder glass/smoke that sits beyond a pool. Endpoint planes are excluded.
+uint shallowWaterCrossings(float3 eye,float3 world,constant ShallowWater &water) {
+  float3 delta=world-eye;if(abs(delta.y)<0.00001) return 0;
+  uint result=0;float crossedHeights[4];
+  for(uint index=0;index<min(uint(water.counts.x),4u);++index) {
+    ShallowWaterZone zone=water.zones[index];float t=(zone.parameters.x-eye.y)/delta.y;
+    float2 p=(eye+delta*t).xz;
+    if(t>0.00001 && t<0.99999 && all(p>=zone.bounds.xy) && all(p<=zone.bounds.zw)) {
+      bool duplicate=false;
+      for(uint prior=0;prior<result;++prior) duplicate=duplicate || crossedHeights[prior]==zone.parameters.x;
+      if(!duplicate) crossedHeights[result++]=zone.parameters.x;
+    }
+  }
+  return result;
+}
+bool shallowWaterLayer(float3 eye,float3 world,constant ShallowWater &water) {
+  return water.counts.y<0 || uint(water.counts.y+0.5)==shallowWaterCrossings(eye,world,water);
+}
 
 // Identical clipped quartic extinction and exact three-point quadrature as
 // SmokeVolumeState.opticalDepth. Only colour may vary; opacity never uses noise.
@@ -292,6 +313,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
   float2 uvFootprint=fwidth(in.uv);
+  float2 detailFootprint=fwidth(in.detailUV);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
   int id=int(in.material.w+0.5); float2 uv; float3 absN=abs(n);
   if(absN.y>absN.x && absN.y>absN.z) uv=in.world.xz; else if(absN.x>absN.z) uv=in.world.zy; else uv=in.world.xy;
@@ -386,6 +408,14 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float foam=crest*smoothstep(0.56,0.82,noise(in.world.xz*0.38+u.eyeTime.w*0.12));
     albedo=mix(albedo,float3(0.48,0.58,0.59),foam*0.42);
     rough=mix(rough,0.58,foam);
+  } else if(id==38) {
+    // Weathered narrow deck boards at their true metre scale. A paint-thin
+    // seam does not add a second collision/support surface or false gap.
+    float2 local=in.detailUV;
+    float grain=noise(float2(local.x*86.0,local.y*1.6))*0.55+noise(float2(local.x*193.0,local.y*3.7))*0.45;
+    float edge=min(fract(local.x/0.30),1-fract(local.x/0.30))*0.30;
+    float seam=1-smoothstep(0.003-max(detailFootprint.x,0.001),0.003+max(detailFootprint.x,0.001),edge);
+    albedo*=mix(0.75+grain*0.45,0.30,seam*0.65);rough=0.90;metal=0;
   } else if(id==37) {
     // Thin triangular fiberglass panel joints, without extra meshes or cuts.
     float2 grid=in.uv*float2(24,12);
@@ -518,7 +548,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     }
   }
   float wetness=0;
-  if(id==1 || id==2 || id==3 || id==6 || id==7 || id==19) {
+  if(id==1 || id==2 || id==3 || id==6 || id==7 || id==19 || id==38) {
     // Wet patches are material response only, not invented standing water.
     wetness=appearance.counts.y*smoothstep(0.22,0.79,noise(in.world.xz*0.29)+max(n.y,0.0)*0.20);
     wetness*=0.40+0.60*max(n.y,0.0);
@@ -582,7 +612,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
 // back-to-front intervals as smoke particles and sparks. It writes no depth
 // and never enters an opaque shadow pass; its physical frame still does.
 fragment float4 breachGlassFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
-  constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
+  constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],constant ShallowWater &water [[buffer(7)]],
   depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
   depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
   sampler surface [[sampler(0)]],sampler comparison [[sampler(1)]]) {
@@ -606,6 +636,7 @@ fragment float4 breachGlassFragment(Raster in [[stage_in]],constant Uniforms &u 
   color=mix(color,float3(0.73,0.78,0.74),cracks*0.8);
   color=mix(color,float3(0.67,0.71,0.67)*(0.78+shadow.x*0.22),frost*0.86);
   color+=worldLights(lights,in.world,normal,view,float3(0.08),0.18,0,firstSpotMap,secondSpotMap,comparison)*0.09;
+  if(!shallowWaterLayer(u.eyeTime.xyz,in.world,water)) discard_fragment();
   return float4(smokeComposite(color,u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
 }
 struct SkyRaster { float4 position [[position]]; float2 uv; };
@@ -659,7 +690,8 @@ vertex CombatParticleRaster combatParticleVertex(uint vi [[vertex_id]],uint ii [
   o.tint=p.tintAspect.rgb;o.age=p.positionAge.w;o.opacity=p.shape.w;o.kind=p.shape.z;
   o.supportHeight=dot(p.supportPlane,float4(world,1));return o;
 }
-fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]]) {
+fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldSmoke &smoke [[buffer(6)]],constant ShallowWater &water [[buffer(7)]]) {
+  if(!shallowWaterLayer(u.eyeTime.xyz,in.world,water)) discard_fragment();
   float radius=length(in.uv);if(radius>1) discard_fragment();
   int kind=int(in.kind+0.5);float mask;float3 color;
   if(kind==2) {
@@ -670,6 +702,9 @@ fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],cons
   } else if(kind==3) {
     mask=(1-smoothstep(0.73,0.95,abs(in.uv.x)+abs(in.uv.y)*0.2))*(1-smoothstep(0.6,0.95,abs(in.uv.y)));
     color=aces(in.tint*(0.50+max(u.sunDirection.y,0.0)*0.8*u.sunDirection.w)*(0.78+noise(in.uv*12)*0.4));
+  } else if(kind==5) {
+    mask=(1-smoothstep(0.2,1.0,radius))*0.8;
+    color=aces(in.tint*(0.72+max(u.sunDirection.y,0.0)*0.4*u.sunDirection.w));
   } else {
     float cloud=noise(in.uv*3.2+float2(in.age*0.4,2.7))*0.7+noise(in.uv*7.8+float2(8.3,in.age*0.6))*0.3;
     mask=(1-smoothstep(0.48,0.99,radius+(0.5-cloud)*0.18))*(0.48+cloud*0.52);
@@ -716,6 +751,56 @@ fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant U
   float alpha=opacity*in.opacity;return float4(smokeComposite(aces(lit),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
 }
 struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; float4 nearShadow; };
+
+struct ShallowRaster { float4 position [[position]];float3 world;float depth;float zone [[flat]];float4 shadow;float4 nearShadow; };
+struct WaterRipple { float4 positionAge;float4 parameters; };
+struct WaterRipples { float4 counts;WaterRipple rings[32]; };
+vertex ShallowRaster shallowWaterVertex(uint vertexID [[vertex_id]],const device Vertex *vertices [[buffer(0)]],constant Uniforms &u [[buffer(2)]]) {
+  Vertex v=vertices[vertexID];ShallowRaster o;
+  o.world=v.position;o.position=u.viewProjection*float4(v.position,1);o.depth=v.uv.x;o.zone=v.uv.y;
+  o.shadow=u.lightViewProjection*float4(v.position,1);o.nearShadow=u.nearLightViewProjection*float4(v.position,1);return o;
+}
+fragment float4 shallowWaterFragment(ShallowRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+  constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
+  constant ShallowWater &water [[buffer(7)]],constant WaterRipples &ripples [[buffer(8)]],
+  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
+  depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
+  sampler surface [[sampler(0)]],sampler comparison [[sampler(1)]]) {
+  // Normal-only capillary ripples never change the shared collision/water level.
+  float t=u.eyeTime.w;float2 p=in.world.xz;
+  float2 slope=float2(cos(p.x*9.1+p.y*4.2-t*1.7)*0.023+cos(p.x*3.8-p.y*6.7+t*1.1)*0.014,
+    cos(p.x*9.1+p.y*4.2-t*1.7)*0.010-cos(p.x*3.8-p.y*6.7+t*1.1)*0.024);
+  float ringLight=0;
+  for(uint index=0;index<min(uint(ripples.counts.x),32u);++index) {
+    WaterRipple ring=ripples.rings[index];if(abs(ring.parameters.z-in.zone)>0.1) continue;
+    float2 delta=p-ring.positionAge.xz;float radius=ring.parameters.x;
+    if(any(abs(delta)>radius+0.13)) continue;
+    float distance=length(delta),edge=distance-radius,fade=pow(1-ring.positionAge.w,1.8);
+    float wave=exp(-edge*edge*500)*fade*ring.parameters.y;
+    slope+=delta/max(distance,0.02)*wave*0.12;ringLight+=wave*0.08;
+  }
+  float3 normal=normalize(float3(-slope.x,1,-slope.y)),view=normalize(u.eyeTime.xyz-in.world);
+  if(view.y<0) normal=-normal;
+  // Receiver gradients run before layer/shore clipping; all visible water
+  // receives exactly the same sun and finite lamps as its dry neighbours.
+  float2 shadow=directionalShadows(in.shadow,in.nearShadow,float3(0,1,0),u,shadowMap,nearShadowMap,comparison);
+  float3 lamp=worldLights(lights,in.world,normal,view,float3(0.045,0.055,0.040),0.23,0,firstSpotMap,secondSpotMap,comparison);
+  if(!shallowWaterLayer(u.eyeTime.xyz,in.world,water) || in.depth<=0.0001) discard_fragment();
+  float3 reflected=reflect(-view,normal);
+  float2 skyUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
+  float3 sky=photoSky.sample(surface,skyUV,level(1.5)).rgb;
+  float fresnel=0.025+0.975*pow(1-saturate(dot(normal,view)),5.0);
+  float absorption=1-exp(-in.depth*1.8),shore=smoothstep(0.001,0.028,in.depth);
+  float alpha=clamp((absorption*0.55+fresnel*0.60)*shore,0.0,0.76);
+  float direct=shadow.x*u.sunDirection.w;
+  float3 waterColor=float3(0.105,0.145,0.105)*(0.72+0.28*direct);
+  float3 color=mix(waterColor,sky*0.86,saturate(0.45+fresnel*0.5))+lamp*0.06+ringLight;
+  float specular=pow(max(0.0,dot(reflect(-normalize(u.sunDirection.xyz),normal),view)),144.0);
+  color+=float3(0.72,0.69,0.58)*specular*direct*0.18;
+  // The underlying real terrain/boots are already lit. This layer only adds
+  // depth-dependent attenuation and reflection, never an opaque second floor.
+  return float4(smokeComposite(color,u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
+}
 float4x4 soldierSkinMatrix(SoldierSkinVertex v,const device float4x4 *joints,uint offset) {
   return joints[offset+v.joints.x]*v.weights.x+joints[offset+v.joints.y]*v.weights.y+
          joints[offset+v.joints.z]*v.weights.z+joints[offset+v.joints.w]*v.weights.w;

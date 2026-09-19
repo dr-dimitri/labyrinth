@@ -177,7 +177,7 @@ public struct GameEvent: Sendable {
         case footstep, decoyThrown, decoyPulse, noiseEmitterChanged
         case deviceActivated, deviceDestroyed, gateBlocked, gateStopped
         case contactReportStarted, contactReportInterrupted, contactReportTransmitted, alarmEscalated
-        case extractionSelected
+        case extractionSelected, operationObjectiveCompleted
         case throwSmoke, smokeActivated, smokeDissipated, smokeWarning
         case breachOpened
         case reconMarked, breachChargePlaced, breachChargeDetonated
@@ -204,16 +204,18 @@ public struct GameEvent: Sendable {
     public let mark: ReconMark?
     public let charge: BreachChargeState?
     public let warning: SmokeWarning?
+    public let waterImpact: WaterImpact?
+    public let operationObjective: OperationTargetSnapshot?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
                 id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
-                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil, breach: BreachState? = nil, mark: ReconMark? = nil, charge: BreachChargeState? = nil, warning: SmokeWarning? = nil) {
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil, breach: BreachState? = nil, mark: ReconMark? = nil, charge: BreachChargeState? = nil, warning: SmokeWarning? = nil, waterImpact: WaterImpact? = nil, operationObjective: OperationTargetSnapshot? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
         self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device; self.contactReport = contactReport; self.alarmReportID = alarmReportID; self.extractionID = extractionID
-        self.smoke = smoke; self.breach = breach; self.mark = mark; self.charge = charge; self.warning = warning
+        self.smoke = smoke; self.breach = breach; self.mark = mark; self.charge = charge; self.warning = warning; self.waterImpact = waterImpact; self.operationObjective = operationObjective
     }
 }
 

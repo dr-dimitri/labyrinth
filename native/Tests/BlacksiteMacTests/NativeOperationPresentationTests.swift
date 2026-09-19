@@ -5,6 +5,34 @@ import BlacksiteCore
 
 @MainActor
 struct NativeOperationPresentationTests {
+    @Test func relayCompletionAndLockedExitsUseTheAuthoritativeStageSnapshot() {
+        let targets = [
+            OperationTargetSnapshot(id: "west", title: "Relais West", stageID: "relays", kind: .relayGroup,
+                position: .zero, completed: true),
+            OperationTargetSnapshot(id: "east", title: "Relais Ost", stageID: "relays", kind: .relayGroup,
+                position: SIMD3(20, 0, 0), available: true, progress: 0.25, requiredProgress: 1)
+        ]
+        let stage = OperationStageSnapshot(id: "relays", title: "Relais verbinden", kind: .relayGroup,
+            completed: false, active: true, targets: targets)
+        let locked = ExtractionSnapshot(id: "exit", title: "Serviceausgang", detail: "Trockener Rückweg",
+            position: SIMD3(0, 0, -20), radius: 2.5, requiredProgress: 3, routeKind: .sheltered)
+        let operation = OperationStatus(preparations: [], extractions: [locked], selectedExtractionID: nil,
+            stages: [stage], activeStageID: stage.id)
+        let status = MissionStatus(kind: .operation, phase: .activateRelays, objectivePosition: targets[1].position,
+            objectiveRadius: 1.6, distance: 0.8, progress: 0.25, requiredProgress: 1,
+            interruption: nil, interactionAvailable: true, objectiveID: "east", objectiveTitle: "Relais Ost")
+        let mission = NativeMissionPresentation(status, interactionLabel: "MAUS 3", operation: operation)
+        #expect(mission.title == "Relais Ost" && mission.detail.contains("1/2 aktiv"))
+        #expect(mission.detail.contains("Reihenfolge frei") && mission.fraction == 0.25)
+        #expect(mission.interactionTitle?.hasPrefix("MAUS 3 HALTEN") == true)
+        let panel = NativeOperationPresentation(operation)
+        #expect(panel.objectiveLines.count == 2 && panel.objectiveLines[0].contains("erledigt"))
+        #expect(panel.extractionLines[0].contains("nach allen Auftragszielen"))
+        #expect(!panel.accessibilityText.contains("nach Datenaufnahme"))
+        let unbound = NativeMissionPresentation(status, interactionLabel: NativeControlLabels.unboundLabel, operation: operation)
+        #expect(unbound.interactionTitle == "INTERAGIEREN NICHT BELEGT" && unbound.reason.contains("Einstellungen"))
+    }
+
     private func exits(active: String? = nil, blocked: String? = nil) -> [ExtractionSnapshot] {
         BlacksiteOperation.definition.extractions.map {
             ExtractionSnapshot(id: $0.id, title: $0.title, detail: $0.detail, position: $0.position,

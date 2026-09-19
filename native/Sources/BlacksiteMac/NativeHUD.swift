@@ -238,8 +238,8 @@ final class GameHUDView: NSView {
             let rect = NSRect(x: w - 336, y: h - 315, width: 276, height: 208)
             fill(rect, NSColor(hex: 0x101f18, alpha: 0.83)); stroke(rect, NSColor(hex: 0xc5d0b4, alpha: 0.25))
             text("●  EINSATZGEBIET", x: rect.minX + 22, y: rect.minY + 22, size: 9, color: accent, tracking: 1.6, mono: true)
-            text("Der Außenposten", x: rect.minX + 22, y: rect.minY + 49, size: 23, weight: .semibold)
-            text("SEKTOR 07  ·  06:42 LOKALZEIT", x: rect.minX + 22, y: rect.minY + 82, size: 9, color: muted, mono: true)
+            text(c.selectedMap.displayName, x: rect.minX + 22, y: rect.minY + 49, size: 23, weight: .semibold, width: 232)
+            text("OFFLINE · SOLO-EINSATZ", x: rect.minX + 22, y: rect.minY + 82, size: 9, color: muted, mono: true)
             line(x1: rect.minX + 22, y1: rect.minY + 112, x2: rect.maxX - 22, y2: rect.minY + 112, color: muted.withAlphaComponent(0.3))
             text("FEINDKONTAKT", x: rect.minX + 22, y: rect.minY + 135, size: 9, color: muted, mono: true)
             text("Bestätigt", x: rect.minX + 178, y: rect.minY + 135, size: 11, color: accent)
@@ -292,8 +292,10 @@ final class GameHUDView: NSView {
         text("\(s.kills) BESTÄTIGT  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
         if let status = s.operationStatus, now >= c.bannerUntil {
             let operation = NativeOperationPresentation(status)
-            let lines = s.missionStatus.phase == .extract ? operation.extractionLines : operation.preparationLines
-            text(s.missionStatus.phase == .extract ? "BEKANNTE AUSGÄNGE" : "OPTIONALE VORBEREITUNG",
+            let extracting = s.missionStatus.phase == .extract
+            let required = !operation.objectiveLines.isEmpty
+            let lines = extracting ? operation.extractionLines : required ? operation.objectiveLines : operation.preparationLines
+            text(extracting ? "BEKANNTE AUSGÄNGE" : required ? operation.objectiveHeading : "OPTIONALE VORBEREITUNG",
                  x: w - 386, y: 190, size: 8, color: accent, tracking: 1, width: 354, alignment: .right, mono: true)
             for (index, value) in lines.prefix(2).enumerated() {
                 text(value, x: w - 386, y: 211 + CGFloat(index) * 34, size: 10, color: muted, width: 354, alignment: .right)

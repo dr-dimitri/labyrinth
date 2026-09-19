@@ -141,6 +141,14 @@ final class NativeCombatEffects {
         let destroyed=Set(events.filter { $0.kind == .coverDestroyed }.map(\.id))
         decals.removeAll { $0.obstacleID.map { destroyed.contains($0) } ?? false }
         for event in events {
+            if let water=event.waterImpact {
+                waterSplash(at:water.position,strength:event.kind == .explosion ? 1:0.5,highQuality:highQuality)
+            } else if let hearing=event.hearing,hearing.surface == .water,
+                      hearing.kind == .footstep || hearing.kind == .landing,
+                      let water=simulation.map.waterSurface(at:hearing.position) {
+                waterSplash(at:SIMD3(hearing.position.x,water.surfaceHeight,hearing.position.z),
+                    strength:hearing.kind == .landing ? 0.7:0.28,highQuality:highQuality)
+            }
             switch event.kind {
             case .shot,.enemyShot:
                 guard let hit=event.surfaceImpact else { if event.kind == .shot { ignoredShots+=1 };continue }
@@ -178,7 +186,10 @@ final class NativeCombatEffects {
         case .asphalt:tint=SIMD3(0.17,0.18,0.18)
         case .glass:tint=SIMD3(0.62,0.73,0.69)
         }
-        let count=highQuality ? 8:4
+        // A submerged solid still owns its decal and ballistic hit. Dry dust
+        // would misrepresent that surface; its separate crossing supplies spray.
+        let submerged=simulation.map.waterSurface(at:point).map { point.y < $0.surfaceHeight-0.005 } ?? false
+        let count=submerged ? 0:highQuality ? 8:4
         for index in 0..<count {
             let spark=material == .metal && index<count-2
             let chip=material == .glass || (material == .wood && index%2==0) || (material != .metal && index%3==0)
@@ -221,6 +232,16 @@ final class NativeCombatEffects {
         point += n*0.0025
         if decals.count>=decalLimit { decals.removeFirst();droppedDecals+=1 }
         decals.append(Decal(position:point-(obstacle?.position ?? .zero),normal:n,tangent:direction,material:material,obstacleID:hit.obstacleID,radius:radius,seed:unit()*97))
+    }
+
+    private func waterSplash(at point:SIMD3<Float>,strength:Float,highQuality:Bool) {
+        for _ in 0..<(highQuality ? 6:3) {
+            let angle=unit()*Float.pi*2,speed:Float=0.35+strength*0.75
+            add(Particle(position:point+SIMD3(0,0.008,0),
+                velocity:SIMD3(cos(angle)*speed,(0.6+unit()*1.3)*strength,sin(angle)*speed),
+                color:SIMD3(0.53,0.65,0.62),lifetime:0.18+strength*0.30,
+                radius:0.016+unit()*0.014,rotation:unit()*6.28,aspect:0.38,opacity:0.55,gravity:5,kind:5))
+        }
     }
 
     private func explosion(at center:SIMD3<Float>,highQuality:Bool) {
@@ -347,12 +368,12 @@ final class NativeCombatEffects {
     }
 
     func encode(encoder:MTLRenderCommandEncoder,samples:Int,slot:Int,farShadow:MTLTexture,nearShadow:MTLTexture,shadowSampler:MTLSamplerState,
-                transparentDepths:[Float]=[],drawSurface:((Int)->Void)?=nil) {
+                transparentDepths:[Float]=[],includeDecals:Bool=true,resetDrawCount:Bool=true,drawSurface:((Int)->Void)?=nil) {
         guard (0..<3).contains(slot) else { return }
         encoder.pushDebugGroup("Depth-ordered glass, impacts and bounded transparent blasts")
         encoder.setDepthStencilState(depth);encoder.setCullMode(.none)
-        drawCallCount=0
-        if decalCounts[slot]>0,let pipeline=decalPipelines[samples] {
+        if resetDrawCount { drawCallCount=0 }
+        if includeDecals,decalCounts[slot]>0,let pipeline=decalPipelines[samples] {
             encoder.setRenderPipelineState(pipeline);encoder.setVertexBuffer(decalBuffers[slot],offset:0,index:0)
             encoder.setFragmentTexture(farShadow,index:0);encoder.setFragmentTexture(nearShadow,index:1);encoder.setFragmentSamplerState(shadowSampler,index:0)
             encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:6,instanceCount:decalCounts[slot]);drawCallCount+=1

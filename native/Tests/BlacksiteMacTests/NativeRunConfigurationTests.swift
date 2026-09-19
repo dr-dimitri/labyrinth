@@ -10,7 +10,7 @@ struct NativeRunConfigurationTests {
         let name = "Blacksite.RunConfigurationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id, MapDefinition.nebelwacht.id])
+        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id, MapDefinition.nebelwacht.id, MapDefinition.sundkai.id])
         #expect(PublishedMapRegistry.map(id: MapDefinition.testRange.id) == nil)
         for storedID in ["missing-map", "", MapDefinition.testRange.id, MapDefinition.blacksite.id] {
             defaults.set(storedID, forKey: "native.mapID")
@@ -43,6 +43,30 @@ struct NativeRunConfigurationTests {
         #expect(retry.loadout.operatorClass == .engineer && retry.loadout.camouflage == .mineral)
         #expect(retry.grenadeCount == 3 && retry.elapsed == 0 && retry.breachChargeCount == 1)
         #expect(retry.missionStatus.phase == .prepareOperation)
+    }
+
+    @Test func sundkaiSelectionAndRetryRestoreUnfinishedRelaysAndOriginalKit() throws {
+        let name = "Blacksite.SundkaiRunTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var settings = NativeSettings(defaults: defaults)
+        settings.selectedMapID = "sundkai"; settings.selectedMission = .operation
+        settings.selectedClass = .assault; settings.selectedCamouflage = .vegetation
+        settings.save(defaults: defaults)
+        let restored = NativeSettings(defaults: defaults)
+        let map = try #require(PublishedMapRegistry.map(id: restored.selectedMapID))
+        let run = ActiveRunConfiguration(map: map, seed: 1745, mission: restored.selectedMission,
+            difficulty: restored.difficulty, loadout: LoadoutDefinition(operatorClass: restored.selectedClass, camouflage: restored.selectedCamouflage))
+        let original = try run.makeSimulation()
+        #expect(original.throwGrenade())
+        settings.selectedMapID = "blacksite"; settings.selectedClass = .recon; settings.save(defaults: defaults)
+        let retry = try run.makeSimulation()
+        #expect(retry.map.id == "sundkai" && retry.map.version == map.version && run.seed == 1745)
+        #expect(retry.loadout.operatorClass == .assault && retry.loadout.camouflage == .vegetation)
+        #expect(retry.grenadeCount == 3 && retry.smokeGrenadeCount == 2 && retry.elapsed == 0)
+        let relays = try #require(retry.operationStatus?.stages.first)
+        #expect(relays.active && relays.targets.count == 2 && relays.targets.allSatisfy { !$0.completed })
+        #expect(retry.operationStatus?.extractions.allSatisfy { !$0.unlocked } == true)
     }
 
     @Test func retryRejectsMissingMapsChangedVersionsAndUnsupportedMissions() throws {

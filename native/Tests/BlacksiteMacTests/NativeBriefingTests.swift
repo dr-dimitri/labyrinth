@@ -6,6 +6,27 @@ import BlacksiteCore
 @MainActor
 @Suite(.serialized)
 struct NativeBriefingTests {
+    @Test func harborBriefingExplainsMandatoryRelayOrderAndShowsKnownWater() throws {
+        let map = MapDefinition.sundkai
+        let game = CombatSimulation(map: map, mission: .operation)
+        let initial = NativeMissionPresentation(game.missionStatus, operation: game.operationStatus, map: map)
+        #expect(initial.detail.contains("Reihenfolge frei") && !initial.detail.contains("DATENSTATION"))
+        #expect(NativeMissionPresentation.banner(for: game.missionStatus.phase, operation: game.operationStatus, map: map)?.title == "RELAIS VERBINDEN")
+        let operation = NativeBriefingMapView(map: map, mission: .operation)
+        #expect(operation.accessibilitySummary.contains("R1: Relais Lagerweg"))
+        #expect(operation.accessibilitySummary.contains("R2: Relais Ostdamm"))
+        #expect(operation.accessibilitySummary.contains("Watbecken"))
+        #expect(operation.accessibilitySummary.contains("Serviceausgang Nord"))
+        let rules = NativeMissionPresentation.rules(.operation, interactionLabel: "MAUS 3", map: map)
+        #expect(rules.contains("MAUS 3 halten") && rules.contains("2 Relais in beliebiger Reihenfolge"))
+        let relays = try #require(rules.range(of: "Relais")), data = try #require(rules.range(of: "Daten sichern"))
+        #expect(relays.lowerBound < data.lowerBound)
+        #expect(!rules.contains("Vorbereitung optional"))
+        let dataOnly = NativeBriefingMapView(map: map, mission: .recoverData)
+        #expect(!dataOnly.accessibilitySummary.contains("R1:") && !dataOnly.accessibilitySummary.contains("R2:"))
+        #expect(NativeBriefingView.terrainHint(map).contains("Landungen"))
+    }
+
     @Test func draftMapChangeFiltersUnsupportedOperationsAndOnlyAppliesOnAction() throws {
         let original = NativeBriefingDraft(map: .blacksite, mission: .operation, difficulty: .hard, camouflage: .mineral)
         let view = NativeBriefingView(draft: original, maps: [.blacksite, .testRange], interactionLabel: "RETURN")
@@ -28,7 +49,7 @@ struct NativeBriefingTests {
     }
 
     @Test func minimumWindowHasCompleteKeyboardChainReadableInventoryAndKnownMap() {
-        for map in [MapDefinition.blacksite, .nebelwacht] {
+        for map in [MapDefinition.blacksite, .nebelwacht, .sundkai] {
         for mission in MissionKind.allCases {
             for pattern in CamouflagePattern.allCases {
               for role in OperatorClass.allCases {

@@ -7,12 +7,14 @@ public struct MapLineSegment: Sendable {
 }
 
 public enum MapVisualMesh: Sendable { case box, rock, grass, dome, water }
+public enum MapTreeKind: Sendable { case pine, mangrove }
 public struct MapTree: Sendable {
     public let position: SIMD3<Float>
     public let height: Float
     public let seed: UInt64
-    public init(position: SIMD3<Float>, height: Float, seed: UInt64) {
-        self.position = position; self.height = height; self.seed = seed
+    public let kind: MapTreeKind
+    public init(position: SIMD3<Float>, height: Float, seed: UInt64, kind: MapTreeKind = .pine) {
+        self.position = position; self.height = height; self.seed = seed; self.kind = kind
     }
 }
 public struct MapVisualBox: Sendable {
@@ -88,6 +90,7 @@ public struct MapEnvironmentDefinition: Sendable {
     public var devices: [WorldInteractableDefinition] = []
     public var spotlights: [WorldSpotlightDefinition] = []
     public var smokeEmitters: [SmokeEmitterDefinition] = []
+    public var shallowWaterZones: [MapShallowWaterZone] = []
     /// Legacy name retained as a view of the same authoritative data.
     public var visibilityVolumes: [MapVisibilityVolume] {
         get { vegetationZones }
@@ -181,7 +184,7 @@ public struct MapDefinition: Sendable {
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
-        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil; environment.smokeEmitters = []
+        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil; environment.smokeEmitters = []; environment.shallowWaterZones = []
         return copying(terrain: terrain, environment: environment, operation: nil, breaches: [])
     }
     private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition, operation: MapOperationDefinition?, breaches: [MapBreachDefinition]? = nil) -> MapDefinition {
@@ -228,6 +231,15 @@ public struct MapDefinition: Sendable {
             guard abs(target.y - terrain.height(x: target.x, z: target.z)) <= 0.05,
                   simulation.hasReachableRoute(from: start, to: target) else {
                 throw MapValidationError("Karte \(id): \(name) ist vom Spielerstart nicht am Boden erreichbar.")
+            }
+        }
+        for stage in operation?.requiredStages ?? [] {
+            for target in stage.targets {
+                let point = grounded(target.position)
+                guard abs(target.position.y) <= 0.05, simulation.hasReachableRoute(from: start,to: point),
+                      waterSurface(at: point) == nil else {
+                    throw MapValidationError("Karte \(id): Pflichtziel \(target.title) muss trocken und vom Start erreichbar sein.")
+                }
             }
         }
         for exit in operation?.extractions ?? [] {
@@ -361,6 +373,29 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Alarm benötigt einen vorhandenen Generator als Funkversorgung, 10–80 m Reichweite und höchstens zwei Wachposten/Verstärkungen.")
             }
         }
+        var waterIDs = Set<Int>()
+        guard environment.shallowWaterZones.count <= 4 else { throw MapValidationError("Karte \(id): Höchstens vier Flachwasserzonen sind zulässig.") }
+        for (index, zone) in environment.shallowWaterZones.enumerated() {
+            let span = zone.maximum-zone.minimum
+            guard waterIDs.insert(zone.id).inserted, finite2(zone.minimum), finite2(zone.maximum),
+                  span.x > 0, span.y > 0, span.x * span.y <= 500,
+                  zone.minimum.x >= minimum.x, zone.maximum.x <= maximum.x,
+                  zone.minimum.y >= minimum.z, zone.maximum.y <= maximum.z,
+                  zone.surfaceHeight.isFinite, zone.movementMultiplier.isFinite, (0.55...0.85).contains(zone.movementMultiplier),
+                  [zone.minimum.x,zone.minimum.y,zone.maximum.x,zone.maximum.y].allSatisfy({ $0 == floor($0) }) else {
+                throw MapValidationError("Karte \(id): Flachwasser benötigt eindeutige ID, ganzzahlige begrenzte Rastergrenzen und einen endlichen Tempoanteil.")
+            }
+            guard !environment.shallowWaterZones.prefix(index).contains(where: {
+                zone.minimum.x < $0.maximum.x && zone.maximum.x > $0.minimum.x && zone.minimum.y < $0.maximum.y && zone.maximum.y > $0.minimum.y
+            }) else { throw MapValidationError("Karte \(id): Flachwasserzonen dürfen sich nicht überlappen.") }
+            var deepest: Float = 0
+            for x in Int(zone.minimum.x)...Int(zone.maximum.x) { for z in Int(zone.minimum.y)...Int(zone.maximum.y) {
+                deepest = max(deepest,zone.surfaceHeight-terrain.height(x: Float(x),z: Float(z)))
+            } }
+            guard deepest >= 0.15, deepest <= 0.351 else {
+                throw MapValidationError("Karte \(id): Flachwasser muss im tiefsten Bereich 15–35 cm über dem realen Boden liegen.")
+            }
+        }
         var smokeEmitterIDs = Set<Int>()
         guard environment.smokeEmitters.count <= 2 else {
             throw MapValidationError("Karte \(id): Höchstens zwei Dampf-/Gischtquellen reservieren Plätze im gemeinsamen Viererbudget.")
@@ -399,6 +434,30 @@ public struct MapDefinition: Sendable {
             let exits = operation.extractions
             guard horizontalDistance(exits[0].position, exits[1].position) > exits[0].radius + exits[1].radius + 0.5 else {
                 throw MapValidationError("Karte \(id): Operationsausgänge dürfen sich nicht überschneiden.")
+            }
+            let stages = operation.requiredStages
+            var stageIDs = Set<String>(), targetIDs = Set<String>(), lastRank = -1
+            guard stages.count <= 3, stages.reduce(0, { $0 + $1.targets.count }) <= 4,
+                  stages.isEmpty || stages.filter({ $0.kind == .collectData }).count == 1 else {
+                throw MapValidationError("Karte \(id): Pflichtfolge benötigt genau eine Datenstufe, höchstens drei Stufen und vier Ziele.")
+            }
+            for stage in stages {
+                let rank = stage.kind == .relayGroup ? 0 : stage.kind == .collectData ? 1 : 2
+                guard !stage.id.isEmpty, !stage.title.isEmpty, stageIDs.insert(stage.id).inserted, rank > lastRank,
+                      stage.targets.count == (stage.kind == .relayGroup ? 2 : 1),
+                      stage.interactionDuration.isFinite, (0.2...10).contains(stage.interactionDuration),
+                      stage.holdDuration.isFinite, (0...60).contains(stage.holdDuration), stage.kind == .radioTransfer || stage.holdDuration == 0 else {
+                    throw MapValidationError("Karte \(id): Pflichtstufen müssen Relais, Daten und danach optional Funk eindeutig und zeitlich begrenzt anordnen.")
+                }
+                lastRank = rank
+                for target in stage.targets {
+                    guard !target.id.isEmpty, !target.title.isEmpty, targetIDs.insert(target.id).inserted, inside(target.position), abs(target.position.y) <= 0.05,
+                          target.ownerObstacleID.map({ owner in obstacles.contains { $0.id == owner && !$0.health.isFinite && !$0.destroyed } }) ?? (stage.kind != .relayGroup),
+                          stage.kind != .collectData || target.position == dataSite,
+                          stage.kind != .radioTransfer || target.position == radioSite else {
+                        throw MapValidationError("Karte \(id): Pflichtziel braucht eine trockene eindeutige Position; Relais benötigen ein vorhandenes festes Gehäuse.")
+                    }
+                }
             }
             for preparation in operation.preparations {
                 guard preparationIDs.insert(preparation.deviceID).inserted,
@@ -475,6 +534,13 @@ public struct MapDefinition: Sendable {
             guard finite(tree.position), tree.height.isFinite, tree.height > 0, tree.height <= 100 else {
                 throw MapValidationError("Karte \(id): Ein Baum besitzt ungültige Position oder Höhe.")
             }
+            if tree.kind == .mangrove {
+                let radius = tree.height * 0.7
+                guard tree.position.x + radius < minimum.x || tree.position.x - radius > maximum.x ||
+                      tree.position.z + radius < minimum.z || tree.position.z - radius > maximum.z else {
+                    throw MapValidationError("Karte \(id): Dekorative Mangroven müssen mit Krone und Wurzeln vollständig außerhalb der Arena stehen.")
+                }
+            }
         }
         for sign in scenery.signs {
             guard finite(sign.position), sign.width.isFinite, sign.width > 0, sign.materialID.isFinite, sign.yaw.isFinite,
@@ -522,6 +588,8 @@ public struct MapDefinition: Sendable {
             }
         }
     }
+
+    public static let sundkai: MapDefinition = try! SundkaiDefinition.make()
 
     public static let nebelwacht: MapDefinition = try! NebelwachtDefinition.make()
 
