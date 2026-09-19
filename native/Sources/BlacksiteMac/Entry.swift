@@ -102,10 +102,12 @@ struct BlacksiteMain {
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
                 let weaponCheck = try NativeWeaponCheck.prepare(arguments: args, renderer: renderer, simulation: simulation)
+                let effectsCheck = try NativeEffectsCheck.prepare(arguments: args, renderer: renderer, simulation: simulation)
                 if benchmark {
                     var result = try renderer.benchmark(simulation: simulation, width: width, height: height, frames: 120)
                     result.merge(renderer.characterDiagnostics) { _, value in value }
                     result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(effectsCheck) { _, value in value }
                     let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                     print(String(decoding: json, as: UTF8.self)); return
                 }
@@ -115,6 +117,7 @@ struct BlacksiteMain {
                                            "width": width, "height": height,
                                            "assets": NativeResources.assetRoot?.path ?? "missing"]
                 result.merge(weaponCheck) { _, value in value }
+                result.merge(effectsCheck) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
                 let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])

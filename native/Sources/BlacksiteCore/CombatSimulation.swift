@@ -261,11 +261,13 @@ public final class CombatSimulation {
             hit = traceShot(origin: muzzle, direction: corrected)
             hitPoint = muzzle + corrected * hit.distance
         }
+        let surfaceImpact = makeSurfaceImpact(for: hit, at: hitPoint)
         let damage = activeWeapon.damage * (hit.headshot ? 2.4 : 1)
         if let index = hit.enemyIndex { damageEnemy(index: index, amount: damage, headshot: hit.headshot, from: eye) }
         if let index = hit.obstacleIndex { damageCover(index: index, amount: activeWeapon.damage) }
         emit(GameEvent(kind: .shot, position: muzzle, endPosition: hitPoint,
-                       amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon))
+                       amount: hit.enemyIndex != nil ? damage : 0, headshot: hit.headshot, weapon: activeWeapon,
+                       surfaceImpact: surfaceImpact))
         return true
     }
 

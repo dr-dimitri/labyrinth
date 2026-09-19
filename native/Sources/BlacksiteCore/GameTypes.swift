@@ -171,12 +171,14 @@ public struct GameEvent: Sendable {
     public var weapon: WeaponKind?
     public var id: Int
     public var count: Int
+    public var surfaceImpact: SurfaceImpact?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
-                id: Int = 0, count: Int = 0) {
+                id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
+        self.surfaceImpact = surfaceImpact
     }
 }
 

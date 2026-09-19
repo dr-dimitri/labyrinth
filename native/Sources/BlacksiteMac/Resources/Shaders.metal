@@ -286,6 +286,76 @@ fragment float4 footContactFragment(ContactRaster in [[stage_in]]) {
   float falloff=(1-smoothstep(0.05,1.0,radiusSquared));
   return float4(0,0,0,in.opacity*falloff*falloff);
 }
+
+// World-space transparent effects have their own depth-tested, no-depth-write
+// pipelines. Premultiplied output also permits the dedicated additive light pass.
+struct CombatParticle { float4 positionAge; float4 shape; float4 tintAspect; float4 supportPlane; };
+struct CombatParticleRaster { float4 position [[position]];float2 uv;float3 world;float3 tint;float age;float opacity;float supportHeight;float kind [[flat]]; };
+vertex CombatParticleRaster combatParticleVertex(uint vi [[vertex_id]],uint ii [[instance_id]],
+  const device CombatParticle *particles [[buffer(0)]],constant Uniforms &u [[buffer(2)]]) {
+  const float2 corners[6]={float2(-1,-1),float2(1,-1),float2(1,1),float2(-1,-1),float2(1,1),float2(-1,1)};
+  CombatParticle p=particles[ii];float2 corner=corners[vi],point=corner*float2(p.tintAspect.w,1)*p.shape.x;
+  float c=cos(p.shape.y),s=sin(p.shape.y);point=float2(c*point.x-s*point.y,s*point.x+c*point.y);
+  float3 right=normalize(u.inverseViewProjection[0].xyz),up=normalize(u.inverseViewProjection[1].xyz);
+  float3 world=p.positionAge.xyz+right*point.x+up*point.y;
+  CombatParticleRaster o;o.position=u.viewProjection*float4(world,1);o.world=world;o.uv=corner;
+  o.tint=p.tintAspect.rgb;o.age=p.positionAge.w;o.opacity=p.shape.w;o.kind=p.shape.z;
+  o.supportHeight=dot(p.supportPlane,float4(world,1));return o;
+}
+fragment float4 combatParticleFragment(CombatParticleRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]]) {
+  float radius=length(in.uv);if(radius>1) discard_fragment();
+  int kind=int(in.kind+0.5);float mask;float3 color;
+  if(kind==2) {
+    mask=pow(max(0.0,1-radius),0.7);color=aces(in.tint*4.5);
+  } else if(kind==4) {
+    float core=exp(-radius*radius*5.5),tongues=noise(in.uv*5+in.age*3);
+    mask=core*(0.65+tongues*0.35)*(1-smoothstep(0.72,1.0,radius));color=aces(in.tint*(2.5+core*5));
+  } else if(kind==3) {
+    mask=(1-smoothstep(0.73,0.95,abs(in.uv.x)+abs(in.uv.y)*0.2))*(1-smoothstep(0.6,0.95,abs(in.uv.y)));
+    color=aces(in.tint*(0.50+max(u.sunDirection.y,0.0)*0.8)*(0.78+noise(in.uv*12)*0.4));
+  } else {
+    float cloud=noise(in.uv*3.2+float2(in.age*0.4,2.7))*0.7+noise(in.uv*7.8+float2(8.3,in.age*0.6))*0.3;
+    mask=(1-smoothstep(0.48,0.99,radius+(0.5-cloud)*0.18))*(0.48+cloud*0.52);
+    float volume=0.7+cloud*0.45-in.uv.y*0.07;
+    color=aces(in.tint*volume*(0.68+u.sunDirection.y*0.4));
+  }
+  // Smoke/dust fade before intersecting their actual ground/roof plane. The
+  // visible flash core remains above it; solid chips and sparks retain depth.
+  if(kind<=1 || kind==4) mask*=smoothstep(0.006,0.15,in.supportHeight);
+  float alpha=clamp(in.opacity*mask,0.0,1.0);
+  return float4(color*alpha,alpha);
+}
+struct CombatDecal { float4 positionOpacity;float4 axisU;float4 axisV;float4 tintKind; };
+struct CombatDecalRaster { float4 position [[position]];float2 uv;float3 world;float3 normal;float3 tint;float opacity;float seed;float kind [[flat]];float4 shadow;float4 nearShadow; };
+vertex CombatDecalRaster combatDecalVertex(uint vi [[vertex_id]],uint ii [[instance_id]],
+  const device CombatDecal *decals [[buffer(0)]],constant Uniforms &u [[buffer(2)]]) {
+  const float2 corners[6]={float2(-1,-1),float2(1,-1),float2(1,1),float2(-1,-1),float2(1,1),float2(-1,1)};
+  CombatDecal d=decals[ii];float2 corner=corners[vi];float3 world=d.positionOpacity.xyz+d.axisU.xyz*corner.x+d.axisV.xyz*corner.y;
+  CombatDecalRaster o;o.position=u.viewProjection*float4(world,1);o.uv=corner;o.world=world;
+  o.normal=normalize(cross(d.axisU.xyz,d.axisV.xyz));o.tint=d.tintKind.rgb;o.kind=d.tintKind.w;o.opacity=d.positionOpacity.w;o.seed=d.axisU.w;
+  o.shadow=u.lightViewProjection*float4(world,1);o.nearShadow=u.nearLightViewProjection*float4(world,1);return o;
+}
+fragment float4 combatDecalFragment(CombatDecalRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+  depth2d<float> farShadow [[texture(0)]],depth2d<float> nearShadow [[texture(1)]],sampler comparison [[sampler(0)]]) {
+  // Evaluate receiver gradients before any coverage decision; the normal and
+  // shadow planes belong to the real hit surface, including slopes and roofs.
+  float2 visibility=directionalShadows(in.shadow,in.nearShadow,in.normal,u,farShadow,nearShadow,comparison);
+  int kind=int(in.kind+0.5);float2 uv=in.uv;
+  float grain=noise(uv*10+in.seed),radius=length(uv);
+  float irregular=radius+(noise(uv*5+in.seed)-0.5)*0.23;
+  float opacity=1-smoothstep(0.70,0.98,irregular);
+  float pit=1-smoothstep(0.17,0.37,irregular),ring=smoothstep(0.26,0.43,irregular)*(1-smoothstep(0.57,0.86,irregular));
+  float3 color=mix(in.tint*(0.55+grain*0.45),float3(0.014,0.012,0.010),pit);
+  if(kind==2) color+=float3(0.16,0.17,0.17)*ring*(0.4+grain*0.6);
+  else if(kind==1) color+=in.tint*ring*(0.35+grain*0.25);
+  else if(kind==3) {
+    float split=(1-smoothstep(0.035,0.11,abs(uv.x+sin(uv.y*9+in.seed)*0.025)))*(1-smoothstep(0.45,0.9,abs(uv.y)));
+    color=mix(color,float3(0.035,0.018,0.005),split*0.8);
+  } else { opacity*=0.78;color*=0.82; }
+  float nl=max(dot(in.normal,normalize(u.sunDirection.xyz)),0.0);
+  float3 lit=color*(float3(0.22,0.24,0.24)*visibility.y+float3(0.9,0.86,0.76)*nl*visibility.x);
+  float alpha=opacity*in.opacity;return float4(aces(lit)*alpha,alpha);
+}
 struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; float4 nearShadow; };
 float4x4 soldierSkinMatrix(SoldierSkinVertex v,const device float4x4 *joints,uint offset) {
   return joints[offset+v.joints.x]*v.weights.x+joints[offset+v.joints.y]*v.weights.y+

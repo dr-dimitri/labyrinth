@@ -10,7 +10,7 @@ enum NativeBattlefieldCheck {
         let metadata: [String: Any]
     }
     private struct InvalidScene: LocalizedError {
-        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, firefight, terrain or hollow." }
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, firefight, terrain or hollow." }
     }
 
     static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
@@ -22,8 +22,17 @@ enum NativeBattlefieldCheck {
         let terrain=TerrainProfile.battlefield
         var player=PlayerState(position:SIMD3(0,0,11))
         var enemies:[EnemyState]=[]
+        var world = GameMap.obstacles
         var seconds:Double=0
         switch name {
+        case "impact-metal", "impact-concrete", "impact-wood":
+            let kind: ObstacleKind = name == "impact-metal" ? .container : name == "impact-wood" ? .crate : .barrier
+            world = [Obstacle(id: 801, kind: kind, position: SIMD3(0, 0, 5), size: SIMD3(4, 2.4, 2))]
+            player.position = SIMD3(0, 0, 9)
+        case "impact-soil", "impact-asphalt", "impact-miss":
+            world = []
+            player.position = SIMD3(name == "impact-soil" ? 10 : 0, 0, 11)
+            player.pitch = name == "impact-miss" ? 0.65 : -0.48
         case "weapons":
             player.position = SIMD3(0, 0, 32)
         case "weapon-wall":
@@ -113,7 +122,7 @@ enum NativeBattlefieldCheck {
         if let cameraOffset = Float(value("--camera-offset") ?? "0"), cameraOffset.isFinite {
             player.position.x += max(-0.5, min(0.5, cameraOffset))
         }
-        let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:GameMap.obstacles,
+        let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:world,
                                          startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain)
         var observed=Set<String>(), shots=0
         var input=GameInput(); input.yaw=player.yaw; input.pitch=player.pitch

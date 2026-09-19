@@ -51,16 +51,6 @@ private struct Mesh {
     let halfExtents: SIMD3<Float>
 }
 private struct RenderBatch { let mesh: Int; let offset: Int; let count: Int }
-private struct Particle {
-    var position: SIMD3<Float>
-    var velocity: SIMD3<Float>
-    var life: Float
-    var duration: Float
-    var scale: Float
-    var tint: SIMD3<Float>
-    var luminous: Float
-    var gravity: Float
-}
 private struct Tracer { var start: SIMD3<Float>; var end: SIMD3<Float>; var life: Float; var hostile: Bool }
 private struct SeededRandom {
     var seed: UInt64 = 1745
@@ -92,6 +82,7 @@ final class NativeRenderer {
     private let weaponShadowTexture: MTLTexture
     private let meshes: [Mesh]
     private let skinnedSoldiers: SkinnedSoldierRenderer
+    private let combatEffects: NativeCombatEffects
     private let inflight = DispatchSemaphore(value: 3)
     private var buffers: [MTLBuffer]
     private let uniformBuffers: [MTLBuffer]
@@ -101,7 +92,6 @@ final class NativeRenderer {
     private var scenery: [RenderItem] = []
     private var forest: [ForestTree] = []
     private var coverCache: [Int: [RenderItem]] = [:]
-    private var particles: [Particle] = []
     private var tracers: [Tracer] = []
     private var recoil: Float = 0
     private var shake: Float = 0
@@ -115,7 +105,7 @@ final class NativeRenderer {
     private var shells = ShellSimulation()
     private var shellImpacts: [ShellImpact] = []
     var characterDiagnostics: [String: Any] {
-        ["skinnedSoldiers": skinnedSoldiers.soldierCount,
+        var diagnostics:[String:Any] = ["skinnedSoldiers": skinnedSoldiers.soldierCount,
          "soldierTriangles": skinnedSoldiers.triangleCount,
          "soldierDrawCallsIncludingShadows": skinnedSoldiers.drawCallCount,
          "soldierTextureWidth": skinnedSoldiers.baseColorSize.x,
@@ -123,6 +113,8 @@ final class NativeRenderer {
          "droppedSoldiers": skinnedSoldiers.capacityDropCount,
          "footContactPatches": skinnedSoldiers.footContactCount,
          "farShadowInstances": farShadowInstanceCount, "nearShadowInstances": nearShadowInstanceCount]
+        diagnostics.merge(combatEffects.diagnostics) { _,new in new }
+        return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
     // after gameplay cover so ShellSimulation's support indices remain stable.
@@ -209,6 +201,7 @@ final class NativeRenderer {
         }
         skinnedSoldiers = try SkinnedSoldierRenderer(device: device, library: library,
             assetURL: characterRoot.appendingPathComponent("characters/soldier/soldier.glb"))
+        combatEffects = try NativeCombatEffects(device:device,library:library)
         buffers = try (0..<3).map { index in guard let b = device.makeBuffer(length: 48_000 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) else { throw RenderError.unavailable("Instanzpuffer konnte nicht angelegt werden.") }; b.label = "Instances frame \(index)"; return b }
         uniformBuffers = (0..<3).map { _ in device.makeBuffer(length: MemoryLayout<GPUUniforms>.stride, options: .storageModeShared)! }
         metalView = view; view.device = device; view.colorPixelFormat = .bgra8Unorm_srgb; view.depthStencilPixelFormat = .depth32Float; view.sampleCount = main[4] == nil ? 1 : 4; view.framebufferOnly = true
@@ -222,9 +215,25 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero
     }
-    func reset() { particles.removeAll(keepingCapacity: true); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
+    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
+        // Only hit owners need surface extraction. These are the exact cached
+        // mesh0 parts used to draw ribs, warning paint, slats and window trims.
+        let hitOwners=Set(events.compactMap { $0.surfaceImpact?.obstacleID })
+        let destroyed=Set(events.filter { $0.kind == .coverDestroyed }.map(\.id))
+        var surfaceBoxes:[Int:[CombatSurfaceBox]] = [:]
+        for obstacle in simulation.obstacles where hitOwners.contains(obstacle.id) && !obstacle.destroyed && !destroyed.contains(obstacle.id) {
+            if coverCache[obstacle.id]==nil { coverCache[obstacle.id]=buildCover(obstacle) }
+            surfaceBoxes[obstacle.id]=(coverCache[obstacle.id] ?? []).compactMap { item in
+                guard item.mesh==0 else { return nil }
+                let m=item.instance.model
+                let a=SIMD3(m.columns.0.x,m.columns.0.y,m.columns.0.z),b=SIMD3(m.columns.1.x,m.columns.1.y,m.columns.1.z),c=SIMD3(m.columns.2.x,m.columns.2.y,m.columns.2.z)
+                let center=SIMD3(m.columns.3.x,m.columns.3.y,m.columns.3.z),half=(simd_abs(a)+simd_abs(b)+simd_abs(c))*0.5
+                return CombatSurfaceBox(minimum:center-half,maximum:center+half)
+            }
+        }
+        combatEffects.handle(events:events,simulation:simulation,highQuality:highQuality,surfaceBoxes:surfaceBoxes)
         if events.contains(where: { $0.kind == .shot }) {
             // Events arrive before draw/advanceEffects. A newly approached wall
             // must affect this shot's visual muzzle and ejection port already.
@@ -253,19 +262,15 @@ final class NativeRenderer {
                 if simd_dot(event.endPosition-origin,forward)>0 {
                     tracers.append(Tracer(start: origin, end: event.endPosition, life: 0.065, hostile: false))
                 }
-                spark(at: event.endPosition, count: 5, explosive: false)
             case .enemyShot:
                 tracers.append(Tracer(start: event.position, end: event.endPosition, life: 0.11, hostile: true))
             case .explosion:
                 shake = min(0.8, shake + 5 / max(3, simd_distance(cameraEye, event.position)))
-                spark(at: event.position, count: highQuality ? 72 : 40, explosive: true)
-            case .coverDestroyed: spark(at: event.position, count: 22, explosive: false)
             case .damage: shake = min(0.5, shake + 0.13)
             case .land: shake = max(shake, 0.065)
             default: break
             }
         }
-        if particles.count > 450 { particles.removeFirst(particles.count - 450) }
         if tracers.count > 40 { tracers.removeFirst(tracers.count - 40) }
     }
 
@@ -284,7 +289,7 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -354,7 +359,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1
+                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + combatEffects.drawCallCount + 1
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }
@@ -434,10 +439,6 @@ final class NativeRenderer {
             let pose = Self.translation(casing.position) * simd_float4x4(simd_quatf(vector: casing.orientation))
             appendTransformed(to: &all, mesh: 11, transform: pose * Self.scale(SIMD3(radius,length,radius)), color: SIMD3(0.65,0.41,0.14), material: SIMD4(0.25,0.93,0,13), shadow: true)
             appendTransformed(to: &all, mesh: 2, transform: pose * Self.translation(SIMD3(0,-length*0.503,0)) * Self.scale(SIMD3(radius*0.4,0.0006,radius*0.4)), color: SIMD3(0.42,0.36,0.22), material: SIMD4(0.4,0.85,0,13), shadow: false)
-        }
-        for particle in particles {
-            let t = particle.life / particle.duration; let size = particle.scale * (particle.luminous > 0 ? max(0.05, t) : 1.6 - t * 0.6)
-            appendItem(to: &all, mesh: 1, position: particle.position, scale: SIMD3(repeating: size), color: particle.tint * max(0.25, t), material: SIMD4(0.9, 0, particle.luminous * t, 0), shadow: false)
         }
         for tracer in tracers { appendBeam(to: &all, from: tracer.start, to: tracer.end, width: tracer.hostile ? 0.013 : 0.008, color: tracer.hostile ? SIMD3(1, 0.23, 0.045) : SIMD3(1, 0.77, 0.3), emissive: 5) }
         if simulation.extractionReady {
@@ -530,6 +531,8 @@ final class NativeRenderer {
         // The frame semaphore has granted ownership of this slot before any
         // joint upload. Main and shadow passes share the exact same pose.
         skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
+        let effectsEye=SIMD3(scene.uniforms.eyeTime.x,scene.uniforms.eyeTime.y,scene.uniforms.eyeTime.z)
+        combatEffects.prepare(slot:slot,eye:effectsEye,forward:cameraForward,terrain:scene.terrain,obstacles:scene.obstacles+shellGroundColliders)
         let requiredBytes = scene.instances.count * MemoryLayout<GPUInstance>.stride
         if requiredBytes > buffers[slot].length, let grown = device.makeBuffer(length: requiredBytes + 4096 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) {
             buffers[slot] = grown
@@ -601,6 +604,7 @@ final class NativeRenderer {
         }
         skinnedSoldiers.encodeMain(encoder: encoder, samples: samples, slot: slot)
         skinnedSoldiers.encodeContacts(encoder: encoder, samples: samples, slot: slot)
+        combatEffects.encode(encoder:encoder,samples:samples,slot:slot,farShadow:shadowTexture,nearShadow:nearTexture,shadowSampler:shadowSampler)
         encoder.endEncoding()
     }
     private func drawBatches(_ batches: [RenderBatch], encoder: MTLRenderCommandEncoder, buffer: MTLBuffer) {
@@ -991,14 +995,6 @@ final class NativeRenderer {
         return WeaponParts(fixed:fixed,magazine:magazine,leftHand:left,rightHand:right,chargingHandle:chargingHandle)
     }
 
-    private func spark(at position: SIMD3<Float>, count: Int, explosive: Bool) {
-        for i in 0..<count {
-            let a = random.next() * .pi * 2, speed: Float = explosive ? 2 + random.next() * 10 : 0.8 + random.next() * 3
-            let luminous = explosive && i % 3 != 0
-            let life: Float = explosive ? (luminous ? 0.3 + random.next() * 0.5 : 1.2 + random.next() * 1.4) : 0.2 + random.next() * 0.5
-            particles.append(Particle(position: position, velocity: SIMD3(cos(a) * speed, 1.0 + random.next() * speed, sin(a) * speed), life: life, duration: life, scale: explosive ? (luminous ? 0.14 + random.next() * 0.26 : 0.09 + random.next() * 0.18) : 0.012 + random.next() * 0.025, tint: luminous ? SIMD3(1, 0.25 + random.next() * 0.4, 0.015) : SIMD3(0.25, 0.24, 0.20), luminous: luminous ? 5 : 0, gravity: luminous ? 5 : 12))
-        }
-    }
     func advanceEffects(deltaTime: Float, simulation: CombatSimulation) {
         let dt = min(0.1, max(0, deltaTime))
         weaponAimBlend += ((simulation.isAiming ? 1:0)-weaponAimBlend)*(1-exp(-dt*18))
@@ -1008,6 +1004,7 @@ final class NativeRenderer {
         if target>weaponWallBlend { weaponWallBlend=target }
         else { weaponWallBlend += (target-weaponWallBlend)*(1-exp(-dt*12)) }
         updateEffects(deltaTime: dt, terrain: simulation.terrain)
+        combatEffects.step(deltaTime:dt,simulation:simulation)
         shotAge += dt
         shellCollisionCache.removeAll(keepingCapacity: true)
         shellCollisionCache.append(contentsOf: simulation.obstacles)
@@ -1031,12 +1028,6 @@ final class NativeRenderer {
     }
     private func updateEffects(deltaTime: Float, terrain: TerrainProfile) {
         visualTime += deltaTime; recoil *= exp(-deltaTime * 12); shake *= exp(-deltaTime * 7); flash = max(0, flash - deltaTime)
-        for i in particles.indices {
-            particles[i].life -= deltaTime; particles[i].velocity.y -= particles[i].gravity * deltaTime; particles[i].position += particles[i].velocity * deltaTime
-            let ground = terrain.height(x: particles[i].position.x, z: particles[i].position.z) + 0.035
-            if particles[i].position.y < ground { particles[i].position.y = ground; particles[i].velocity.y *= -0.25; particles[i].velocity.x *= 0.7; particles[i].velocity.z *= 0.7 }
-        }
-        particles.removeAll { $0.life <= 0 }
         for i in tracers.indices { tracers[i].life -= deltaTime }; tracers.removeAll { $0.life <= 0 }
     }
 

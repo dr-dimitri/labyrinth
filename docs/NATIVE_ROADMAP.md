@@ -20,8 +20,8 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 4 | #10 Richtungsfeedback und räumlicher Sound | Umgesetzt und geprüft |
 | 5 | #1 Nahschatten | Umgesetzt und geprüft |
 | 6 | #2 Ego-Waffen und Hände | Umgesetzt und geprüft |
-| 7 | #3 Einschläge und Explosionen | In Umsetzung |
-| 8 | #5 Texturbudget | Offen |
+| 7 | #3 Einschläge und Explosionen | Umgesetzt und geprüft |
+| 8 | #5 Texturbudget | In Umsetzung |
 | 9 | #4 Schadensstufen und Trümmer | Offen |
 | 10 | #6 Schauplätze und alternative Wege | Offen |
 | 11 | #9 Missionsvarianten | Offen |
@@ -171,3 +171,39 @@ Mediane der Einzelläufe; das High-Zielbudget von zusätzlich höchstens 0,5 ms
 wird eingehalten. GPU-Allokation steigt um 57,61 MiB. Die nächste Texturbudget-
 Aufgabe berücksichtigt auch diese Materialkarten.
 [Messdaten](native-roadmap/weapon-performance.json).
+
+### #3 – Materialeinschläge und Explosionen
+
+Schüsse melden die tatsächlich getroffene Oberfläche mit Material, Normale und
+stabiler Objektkennung, auch bei sofortiger Zerstörung. Erde, Asphalt, Beton,
+Metall und Holz erhalten passende Staub-, Funken- und Splittereffekte. Fehlschüsse
+erzeugen keine Lufttreffer. Einschlagspuren folgen den sichtbaren Deckungsflächen,
+einschließlich Containerstegen und Warnstreifen; kleine Kanten begrenzen ihre Größe.
+Zerstörung entfernt die zugehörigen Spuren sofort.
+
+Explosionen zeigen einen kurzen Blitz, Splitter und anschließend abklingenden
+Staub/Rauch. Transparente Partikel werden nach Kameratiefe sortiert und an der
+tatsächlichen Gelände- oder Dachfläche weich ausgeblendet. Sie werfen keine
+undurchsichtigen Kugelschatten. Einschlagspuren empfangen die vorhandenen Nah- und
+Fernschatten. Hoch begrenzt die Wirkung auf 256 Partikel und 80 Spuren,
+Ausgewogen auf 128 und 40; maximal drei zusätzliche instanzierte Zeichenaufrufe.
+Partikel leben höchstens vier Sekunden, Spuren zwölf; Neustart leert beide Pools.
+
+Validierung: 119 reguläre Tests bestanden, darunter sechs neue Trefferprüfungen
+und acht Geometrieprüfungen für sichtbare Trefferflächen und echte Auflagehöhen.
+21 Metal-validierte Ansichten prüfen alle Materialien, drei gleichzeitige
+Explosionen in fünf Zeitphasen, Hügel, Containerdach, Ausgewogen, Poolüberlauf,
+Zerstörung, Ablauf und Neustart. Unabhängiges Code- und Bildreview abgeschlossen.
+Die dabei gefundenen harten Bodenschnitte und verdeckten Warnstreifentreffer
+wurden behoben. [Vorher](native-roadmap/effects-before.png),
+[nachher](native-roadmap/effects-after.png), [Rauchphase](native-roadmap/effects-smoke.png).
+
+Drei abwechselnde Vergleichsläufe je Grafikstufe, Apple M2 Pro, 2560×1600,
+neun Soldaten und drei identische Explosionen im Alter von 0,2 Sekunden:
+High CPU-P95 2,000 → 2,283 ms, GPU-P95 5,191 → 5,798 ms;
+Balanced CPU-P95 1,878 → 1,864 ms, GPU-P95 4,157 → 4,561 ms.
+Das High-Zielbudget von zusätzlich höchstens 1 ms wird mit 0,607 ms eingehalten.
+Die GPU-Allokation steigt um 0,047 MiB. Der Vergleichsbuild enthält ausschließlich
+die neuen CLI-Prüfeingaben neben dem vorherigen Renderer, damit beide Versionen
+dieselben Explosionen erhalten. Mediane aus je zehn Aufwärm- und 120 vollständig
+abgeschlossenen Messframes; [Messdaten](native-roadmap/effect-performance.json).
