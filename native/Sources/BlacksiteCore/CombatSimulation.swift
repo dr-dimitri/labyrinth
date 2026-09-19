@@ -14,6 +14,8 @@ public final class CombatSimulation {
     public private(set) var coverDebris: [CoverDebrisState] = []
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var supplies: [SupplyState] = []
+    public private(set) var devices: [WorldInteractableState] = []
+    public private(set) var spotlights: [WorldSpotlightState] = []
     public private(set) var noiseEmitters: [NoiseEmitterState] = []
     public private(set) var decoys: [NoiseDecoyState] = []
     public private(set) var hearingStimuli: [HearingStimulus] = []
@@ -119,6 +121,12 @@ public final class CombatSimulation {
     private var accumulator: Double = 0
     private var nextID = 100
     private var nextHearingID = 1
+    private var deviceInteractionLatch = false
+    private var activeDeviceID: Int?
+    private var deviceInteractionTicks = 0
+    private var deviceInputHeld = false
+    private var cachedLightTime: Double = -1
+    private var cachedLightFactor: Float = 1
     private var playerStepDistance: Float = 0
     private var decoyCooldown: Float = 0
     private var grenadeCooldown: Float = 0
@@ -201,6 +209,18 @@ public final class CombatSimulation {
             return NoiseEmitterState(id: definition.id, position: definition.position + SIMD3(0, terrain.height(x: definition.position.x, z: definition.position.z), 0),
                 enabled: definition.enabled, strength: definition.strength, range: definition.range, ownerObstacleID: definition.ownerObstacleID)
         }
+        devices = selected.environment.devices.compactMap { definition in
+            guard let owner = obstacles.first(where: { $0.id == definition.ownerObstacleID }) else { return nil }
+            return WorldInteractableState(id: definition.id, kind: definition.kind, ownerObstacleID: definition.ownerObstacleID,
+                interactionPoints: definition.interactionPoints.map { self.map.grounded($0) }, closedPosition: owner.position)
+        }
+        spotlights = selected.environment.spotlights.map { definition in
+            WorldSpotlightState(id: definition.id, position: self.map.grounded(definition.position),
+                direction: simd_normalize(definition.direction), range: definition.range, innerCos: definition.innerCos,
+                outerCos: definition.outerCos, power: definition.power, color: definition.color, ownerObstacleID: definition.ownerObstacleID)
+        }
+        synchronizeDestroyedDevices()
+        synchronizeDevicePower()
         concealmentMotion.resetPose(player)
         events.reserveCapacity(128); searchQueue.reserveCapacity(navWidth * navDepth)
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
@@ -209,6 +229,8 @@ public final class CombatSimulation {
         pendingCoverDebris.reserveCapacity(world.count)
         for box in obstacles { nextID = max(nextID, box.id + 1) }
         for emitter in noiseEmitters { nextID = max(nextID, emitter.id + 1) }
+        for device in devices { nextID = max(nextID, device.id + 1) }
+        for light in spotlights { nextID = max(nextID, light.id + 1) }
         for enemy in enemies {
             brains[enemy.id] = EnemyBrain(cooldown: 2, sightTimer: Float(enemy.id % 5) * 0.02,
                                          patrolAnchor: enemy.position, patrolYaw: enemy.yaw)
@@ -480,6 +502,7 @@ public final class CombatSimulation {
                                                size: box.size, createdAt: elapsed, lifetime: lifetime, solidObstacleID: solidID))
         }
         pendingCoverDebris.removeAll(keepingCapacity: true)
+        synchronizeDestroyedDevices()
     }
 
     private func removeCoverDebris(at index: Int) {
@@ -588,6 +611,7 @@ public final class CombatSimulation {
         guard state == .active else { return }
         updateEnemies(dt)
         guard state == .active else { return }
+        updateDevices(dt, input: input)
         collectSupplies()
         updateReinforcementRetries(dt)
         if missionKind == .waves { updateWaves(dt) }
@@ -1124,6 +1148,11 @@ extension CombatSimulation {
                         recognition = ConcealmentEvaluation(status: concealmentStatus, observerDistance: simd_length(offset))
                             .combinedRecognition(vegetation: recognition)
                     }
+                    if cachedLightTime != elapsed {
+                        cachedLightFactor = lightSample(at: eyePosition).recognitionMultiplier
+                        cachedLightTime = elapsed
+                    }
+                    recognition = max(ConcealmentEvaluation.minimumCombinedRecognition, recognition * cachedLightFactor)
                 }
                 enemy.detectionProgress = min(1, enemy.detectionProgress + 0.1 / reaction * recognition)
                 if enemy.detectionProgress >= 1 {
@@ -1315,7 +1344,7 @@ extension CombatSimulation {
     @discardableResult public func setNoiseEmitterEnabled(id: Int, enabled: Bool) -> Bool {
         guard state == .active, let index = noiseEmitters.firstIndex(where: { $0.id == id }),
               noiseEmitters[index].enabled != enabled else { return false }
-        if let owner = noiseEmitters[index].ownerObstacleID,
+        if enabled, let owner = noiseEmitters[index].ownerObstacleID,
            !obstacles.contains(where: { $0.id == owner && !$0.destroyed }) { return false }
         noiseEmitters[index].enabled = enabled
         emit(GameEvent(kind: .noiseEmitterChanged, position: noiseEmitters[index].position,
@@ -1423,5 +1452,196 @@ extension CombatSimulation {
             }
             decoys[index] = decoy; index += 1
         }
+    }
+}
+
+extension CombatSimulation {
+    public var deviceInteractionAvailable: Bool { deviceInteractionStatus?.interactionAvailable == true }
+    /// Retains ownership of E for a reachable device while its motor is moving,
+    /// blocked, destroyed or waiting for the user to release a completed press.
+    public var deviceContextAvailable: Bool {
+        guard let status = deviceInteractionStatus else { return false }
+        return status.distance <= 1.6 && status.interruption != .occluded
+    }
+    public var deviceInteractionStatus: DeviceInteractionStatus? {
+        guard state == .active, !missionInteractionAvailable else { return nil }
+        var nearest: (index: Int, point: SIMD3<Float>, distance: Float)?
+        for index in devices.indices {
+            for point in devices[index].interactionPoints {
+                let distance = simd_distance(player.position, point)
+                if distance <= 3.5 && distance < (nearest?.distance ?? .infinity) { nearest = (index, point, distance) }
+            }
+        }
+        guard let nearest else { return nil }
+        let device = devices[nearest.index]
+        let owner = obstacles.firstIndex { $0.id == device.ownerObstacleID }
+        let visible = clearLine(eyePosition, nearest.point + SIMD3(0, 1, 0), excludingObstacle: owner)
+        let reason: DeviceInterruption?
+        if !visible { reason = .occluded }
+        else if device.destroyed { reason = .destroyed }
+        else if device.blockedByActor { reason = .blockedByActor }
+        else if device.isMoving { reason = .moving }
+        else if !player.grounded || climbing != nil { reason = .notGrounded }
+        else if nearest.distance > 1.6 { reason = .outOfRange }
+        else if deviceInteractionLatch { reason = .releaseRequired }
+        else if !deviceInputHeld { reason = .interactionReleased }
+        else { reason = nil }
+        let manual = device.kind == .serviceGate && !device.powered
+        let action: DeviceAction
+        if device.kind == .generator { action = device.enabled ? .disableGenerator : .enableGenerator }
+        else if device.gateProgress > 0 && device.gateProgress < 1 || device.isMoving {
+            action = device.targetOpen ? .openGate : .closeGate
+        } else { action = device.gateProgress >= 1 ? .closeGate : .openGate }
+        return DeviceInteractionStatus(id: device.id, kind: device.kind, action: action, enabled: device.enabled,
+            powered: device.powered, manual: manual, position: nearest.point, distance: nearest.distance,
+            progress: device.interactionProgress, requiredProgress: manual ? 2 : 1, gateProgress: device.gateProgress,
+            isMoving: device.isMoving, blockedByActor: device.blockedByActor, destroyed: device.destroyed,
+            interactionAvailable: reason == nil || reason == .interactionReleased, interruption: reason)
+    }
+
+    private func synchronizeDestroyedDevices() {
+        var changed = false
+        for index in devices.indices where !devices[index].destroyed {
+            guard let owner = obstacles.first(where: { $0.id == devices[index].ownerObstacleID }), owner.destroyed else { continue }
+            devices[index].destroyed = true; devices[index].enabled = false; devices[index].powered = false
+            devices[index].interactionProgress = 0; devices[index].isMoving = false; devices[index].blockedByActor = false
+            if devices[index].kind == .serviceGate {
+                devices[index].gateProgress = 1; devices[index].targetOpen = true
+                invalidateDeviceNavigation()
+            }
+            if activeDeviceID == devices[index].id { activeDeviceID = nil; deviceInteractionTicks = 0 }
+            emit(GameEvent(kind: .deviceDestroyed, position: owner.position, id: devices[index].id, device: devices[index]))
+            changed = true
+        }
+        // Destruction is resolved before same-tick perception. Machine/lamp
+        // state changes only on a power transition, preserving diagnostic mutes.
+        if changed { synchronizeDevicePower() }
+    }
+
+    private func synchronizeDevicePower() {
+        for definition in map.environment.devices where definition.kind == .generator {
+            let enabled = devices.first(where: { $0.id == definition.id }).map { $0.enabled && !$0.destroyed } ?? false
+            for id in definition.noiseEmitterIDs { setNoiseEmitterEnabled(id: id, enabled: enabled) }
+            for index in spotlights.indices where definition.lightIDs.contains(spotlights[index].id) {
+                spotlights[index].enabled = enabled
+            }
+        }
+        for index in devices.indices where devices[index].kind == .serviceGate && !devices[index].destroyed {
+            let definition = map.environment.devices.first { $0.id == devices[index].id }
+            let powered = definition?.generatorID.flatMap { id in devices.first { $0.id == id } }.map { $0.enabled && !$0.destroyed } ?? false
+            let lostMotorPower = devices[index].powered && !powered && devices[index].isMoving && !devices[index].manualMotion
+            devices[index].powered = powered
+            if lostMotorPower {
+                devices[index].isMoving = false; devices[index].blockedByActor = false
+                emit(GameEvent(kind: .gateStopped, position: devices[index].interactionPoints[0], id: devices[index].id, device: devices[index]))
+            }
+        }
+        cachedLightTime = -1
+    }
+
+    private func updateDevices(_ dt: Float, input: GameInput) {
+        deviceInputHeld = input.interact
+        if !input.interact { deviceInteractionLatch = false }
+        // Holding E through the end of an objective cannot also activate a
+        // nearby device. Release starts a new, explicit contextual action.
+        if missionInteractionAvailable && input.interact { deviceInteractionLatch = true }
+        if input.interact, !deviceInteractionLatch,
+           let status = deviceInteractionStatus, status.interactionAvailable,
+           let index = devices.firstIndex(where: { $0.id == status.id }) {
+            if activeDeviceID != status.id { resetDeviceInteraction(); activeDeviceID = status.id }
+            deviceInteractionTicks += 1
+            devices[index].interactionProgress = Float(deviceInteractionTicks) / 120
+            if deviceInteractionTicks >= Int(status.requiredProgress * 120) {
+                deviceInteractionLatch = true
+                if devices[index].kind == .generator {
+                    devices[index].enabled.toggle(); devices[index].powered = devices[index].enabled
+                    synchronizeDevicePower()
+                } else {
+                    devices[index].targetOpen = status.action == .openGate
+                    devices[index].isMoving = true; devices[index].blockedByActor = false
+                    devices[index].manualMotion = status.manual
+                }
+                resetDeviceInteraction()
+                emit(GameEvent(kind: .deviceActivated, position: status.position, id: status.id, device: devices[index]))
+            }
+        } else { resetDeviceInteraction() }
+        for index in devices.indices where devices[index].kind == .serviceGate && devices[index].isMoving && !devices[index].destroyed {
+            advanceGate(index: index, dt: dt)
+        }
+    }
+
+    private func resetDeviceInteraction() {
+        if let id = activeDeviceID, let index = devices.firstIndex(where: { $0.id == id }) { devices[index].interactionProgress = 0 }
+        activeDeviceID = nil; deviceInteractionTicks = 0
+    }
+
+    private func advanceGate(index: Int, dt: Float) {
+        guard let definition = map.environment.devices.first(where: { $0.id == devices[index].id }),
+              let ownerIndex = obstacles.firstIndex(where: { $0.id == devices[index].ownerObstacleID && !$0.destroyed }) else { return }
+        let old = obstacles[ownerIndex]
+        let rate: Float = devices[index].manualMotion ? 0.25 : 0.5
+        let progress = clamp(devices[index].gateProgress + (devices[index].targetOpen ? 1 : -1) * rate * dt, 0, 1)
+        var next = Obstacle(id: old.id, kind: old.kind,
+            position: devices[index].closedPosition + definition.openOffset * progress, size: old.size)
+        next.health = old.health
+        let low = simd_min(old.minimum, next.minimum) - SIMD3<Float>(repeating: 0.006)
+        let high = simd_max(old.maximum, next.maximum) + SIMD3<Float>(repeating: 0.006)
+        func overlaps(_ position: SIMD3<Float>, height: Float, radius: Float) -> Bool {
+            position.x + radius > low.x && position.x - radius < high.x &&
+            position.z + radius > low.z && position.z - radius < high.z &&
+            position.y + height > low.y && position.y < high.y
+        }
+        let blocked = overlaps(player.position, height: player.height, radius: 0.32) || enemies.contains {
+            $0.health > 0 && overlaps($0.position, height: EnemyPose($0).totalHeight, radius: 0.38)
+        }
+        if blocked {
+            if !devices[index].blockedByActor {
+                devices[index].blockedByActor = true
+                emit(GameEvent(kind: .gateBlocked, position: old.position, id: devices[index].id, device: devices[index]))
+            }
+            return
+        }
+        devices[index].blockedByActor = false; devices[index].gateProgress = progress
+        obstacles[ownerIndex] = next
+        if !navigationDirty && gateChangesNavigation(old: old, new: next) { invalidateDeviceNavigation() }
+        if progress == 0 || progress == 1 {
+            devices[index].isMoving = false
+            emit(GameEvent(kind: .gateStopped, position: next.position, id: devices[index].id, device: devices[index]))
+        }
+    }
+
+    private func invalidateDeviceNavigation() {
+        navigationDirty = true
+        for id in brains.keys {
+            brains[id]?.pathTimer = 0; brains[id]?.path.removeAll(keepingCapacity: true)
+        }
+    }
+
+    /// Only a change to an affected cell or swept link invalidates the cached
+    /// graph. This also handles a gate on sloping/custom terrain; no hard-coded
+    /// open-fraction threshold and no full graph rebuild on every motor tick.
+    private func gateChangesNavigation(old: Obstacle, new: Obstacle) -> Bool {
+        let minX = clamp(Int(floor((old.minimum.x - 2.5 - map.minimum.x) / navSpacing)), 0, navWidth - 1)
+        let maxX = clamp(Int(ceil((old.maximum.x + 2.5 - map.minimum.x) / navSpacing)), 0, navWidth - 1)
+        let minZ = clamp(Int(floor((old.minimum.z - 2.5 - map.minimum.z) / navSpacing)), 0, navDepth - 1)
+        let maxZ = clamp(Int(ceil((old.maximum.z + 2.5 - map.minimum.z) / navSpacing)), 0, navDepth - 1)
+        func blocksCell(_ box: Obstacle, _ point: SIMD3<Float>) -> Bool {
+            point.y + 1.09 < box.maximum.y - 0.025 && point.y + 1.96 > box.minimum.y + 0.025 &&
+            point.x + 0.48 > box.minimum.x && point.x - 0.48 < box.maximum.x &&
+            point.z + 0.48 > box.minimum.z && point.z - 0.48 < box.maximum.z
+        }
+        func blocksLink(_ box: Obstacle, _ a: SIMD3<Float>, _ b: SIMD3<Float>) -> Bool {
+            let offset = b - a, distance = simd_length(offset)
+            return rayBox(origin: a + SIMD3(0,1.09,0), direction: offset / distance,
+                minimum: box.minimum - SIMD3(0.48,0.87,0.48), maximum: box.maximum + SIMD3(0.48,-0.025,0.48))
+                .map { $0.distance <= distance } ?? false
+        }
+        for z in minZ...maxZ { for x in minX...maxX {
+            let key = z * navWidth + x, point = navigationPoint(key)
+            if blocksCell(old, point) != blocksCell(new, point) { return true }
+            if x + 1 < navWidth, blocksLink(old, point, navigationPoint(key+1)) != blocksLink(new, point, navigationPoint(key+1)) { return true }
+            if z + 1 < navDepth, blocksLink(old, point, navigationPoint(key+navWidth)) != blocksLink(new, point, navigationPoint(key+navWidth)) { return true }
+        } }
+        return false
     }
 }

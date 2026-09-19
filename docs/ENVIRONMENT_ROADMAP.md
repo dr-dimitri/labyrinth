@@ -17,7 +17,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #17 | Vegetation und Untergrund | Umgesetzt, Review/Tests und Bildprüfung bestanden |
 | #18 | Geländeabhängiger Tarnanzug | Umgesetzt, Review/Tests und native Bedienprüfung bestanden |
 | #19 | Geräusche und Ablenkung | Umgesetzt, Review/Tests, nativer Audiomix und Bilder bestanden |
-| #20 | Strom, Licht und Servicetore | Offen |
+| #20 | Strom, Licht und Servicetore | Umgesetzt, Review/Tests, Release-Build und Bilder bestanden |
 | #23 | Lokale Kontaktmeldungen | Offen |
 | #26 | Umgebung und Extraktionsentscheidung | Offen |
 | #25 | Briefing und Tarnungsfeedback | Offen |
@@ -168,3 +168,29 @@ Dies ist keine Hörprobe über die Lautsprecher des Macs. Der optimierte Test mi
 zwölf Gegnern misst 8,90 µs pro Simulationsschritt (fünf deterministische Läufe),
 gegenüber 8,64 µs im Ausgangsstand; das ist keine Gesamtbildrate.
 [Prüfdaten](native-environment/issue19.json).
+
+### #20 – Strom, Licht und Servicetore
+
+Ein erreichbarer Generator schaltet Maschinenlärm und zwei gerichtete Strahler.
+Das Servicetor verwendet für Bewegung, Sicht, Beschuss, Navigation und Schatten
+seine aktuelle Geometrie. Es stoppt vor Figuren und kann nach Stromausfall von
+Hand weitergeöffnet werden. Zerstörung lässt einen benutzbaren Durchgang zurück.
+Ein gemeinsamer E-Kontext mit Haltefortschritt verhindert Doppelaktivierungen.
+
+Lichtkegel, Reichweite und harte Abschattung stammen aus denselben Daten für KI
+und Grafik. Zwei 512²-Schattenkarten benötigen zusammen 2 MiB. Lokale Terrain-
+Ausschnitte begrenzen zusätzliche Zeichenarbeit; Kamera-unabhängige Auswahl
+behält seitliche Schattenwerfer. Sonnenlicht bleibt vom Generator unabhängig.
+
+Unabhängiges Code- und Bildreview bestanden. Korrigiert wurden unter anderem
+die Generatorauflage, ungültige Lichtprojektionen und ein Stromausfall-Snapshot.
+146 Core- und 118 gemeldete Mac-Tests bestehen, einschließlich aktiviertem
+Offline-Audiomix. Acht Metal-validierte Bilder prüfen Wand/Gelände, einen echten
+Skinned-Soldaten, Generator und fahrendes beziehungsweise manuell geöffnetes Tor.
+Ein kampfisolierter Datenlauf prüft tatsächliche Aufnahme, Weg und Torpassage bis
+zur Extraktion; er ersetzt keinen menschlichen Kampf-Durchlauf.
+
+Der optimierte ARM64-Build, Ad-hoc-Signatur und Smokecheck bestehen. Gemessener
+Core-Median: 9,04 µs je Schritt bei zwölf Gegnern. GPU-P95 bei 2560×1600:
+13,92 ms High beziehungsweise 11,87 ms Balanced; Allokation 1213,52/341,14 MiB.
+Das sind keine Messungen der gesamten Bildrate. [Prüfdaten](native-environment/issue20.json).

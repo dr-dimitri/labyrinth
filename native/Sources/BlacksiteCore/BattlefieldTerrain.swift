@@ -157,6 +157,7 @@ private enum BattlefieldGrid {
             (-12, -35, 7, 0.8), (12, -35, 7, 0.8),
             (10, -1, 0.8, 0.8), (-11, 11, 0.8, 0.8),
             (18, 17, 0.8, 0.8), (-12, -22, 0.8, 0.8),
+            (27, 2, 1.6, 1.2), // Grounded generator: shared visible/physical foundation.
         ]
         // Nearby foundations share an elevation; otherwise a barrel next to a
         // container could create a steep step between their independently

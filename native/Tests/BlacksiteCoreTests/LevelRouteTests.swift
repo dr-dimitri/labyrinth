@@ -6,7 +6,8 @@ import simd
 struct LevelRouteTests {
     private let terrain = TerrainProfile.battlefield
     private let mainRoutes: [[SIMD2<Float>]] = [
-        [SIMD2(0,32),SIMD2(0,-35)],
+        // The closed service gate has a permanent walkable bypass at its east end.
+        [SIMD2(0,32),SIMD2(0,-12),SIMD2(7,-12),SIMD2(7,-17),SIMD2(0,-18),SIMD2(0,-35)],
         [SIMD2(0,32),SIMD2(-8,32),SIMD2(-18,32),SIMD2(-31,31),SIMD2(-32,22),SIMD2(-30,14),
          SIMD2(-32,4),SIMD2(-33,-6),SIMD2(-33,-20),SIMD2(-28,-25),SIMD2(-20,-26),SIMD2(-12,-28),SIMD2(-7,-32),SIMD2(0,-35)],
         [SIMD2(0,32),SIMD2(8,32),SIMD2(21,29),SIMD2(29,21),SIMD2(32,13),SIMD2(32,5),SIMD2(32,-3),
@@ -141,7 +142,7 @@ struct LevelRouteTests {
 
     @Test func levelPropMetadataRemainsStableAfterGroundingAndRejectsReusedIDs() throws {
         let game = scene(at: SIMD2(0,32))
-        #expect(GameMap.obstacles.count == 23 && Set(GameMap.obstacles.map(\.id)).count == 23)
+        #expect(GameMap.obstacles.count == 25 && Set(GameMap.obstacles.map(\.id)).count == 25)
         for prop in LevelProp.allCases {
             let grounded = try #require(game.obstacles.first { $0.id == prop.rawValue })
             #expect(GameMap.levelProp(for: grounded) == prop)

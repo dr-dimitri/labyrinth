@@ -250,7 +250,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             switch action {
             case .jump: simulation.jump()
             case .prone: simulation.toggleProne()
-            case .interact: if !simulation.missionInteractionAvailable { simulation.mantle() }
+            case .interact:
+                if !simulation.missionInteractionAvailable && !simulation.deviceContextAvailable { simulation.mantle() }
             case .grenade: simulation.throwGrenade()
             case .decoy: simulation.throwNoiseDecoy()
             case .reload: simulation.reload()

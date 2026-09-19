@@ -81,6 +81,8 @@ public struct MapEnvironmentDefinition: Sendable {
     public var groundRegions: [MapSurfaceRegion] = []
     public var vegetationZones: [EnvironmentZone] = []
     public var noiseEmitters: [NoiseEmitterDefinition] = []
+    public var devices: [WorldInteractableDefinition] = []
+    public var spotlights: [WorldSpotlightDefinition] = []
     /// Legacy name retained as a view of the same authoritative data.
     public var visibilityVolumes: [MapVisibilityVolume] {
         get { vegetationZones }
@@ -171,7 +173,7 @@ public struct MapDefinition: Sendable {
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
-        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []
+        var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []
         return copying(terrain: terrain, environment: environment)
     }
     private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition) -> MapDefinition {
@@ -284,6 +286,41 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Geräuschquelle \(emitter.id) besitzt ungültige Daten oder eine fehlende Objekt-ID.")
             }
         }
+        guard environment.devices.count <= 4, environment.spotlights.count <= 2 else {
+            throw MapValidationError("Karte \(id): Höchstens vier Geräte und zwei Strahler sind zulässig.")
+        }
+        for light in environment.spotlights {
+            guard ids.insert(light.id).inserted, inside(light.position), finite(light.direction),
+                  simd_length_squared(light.direction).isFinite, simd_length_squared(light.direction) > 0.01, finite(light.color),
+                  light.color.x >= 0, light.color.y >= 0, light.color.z >= 0,
+                  light.range.isFinite, (0.5...32).contains(light.range),
+                  light.innerCos.isFinite, light.outerCos.isFinite, light.outerCos >= 0.05,
+                  light.innerCos > light.outerCos, light.innerCos <= 1,
+                  light.power.isFinite, (0...1).contains(light.power),
+                  light.ownerObstacleID.map({ owner in obstacles.contains { $0.id == owner } }) ?? true else {
+                throw MapValidationError("Karte \(id): Strahler \(light.id) benötigt 0,5–32 m Reichweite, outerCos ≥ 0,05, endliche Richtung und nichtnegative Lichtfarbe.")
+            }
+        }
+        var deviceOwners = Set<Int>()
+        for device in environment.devices {
+            guard ids.insert(device.id).inserted, deviceOwners.insert(device.ownerObstacleID).inserted,
+                  let owner = obstacles.first(where: { $0.id == device.ownerObstacleID }),
+                  !device.interactionPoints.isEmpty, device.interactionPoints.count <= 2, device.interactionPoints.allSatisfy(inside),
+                  device.noiseEmitterIDs.allSatisfy({ id in environment.noiseEmitters.contains { $0.id == id } }),
+                  device.lightIDs.allSatisfy({ id in environment.spotlights.contains { $0.id == id } }),
+                  device.generatorID.map({ id in environment.devices.contains { $0.id == id && $0.kind == .generator } }) ?? true,
+                  finite(device.openOffset) else {
+                throw MapValidationError("Karte \(id): Gerät \(device.id) besitzt ungültige Verbindungen oder Bedienpunkte.")
+            }
+            if device.kind == .serviceGate {
+                // Current gate is a vertical lift: thin footprint cannot be mantled,
+                // and its unambiguous height threshold keeps navigation bounded.
+                guard device.openOffset.x == 0, device.openOffset.z == 0, device.openOffset.y >= 2.1, device.openOffset.y <= 6,
+                      owner.kind == .container, owner.size.z < 0.6 else {
+                    throw MapValidationError("Karte \(id): Hubtor benötigt ein dünnes Metallgehäuse und mindestens 2,1 m vertikalen Hub.")
+                }
+            }
+        }
         var volumeIDs = Set<String>()
         var totalPlants = 0
         guard environment.vegetationZones.count <= 16 else {
@@ -393,6 +430,8 @@ public struct MapDefinition: Sendable {
             var environment = MapEnvironmentDefinition()
             environment.vegetationZones = BlacksiteVegetation.zones
             environment.noiseEmitters = BlacksiteMachinery.emitters
+            environment.devices = BlacksiteDevices.definitions
+            environment.spotlights = BlacksiteDevices.lights
             return environment
         }(), resources: .blacksite)
 

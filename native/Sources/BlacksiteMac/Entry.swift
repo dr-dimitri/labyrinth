@@ -97,12 +97,13 @@ struct BlacksiteMain {
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let loadout = try NativeLoadoutCheck.loadout(arguments: args)
                 let mapCheck = try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
-                let soundCheck = mapCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let environmentCheck = mapCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let missionCheck = mapCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let sceneCheck = mapCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                var simulation = mapCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
-                if mapCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
+                let deviceCheck = mapCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let soundCheck = mapCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let environmentCheck = mapCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let missionCheck = mapCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let sceneCheck = mapCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                var simulation = mapCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
+                if mapCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -126,6 +127,7 @@ struct BlacksiteMain {
                     result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(soundCheck?.metadata ?? [:]) { _, value in value }
+                    result.merge(deviceCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(mapCycles) { _, value in value }
                     let json = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                     print(String(decoding: json, as: UTF8.self)); return
@@ -142,6 +144,7 @@ struct BlacksiteMain {
                 result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(environmentCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(soundCheck?.metadata ?? [:]) { _, value in value }
+                result.merge(deviceCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(mapCycles) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
                 result["loadoutCamouflage"] = simulation.loadout.camouflage.rawValue

@@ -32,7 +32,7 @@ enum NativeControlLabels {
         func mode(_ action: NativeInputAction, _ value: NativeActionMode) -> String {
             settings.bindings.inputs(for: action).isEmpty ? unboundLabel : "\(key(action)) · \(modeLabel(value))"
         }
-        let interaction = settings.bindings.inputs(for: .interact).isEmpty ? "Interagieren in Einstellungen belegen" : "\(key(.interact)) · für Missionsaktionen HALTEN; an Kanten Klettern"
+        let interaction = settings.bindings.inputs(for: .interact).isEmpty ? "Interagieren in Einstellungen belegen" : "\(key(.interact)) · Auftrag oder Gerät: HALTEN; sonst an Kanten Klettern"
         return [
             "Bewegen: \(key(.moveForward)) vor · \(key(.moveBackward)) zurück · \(key(.moveLeft)) links · \(key(.moveRight)) rechts",
             "Umsehen: Maus oder \(key(.lookLeft)) / \(key(.lookRight)) / \(key(.lookUp)) / \(key(.lookDown))",

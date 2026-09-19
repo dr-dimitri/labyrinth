@@ -5,6 +5,8 @@ struct Instance { float4x4 model; float4 normal0; float4 normal1; float4 normal2
 struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; float4x4 nearLightViewProjection; float4 shadowParameters; };
 struct GroundAppearanceRegion { float4 centerRadii; float4 innerOuter; float4 controls; float4 tintStrength; };
 struct MapAppearance { float4 leafGradient; float4 counts; GroundAppearanceRegion regions[8]; };
+struct WorldLight { float4x4 matrix; float4 positionRange; float4 directionOuter; float4 colorPower; float4 parameters; };
+struct WorldLighting { float4 counts; WorldLight first; WorldLight second; };
 struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float2 detailUV; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
 float3 windPosition(float3 p, float2 uv, float material, float time) {
   if(material>3.5 && material<4.5) {
@@ -115,6 +117,53 @@ float shadowPCF(depth2d<float> map,sampler comparison,float3 p,float bias,float2
   }
   return visibility/max(weightSum,0.001);
 }
+// Four nearest comparisons use the real texel centres and receiver plane. This
+// avoids the detached shadows caused by a constant perspective-depth bias.
+float spotVisibility(depth2d<float> map,sampler comparison,float3 p,float2 gradient,float bias) {
+  float2 uv=p.xy*float2(0.5,-0.5)+0.5,dimensions=float2(map.get_width(),map.get_height());
+  float2 pixel=uv*dimensions-0.5,base=floor(pixel),blend=fract(pixel);float visibility=0;
+  for(int y=0;y<2;y++) for(int x=0;x<2;x++) {
+    float2 tap=(base+float2(x,y)+0.5)/dimensions;
+    float weight=(x==0 ? 1-blend.x:blend.x)*(y==0 ? 1-blend.y:blend.y);
+    visibility+=map.sample_compare(comparison,tap,p.z+dot(gradient,tap-uv)-bias,level(0))*weight;
+  }
+  return visibility;
+}
+float3 oneWorldLight(constant WorldLight &light,float3 projected,float2 gradient,
+  float3 world,float3 n,float3 v,float3 albedo,float rough,float metal,depth2d<float> map,sampler comparison) {
+  if(light.colorPower.w<=0) return float3(0);
+  float3 source=light.positionRange.xyz-world;float distance=length(source);
+  if(distance<0.15 || distance>=light.positionRange.w || projected.z<=0 || projected.z>=1 || any(abs(projected.xy)>=1)) return float3(0);
+  float3 l=source/distance;float cone=dot(-l,light.directionOuter.xyz);
+  if(cone<=light.directionOuter.w) return float3(0);
+  // The cone and range exactly match CombatSimulation.lightSample. Graphics
+  // only adds surface orientation and material response to that shared field.
+  float falloff=1-distance/light.positionRange.w;
+  float amount=smoothstep(light.directionOuter.w,light.parameters.x,cone)*falloff*falloff*light.colorPower.w;
+  float nl=max(dot(n,l),0.0),nv=max(dot(n,v),0.05);
+  float3 h=normalize(l+v);float nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
+  float a=rough*rough,a2=a*a,den=nh*nh*(a2-1)+1,k=(rough+1)*(rough+1)*0.125;
+  float distribution=a2/max(M_PI_F*den*den,0.0001),geometry=(nl/(nl*(1-k)+k))*(nv/(nv*(1-k)+k));
+  float3 f0=mix(float3(0.04),albedo,metal),fresnel=f0+(1-f0)*pow(1-vh,5.0);
+  float3 specular=distribution*geometry*fresnel/max(4*nl*nv,0.001);
+  float axial=max(dot(-source,light.directionOuter.xyz),0.15);
+  float bias=max(0.0000003,light.parameters.y/(axial*axial)*0.0025);
+  float visibility=spotVisibility(map,comparison,projected,gradient,bias);
+  return (albedo*(1-metal)/M_PI_F+specular)*light.colorPower.rgb*(12*amount*nl*visibility);
+}
+float3 worldLights(constant WorldLighting &lights,float3 world,float3 n,float3 v,float3 albedo,float rough,float metal,
+  depth2d<float> firstMap,depth2d<float> secondMap,sampler comparison) {
+  // This condition is draw-uniform; disabled power costs no derivatives/taps.
+  if(lights.counts.x<0.5 || (lights.first.colorPower.w<=0 && lights.second.colorPower.w<=0)) return float3(0);
+  float4 firstClip=lights.first.matrix*float4(world,1),secondClip=lights.second.matrix*float4(world,1);
+  float3 first=firstClip.xyz/max(firstClip.w,0.001),second=secondClip.xyz/max(secondClip.w,0.001);
+  // Both derivatives execute before any spatial cone/range/occlusion branch.
+  float2 firstGradient=receiverPlaneGradient(first),secondGradient=receiverPlaneGradient(second);
+  float3 result=float3(0);
+  if(lights.counts.x>0.5) result+=oneWorldLight(lights.first,first,firstGradient,world,n,v,albedo,rough,metal,firstMap,comparison);
+  if(lights.counts.x>1.5) result+=oneWorldLight(lights.second,second,secondGradient,world,n,v,albedo,rough,metal,secondMap,comparison);
+  return result;
+}
 float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant Uniforms &u,
   depth2d<float> farMap,depth2d<float> nearMap,sampler comparison) {
   float3 p=nearClip.xyz/nearClip.w,farP=farClip.xyz/farClip.w;
@@ -146,7 +195,7 @@ float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant 
   }
   return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
 }
-fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],
+fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],constant WorldLighting &lights [[buffer(5)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
   texture2d<float> rockColor [[texture(6)]],texture2d<float> rockNormal [[texture(7)]],texture2d<float> rockRough [[texture(8)]],
@@ -157,7 +206,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   texture2d<float> pineNormal [[texture(20)]],texture2d<float> pineAlpha [[texture(21)]],texture2d<float> pineRough [[texture(22)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
   texture2d<float> weaponMetalColor [[texture(25)]],texture2d<float> weaponMetalNormal [[texture(26)]],texture2d<float> weaponMetalRough [[texture(27)]],
   texture2d<float> weaponClothColor [[texture(28)]],texture2d<float> weaponClothNormal [[texture(29)]],texture2d<float> weaponClothRough [[texture(30)]],
-  depth2d<float> weaponShadowMap [[texture(31)]],texture2d<float> gameplayAlpha [[texture(32)]],
+  depth2d<float> weaponShadowMap [[texture(31)]],texture2d<float> gameplayAlpha [[texture(32)]],depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
@@ -398,6 +447,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
       lit=albedo*0.28+environment*coating*(0.13+glassFresnel*0.85)+specular*irradiance*nl*visibility;
     }
   }
+  lit+=worldLights(lights,in.world,n,v,albedo,rough,metal,firstSpotMap,secondSpotMap,shadowSampler);
   lit+=albedo*emissive;
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);
   float fog=1-exp(-fogDistance*fogDistance*0.0000065); lit=mix(lit,u.fogColor.rgb,fog);
@@ -542,10 +592,10 @@ float3 soldierMappedNormal(float3 n,float3 p,float2 uv,float3 map) {
   if(dot(t,t)<1e-10 || dot(b,b)<1e-10) return n;
   return normalize(n*max(map.z,0.2)+normalize(t)*map.x*0.8+normalize(b)*map.y*0.8);
 }
-fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant WorldLighting &lights [[buffer(5)]],
   constant uint &material [[buffer(3)]],texture2d<float> color [[texture(0)]],
   texture2d<float> normalMap [[texture(1)]],texture2d<float> roughnessMap [[texture(2)]],
-  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
+  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   bool visor=material==2,skin=material==1;float4 texel=color.sample(surface,in.uv);
   if(!visor && texel.a<0.35) discard_fragment();
@@ -581,6 +631,7 @@ fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms 
     float grazing=0.06+0.94*pow(1-nv,5.0);
     lit=albedo*0.35+environment*float3(0.66,0.83,0.88)*(0.18+grazing*0.85)+specular*float3(3.05,2.90,2.52)*nl*visibility;
   } else { lit+=environment*f0*(0.18+armor*0.22); }
+  lit+=worldLights(lights,in.world,n,v,albedo,rough,0,firstSpotMap,secondSpotMap,shadowSampler);
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);
   float fog=1-exp(-fogDistance*fogDistance*0.0000065);lit=mix(lit,u.fogColor.rgb,fog);
   return float4(aces(lit*1.03),1);

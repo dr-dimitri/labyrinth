@@ -37,7 +37,7 @@ extension MapSceneryDefinition {
         result.menuEye=SIMD3(12,6.5,33);result.menuTarget=SIMD3(-3,2,-8)
         result.extractionGate=SIMD3(0,0,-39)
         result.watchtowers=[SIMD3(-32,0,-36),SIMD3(32,0,33)]
-        result.lightPoles=[SIMD3(-8,0,25),SIMD3(9,0,-17),SIMD3(-11,0,-31),SIMD3(28,0,11)]
+        result.lightPoles=[SIMD3(-11,0,-31),SIMD3(28,0,11)]
         for x:Float in [-38,38] { for z in stride(from:Float(-42),to:42,by:6) {
             result.fences.append(MapLineSegment(start:SIMD3(x,0,z),end:SIMD3(x,0,z+6)))
         } }
@@ -50,6 +50,16 @@ extension MapSceneryDefinition {
             result.boxes.append(MapVisualBox(position:position,size:size,color:color,material:material,
                 yaw:yaw,castsShadow:shadow,ownerID:owner,levelDetail:detail,mesh:mesh,grounded:grounded))
         }
+        // The two powered fixtures use shorter authored mounts; their actual
+        // luminous heads are drawn from the shared spotlight state.
+        for base in [SIMD3<Float>(-8,0,25),SIMD3(9,0,-17)] {
+            box(base+SIMD3(0,2.6,0),SIMD3(0.12,5.2,0.12),SIMD3(0.17,0.20,0.19),material:SIMD4(0.7,0.2,0,15),grounded:true)
+            box(base+SIMD3(0.16,5.17,0),SIMD3(0.43,0.07,0.09),SIMD3(0.17,0.20,0.19),material:SIMD4(0.7,0.2,0,15),grounded:true)
+        }
+        for x:Float in [-6.27,6.27] {
+            box(SIMD3(x,3.3,-15),SIMD3(0.16,6.6,0.25),SIMD3(0.22,0.26,0.24),material:SIMD4(0.65,0.2,0,15),grounded:true)
+        }
+        box(SIMD3(0,6.54,-15),SIMD3(12.7,0.15,0.30),SIMD3(0.22,0.26,0.24),material:SIMD4(0.65,0.2,0,15),grounded:true)
         box(SIMD3(0,0.005,0),SIMD3(12,0.02,91),SIMD3(0.8,0.84,0.86),material:SIMD4(1,0,0,6),shadow:false,grounded:true)
         for z in stride(from:Float(-39),through:39,by:7) {
             box(SIMD3(0,0.0155,z),SIMD3(0.14,0.001,2.8),SIMD3(0.69,0.64,0.43),shadow:false,grounded:true)
@@ -171,6 +181,19 @@ public enum BlacksiteVegetation {
 /// The simulation grounds this authored aperture exactly as it grounds its owner.
 public enum BlacksiteMachinery {
     public static let emitters = [
-        NoiseEmitterDefinition(id:7001,position:SIMD3(-20.4,6.15,-11),ownerObstacleID:21)
+        NoiseEmitterDefinition(id:7001,position:SIMD3(27,0.8,2),ownerObstacleID:23)
+    ]
+}
+
+public enum BlacksiteDevices {
+    public static let definitions:[WorldInteractableDefinition] = [
+        WorldInteractableDefinition(id:1001,kind:.generator,ownerObstacleID:23,
+            interactionPoints:[SIMD3(27,0,3.5)],noiseEmitterIDs:[7001],lightIDs:[8001,8002]),
+        WorldInteractableDefinition(id:1002,kind:.serviceGate,ownerObstacleID:24,
+            interactionPoints:[SIMD3(-6.9,0,-15),SIMD3(6.9,0,-15)],generatorID:1001,openOffset:SIMD3(0,3.4,0))
+    ]
+    public static let lights:[WorldSpotlightDefinition] = [
+        WorldSpotlightDefinition(id:8001,position:SIMD3(-7.68,5.2,25),direction:simd_normalize(SIMD3(1,-0.9,-0.25))),
+        WorldSpotlightDefinition(id:8002,position:SIMD3(9.32,5.2,-17),direction:simd_normalize(SIMD3(-1,-0.9,0.25)))
     ]
 }

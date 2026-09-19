@@ -169,6 +169,7 @@ public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
         case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
         case footstep, decoyThrown, decoyPulse, noiseEmitterChanged
+        case deviceActivated, deviceDestroyed, gateBlocked, gateStopped
         case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
@@ -183,15 +184,16 @@ public struct GameEvent: Sendable {
     public let missionPhase: MissionPhase?
     public let hearing: HearingStimulus?
     public let noiseEmitter: NoiseEmitterState?
+    public let device: WorldInteractableState?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
                 id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
-                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil) {
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
-        self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter
+        self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device
     }
 }
 
@@ -241,6 +243,10 @@ enum BlacksiteMapData {
             housing.health = .infinity
             result.append(housing)
         }
+        let generator = Obstacle(id: 23, kind: .container, position: SIMD3(27,0,2), size: SIMD3(1.6,1.4,1.2))
+        result.append(generator)
+        let gate = Obstacle(id: 24, kind: .container, position: SIMD3(0,0,-15), size: SIMD3(12,2.8,0.45))
+        result.append(gate)
         return result
     }()
 

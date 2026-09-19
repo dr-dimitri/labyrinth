@@ -178,7 +178,7 @@ struct HearingTests {
         let actual = CombatSimulation()
         let machine = try #require(actual.noiseEmitters.first)
         let owner = try #require(actual.obstacles.first { $0.id == machine.ownerObstacleID })
-        #expect(machine.id == 7001 && machine.position.y > owner.position.y && machine.position.y < owner.maximum.y)
+        #expect(machine.id == 7001 && owner.id == 23 && machine.position.y > owner.position.y && machine.position.y < owner.maximum.y)
         #expect(actual.noiseEmitterGain(machine, listener: machine.position + SIMD3(0,1,0)) > 0)
     }
 

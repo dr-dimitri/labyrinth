@@ -19,6 +19,17 @@ enum NativeMapGeometry {
     }
 
     static func vertices(map: MapDefinition) -> [GPUVertex] {
+        vertices(map:map,minimum:nil,maximum:nil)
+    }
+
+    /// A lamp only needs the cells within its finite reach. Reuse the visible
+    /// mesh's grid and diagonal, including coarse outside cells, so it cannot
+    /// cast an independently approximated heightfield into its own terrain.
+    static func shadowPatch(map:MapDefinition,center:SIMD3<Float>,range:Float)->[GPUVertex] {
+        vertices(map:map,minimum:SIMD2(center.x-range,center.z-range),maximum:SIMD2(center.x+range,center.z+range))
+    }
+
+    private static func vertices(map:MapDefinition,minimum:SIMD2<Float>?,maximum:SIMD2<Float>?)->[GPUVertex] {
         let scenery = map.scenery
         let x = axis(minimum: scenery.renderMinimum.x, maximum: scenery.renderMaximum.x,
                      denseMinimum: scenery.denseMinimum.x, denseMaximum: scenery.denseMaximum.x)
@@ -31,6 +42,8 @@ enum NativeMapGeometry {
                       normal: map.terrain.normal(x: x, z: z), uv: SIMD2(x, z) * 0.01)
         }
         for row in 0..<(z.count - 1) { for column in 0..<(x.count - 1) {
+            if let minimum,let maximum,
+               x[column+1]<minimum.x || x[column]>maximum.x || z[row+1]<minimum.y || z[row]>maximum.y { continue }
             let a = vertex(x[column], z[row]), b = vertex(x[column + 1], z[row])
             let c = vertex(x[column], z[row + 1]), d = vertex(x[column + 1], z[row + 1])
             vertices.append(contentsOf: [a, c, b, b, c, d])

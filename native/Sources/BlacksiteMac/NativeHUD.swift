@@ -132,7 +132,9 @@ final class GameHUDView: NSView {
             else if c.mode == .paused { objective = [presentation.title, presentation.progressText].filter { !$0.isEmpty }.joined(separator: ". ") }
             else { objective = presentation.accessibilityText }
             let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
+            let contextDevice = s.deviceContextAvailable ? s.deviceInteractionStatus : nil
             let controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus) +
+                (contextDevice.map { ". " + NativeDevicePresentation($0, interactionLabel: hints.interactionLabel).accessibilityText } ?? "") +
                 ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
                 (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
                 (c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : "")
@@ -334,6 +336,12 @@ final class GameHUDView: NSView {
         if let action = objective.interactionTitle, s.climbProgress == nil && !scoped {
             panelText(action, detail: objective.interactionDetail, y: h * 0.65)
             fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(objective.fraction), height: 2), accent)
+        } else if s.deviceContextAvailable, let status = s.deviceInteractionStatus, s.climbProgress == nil && !scoped {
+            let device = NativeDevicePresentation(status, interactionLabel: hints.interactionLabel)
+            panelText(device.title, detail: device.detail, y: h * 0.65)
+            if device.showsProgress {
+                fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(device.fraction), height: 2), accent)
+            }
         } else if s.mantleAvailable && s.climbProgress == nil && !scoped {
             panelText(hints.mantleTitle, detail: hints.mantleDetail, y: h * 0.65)
         } else if let progress = s.climbProgress {
@@ -456,7 +464,10 @@ final class GameHUDView: NSView {
     }
 
     private func panelText(_ title: String, detail: String, y: CGFloat) {
-        let width: CGFloat = min(520, max(270, CGFloat(title.count) * 7 + 44)), x = bounds.midX - width / 2
+        let titleWidth = (title as NSString).size(withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)]).width
+        let detailWidth = (detail as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 9)]).width
+        let width = min(min(620, bounds.width - 64), max(270, max(titleWidth, detailWidth) + 32))
+        let x = bounds.midX - width / 2
         fill(NSRect(x: x, y: y, width: width, height: detail.isEmpty ? 35 : 48), NSColor(hex: 0x10231a, alpha: 0.92))
         text(title, x: x + 10, y: y + 10, size: 10, width: width - 20, alignment: .center, mono: true)
         if !detail.isEmpty { text(detail, x: x + 10, y: y + 28, size: 9, color: muted, width: width - 20, alignment: .center) }
