@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "retrieved_at_utc": "2026-09-19T08:51:29.139696+00:00",
+  "provider": "Poly Haven",
+  "license": {
+    "spdx": "CC0-1.0",
+    "provider_license_url": "https://polyhaven.com/license",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "scope": "Original downloaded texture assets."
+  },
+  "processing": "Original JPEG bytes; no resizing, painting or recompression. Desaturation/tint and microdetail strength are applied by the game shader.",
+  "materials": [
+    {
+      "id": "weapon-metal",
+      "asset_id": "blue_metal_plate",
+      "name": "Blue Metal Plate",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "asset_page": "https://polyhaven.com/a/blue_metal_plate",
+      "metadata_url": "https://api.polyhaven.com/info/blue_metal_plate",
+      "files_url": "https://api.polyhaven.com/files/blue_metal_plate",
+      "source_dimensions_mm": [
+        2500,
+        2500
+      ]
+    },
+    {
+      "id": "weapon-fabric",
+      "asset_id": "denim_fabric",
+      "name": "Denim Fabric",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "asset_page": "https://polyhaven.com/a/denim_fabric",
+      "metadata_url": "https://api.polyhaven.com/info/denim_fabric",
+      "files_url": "https://api.polyhaven.com/files/denim_fabric",
+      "source_dimensions_mm": [
+        100.00000149011612,
+        99.99999403953552
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "native/Assets/textures/weapon-metal/color.jpg",
+      "asset_id": "blue_metal_plate",
+      "map": "Diffuse",
+      "resolution_label": "2k",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "color_space": "sRGB",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/blue_metal_plate/blue_metal_plate_diff_2k.jpg",
+      "bytes": 1518621,
+      "upstream_md5": "6189f7c443f0b7767d3e046f021b5495",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "sha256": "82855f6297ad07ea7ea4d1c501e6b56ed4c9c758653ca126bda9fd0ebba63c59",
+      "md5_matches_upstream": true
+    },
+    {
+      "path": "native/Assets/textures/weapon-metal/normal.jpg",
+      "asset_id": "blue_metal_plate",
+      "map": "nor_gl",
+      "resolution_label": "1k",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "color_space": "linear",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/blue_metal_plate/blue_metal_plate_nor_gl_1k.jpg",
+      "bytes": 238025,
+      "upstream_md5": "f14c0f01832f8b18c39f07e4b5d6f749",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "normal_convention": "OpenGL (+Y)",
+      "sha256": "970f0273c9e2e3b4fc8338bfd58a28c413b70ac4d1734d9dc8a136724bde56e6",
+      "md5_matches_upstream": true
+    },
+    {
+      "path": "native/Assets/textures/weapon-metal/roughness.jpg",
+      "asset_id": "blue_metal_plate",
+      "map": "Rough",
+      "resolution_label": "1k",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "color_space": "linear",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/blue_metal_plate/blue_metal_plate_rough_1k.jpg",
+      "bytes": 402450,
+      "upstream_md5": "76c3911d8ad2416e4db3104a2ef831c7",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "sha256": "37168cf57144db28dd0743dab47fbebc09147fac919d5e2b5610b069c0b13a46",
+      "md5_matches_upstream": true
+    },
+    {
+      "path": "native/Assets/textures/weapon-fabric/color.jpg",
+      "asset_id": "denim_fabric",
+      "map": "Diffuse",
+      "resolution_label": "2k",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "color_space": "sRGB",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/denim_fabric/denim_fabric_diff_2k.jpg",
+      "bytes": 3980719,
+      "upstream_md5": "5d84c58b94a3094ea1edff88f4ed39d0",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "sha256": "164fdc3adbae7eab65171b05fb43aac5e3945615cb905b37b48049b2630c56d2",
+      "md5_matches_upstream": true
+    },
+    {
+      "path": "native/Assets/textures/weapon-fabric/normal.jpg",
+      "asset_id": "denim_fabric",
+      "map": "nor_gl",
+      "resolution_label": "1k",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "color_space": "linear",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/denim_fabric/denim_fabric_nor_gl_1k.jpg",
+      "bytes": 474669,
+      "upstream_md5": "9008fe723671f9cb3e6d0889eab9adb0",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "normal_convention": "OpenGL (+Y)",
+      "sha256": "de0e9c5ed5cce7dacd50a67be16c6d8b8dc036907638e3702729c2f60296094e",
+      "md5_matches_upstream": true
+    },
+    {
+      "path": "native/Assets/textures/weapon-fabric/roughness.jpg",
+      "asset_id": "denim_fabric",
+      "map": "Rough",
+      "resolution_label": "1k",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "color_space": "linear",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/denim_fabric/denim_fabric_rough_1k.jpg",
+      "bytes": 467773,
+      "upstream_md5": "7eebb4a6185f2e6805976bc356dd1b41",
+      "modifications": "None. Original downloaded bytes; filename only changed.",
+      "sha256": "51b971b7e83d733d88940be2a417c6ce8ea3a82c27a7cb3525f4bacc97aad2b7",
+      "md5_matches_upstream": true
+    }
+  ]
+}

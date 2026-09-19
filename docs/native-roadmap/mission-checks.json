@@ -1,0 +1,368 @@
+{
+  "note": "Engineering drivers use idealized immediate body aim and line-of-sight checks; not human playtests.",
+  "regularTests": 155,
+  "metalValidatedScenes": [
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 7,
+      "missionArrivals": 7,
+      "missionInterruption": "outOfRange",
+      "missionKind": "recoverData",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "extract",
+      "missionPhaseEvents": [
+        "collectData",
+        "extract"
+      ],
+      "missionProgressSeconds": 0,
+      "missionPropInstances": 0,
+      "missionPropShadowCasters": 0,
+      "missionRequiredSeconds": 3,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-data-carried"
+    },
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 4,
+      "missionArrivals": 4,
+      "missionInterruption": "interactionReleased",
+      "missionKind": "recoverData",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "collectData",
+      "missionPhaseEvents": [
+        "collectData"
+      ],
+      "missionProgressSeconds": 0,
+      "missionPropInstances": 16,
+      "missionPropShadowCasters": 15,
+      "missionRequiredSeconds": 0.800000011920929,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-data"
+    },
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 5,
+      "missionArrivals": 5,
+      "missionInterruption": "none",
+      "missionKind": "secureRadio",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "holdRadio",
+      "missionPhaseEvents": [
+        "activateRadio",
+        "holdRadio"
+      ],
+      "missionProgressSeconds": 0.10000000149011612,
+      "missionPropInstances": 19,
+      "missionPropShadowCasters": 15,
+      "missionRequiredSeconds": 45,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-radio-active"
+    },
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 5,
+      "missionArrivals": 5,
+      "missionInterruption": "none",
+      "missionKind": "secureRadio",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "holdRadio",
+      "missionPhaseEvents": [
+        "activateRadio",
+        "holdRadio"
+      ],
+      "missionProgressSeconds": 0.10000000149011612,
+      "missionPropInstances": 19,
+      "missionPropShadowCasters": 15,
+      "missionRequiredSeconds": 45,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-radio-active"
+    },
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 6,
+      "missionArrivals": 5,
+      "missionInterruption": "contested",
+      "missionKind": "secureRadio",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "holdRadio",
+      "missionPhaseEvents": [
+        "activateRadio",
+        "holdRadio"
+      ],
+      "missionProgressSeconds": 0,
+      "missionPropInstances": 19,
+      "missionPropShadowCasters": 15,
+      "missionRequiredSeconds": 45,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-radio-contested"
+    },
+    {
+      "matchState": "active",
+      "missionAliveEnemies": 3,
+      "missionArrivals": 3,
+      "missionInterruption": "outOfRange",
+      "missionKind": "secureRadio",
+      "missionPendingReinforcements": 0,
+      "missionPhase": "activateRadio",
+      "missionPhaseEvents": [
+        "activateRadio"
+      ],
+      "missionProgressSeconds": 0,
+      "missionPropInstances": 19,
+      "missionPropShadowCasters": 15,
+      "missionRequiredSeconds": 1,
+      "missionRingSegments": 64,
+      "result": "pass",
+      "scene": "mission-radio"
+    }
+  ],
+  "simulationRuns": [
+    {
+      "activationTime": 0.9999999999999989,
+      "alive": 7,
+      "contestedSeconds": 3.9666666666666552,
+      "damagingPlayerShots": 0,
+      "difficulty": "normal",
+      "driver": "passive_stationary",
+      "finalPlayerPosition": [
+        32,
+        -1.710376262664795,
+        6.300000190734863
+      ],
+      "firstContestedTime": 15.066666666666451,
+      "health": 55,
+      "hostileShots": 25,
+      "kills": 0,
+      "maximumSeconds": 31,
+      "minimumEnemyDistanceToRadio": 4.527251720428467,
+      "minimumHealth": 55,
+      "pending": 0,
+      "phase": "holdRadio",
+      "phaseEvents": [
+        {
+          "phase": "activateRadio",
+          "time": 0.008333333333333333
+        },
+        {
+          "phase": "holdRadio",
+          "time": 0.9999999999999989
+        }
+      ],
+      "playerShots": 0,
+      "radioProgress": 26.03333282470703,
+      "reloads": 0,
+      "seconds": 30.99999999999888,
+      "seed": 1745,
+      "state": "active",
+      "zoneEntries": [
+        {
+          "id": 100,
+          "time": 15.066666666666451
+        },
+        {
+          "id": 104,
+          "time": 29.13333333333232
+        }
+      ]
+    },
+    {
+      "activationTime": 0.9999999999999989,
+      "alive": 0,
+      "contestedSeconds": 0,
+      "damagingPlayerShots": 36,
+      "difficulty": "easy",
+      "driver": "stationary_clear_line_body_aim_autofire",
+      "finalPlayerPosition": [
+        32,
+        -1.710376262664795,
+        6.300000190734863
+      ],
+      "firstContestedTime": null,
+      "health": 100,
+      "hostileShots": 5,
+      "kills": 9,
+      "maximumSeconds": 120,
+      "minimumEnemyDistanceToRadio": 9.60823917388916,
+      "minimumHealth": 100,
+      "pending": 0,
+      "phase": "completed",
+      "phaseEvents": [
+        {
+          "phase": "activateRadio",
+          "time": 0.008333333333333333
+        },
+        {
+          "phase": "holdRadio",
+          "time": 0.9999999999999989
+        },
+        {
+          "phase": "completed",
+          "time": 45.99999999999803
+        }
+      ],
+      "playerShots": 66,
+      "radioProgress": 1,
+      "reloads": 2,
+      "seconds": 45.99999999999803,
+      "seed": 1745,
+      "state": "won",
+      "zoneEntries": []
+    },
+    {
+      "activationTime": 0.9999999999999989,
+      "alive": 0,
+      "contestedSeconds": 0,
+      "damagingPlayerShots": 36,
+      "difficulty": "normal",
+      "driver": "stationary_clear_line_body_aim_autofire",
+      "finalPlayerPosition": [
+        32,
+        -1.710376262664795,
+        6.300000190734863
+      ],
+      "firstContestedTime": null,
+      "health": 100,
+      "hostileShots": 3,
+      "kills": 9,
+      "maximumSeconds": 120,
+      "minimumEnemyDistanceToRadio": 9.604092597961426,
+      "minimumHealth": 91,
+      "pending": 0,
+      "phase": "completed",
+      "phaseEvents": [
+        {
+          "phase": "activateRadio",
+          "time": 0.008333333333333333
+        },
+        {
+          "phase": "holdRadio",
+          "time": 0.9999999999999989
+        },
+        {
+          "phase": "completed",
+          "time": 45.99999999999803
+        }
+      ],
+      "playerShots": 60,
+      "radioProgress": 1,
+      "reloads": 2,
+      "seconds": 45.99999999999803,
+      "seed": 1745,
+      "state": "won",
+      "zoneEntries": []
+    },
+    {
+      "activationTime": 0.9999999999999989,
+      "alive": 0,
+      "contestedSeconds": 0,
+      "damagingPlayerShots": 36,
+      "difficulty": "hard",
+      "driver": "stationary_clear_line_body_aim_autofire",
+      "finalPlayerPosition": [
+        32,
+        -1.710376262664795,
+        6.300000190734863
+      ],
+      "firstContestedTime": null,
+      "health": 100,
+      "hostileShots": 3,
+      "kills": 9,
+      "maximumSeconds": 120,
+      "minimumEnemyDistanceToRadio": 9.583372116088867,
+      "minimumHealth": 63.533294677734375,
+      "pending": 0,
+      "phase": "completed",
+      "phaseEvents": [
+        {
+          "phase": "activateRadio",
+          "time": 0.008333333333333333
+        },
+        {
+          "phase": "holdRadio",
+          "time": 0.9999999999999989
+        },
+        {
+          "phase": "completed",
+          "time": 45.99999999999803
+        }
+      ],
+      "playerShots": 61,
+      "radioProgress": 1,
+      "reloads": 2,
+      "seconds": 45.99999999999803,
+      "seed": 1745,
+      "state": "won",
+      "zoneEntries": []
+    },
+    {
+      "alive": 0,
+      "damagingPlayerShots": 28,
+      "difficulty": "normal",
+      "driver": "waypoint_west_route_clear_line_body_aim",
+      "finalPlayerPosition": [
+        -0.12432955950498581,
+        0,
+        -34.92781066894531
+      ],
+      "health": 100,
+      "kills": 7,
+      "minimumHealth": 100,
+      "pending": 0,
+      "phase": "completed",
+      "phaseEvents": [
+        {
+          "phase": "collectData",
+          "time": 0.008333333333333333
+        },
+        {
+          "phase": "extract",
+          "time": 7.85000000000018
+        },
+        {
+          "phase": "completed",
+          "time": 29.39166666666564
+        }
+      ],
+      "playerShots": 33,
+      "reachedWaypoints": [
+        {
+          "position": [
+            -32,
+            4
+          ],
+          "time": 13.57499999999987
+        },
+        {
+          "position": [
+            -33,
+            -20
+          ],
+          "time": 19.299999999999546
+        },
+        {
+          "position": [
+            -12,
+            -28
+          ],
+          "time": 24.05833333333261
+        },
+        {
+          "position": [
+            0,
+            -35
+          ],
+          "time": 27.108333333332435
+        }
+      ],
+      "reloads": 1,
+      "seconds": 29.39166666666564,
+      "seed": 1745,
+      "state": "won"
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "name": "SWAT / Mixamo",
+  "file": "soldier.glb",
+  "source_provider": "Adobe Mixamo (asset attribution corroborated as documented under provenance)",
+  "distribution_source": "Shane Brumback GLTFExporter conversion",
+  "source_url": "https://www.shanebrumback.com/models/glb/swat/swat-character.glb",
+  "upstream_url": "https://gist.github.com/ShaneBrumback/9b0e864813d0ec3f13aa664b397a5dd5",
+  "origin_credit_url": "https://github.com/baponkar/Third-Person-Shooter-With-Shooter-AI#readme",
+  "retrieved_on": "2026-09-18",
+  "bytes": 9313660,
+  "sha256": "6357e45589b83a61a57a2772443d59b7a0d78c53cffacb4947e223e0fbfe0cbf",
+  "provenance": {
+    "assessment": "Mixamo stock SWAT origin is a corroborated inference, not an attribution embedded by the GLB exporter. The GLB contains no copyright or license field. Its publisher links the same download in the tutorial and gist but does not name the mesh author.",
+    "asset_match": "Both embedded diffuse maps were visually compared with the source SWAT diffuse PNGs in the explicitly Mixamo-crediting baponkar project: the same human face and uniform artwork and UV islands occur, reduced to 1024x1024 and vertically flipped in the GLB. Mixamo-prefixed joint names and Soldier_body/Soldier_head mesh/material names corroborate that match; joint names alone are not treated as proof of mesh ownership. The original FBX also matches every GLB head position/UV corner and every source polygon under the material-repair validation documented below.",
+    "evidence_urls": [
+      "https://www.shanebrumback.com/tutorials/3d-model-animation-xbox-controller-viewer.html",
+      "https://gist.github.com/ShaneBrumback/9b0e864813d0ec3f13aa664b397a5dd5",
+      "https://github.com/baponkar/Third-Person-Shooter-With-Shooter-AI#readme",
+      "https://github.com/baponkar/Third-Person-Shooter-With-Shooter-AI/tree/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat%40T-Pose.fbm",
+      "https://kinemation.gitbook.io/fps-animation-framework/tutorial/getting-started/character-setup"
+    ]
+  },
+  "license": {
+    "name": "Adobe Mixamo content terms; royalty-free video-game use",
+    "is_cc0": false,
+    "is_mit": false,
+    "usage": "Integrated character in the playable NACHTGANG — BLACKSITE game. Adobe permits royalty-free personal, commercial and non-profit video-game use of Mixamo characters and animations.",
+    "restriction": "Do not redistribute the raw character, animation files or source textures as standalone assets, asset packs, templates or stock content. The game project's MIT license does not apply to this third-party content.",
+    "faq_url": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html",
+    "distribution_terms_url": "https://community.adobe.com/questions-696/mixamo-faq-licensing-royalties-ownership-eula-and-tos-589400"
+  },
+  "format": "glTF 2.0 binary",
+  "generator": "GLTFExporter",
+  "modifications_to_source_file": "None; downloaded GLB and all four original external PNGs retain their original bytes.",
+  "geometry": {
+    "mesh_count": 2,
+    "source_primitive_count": 3,
+    "rendered_primitive_count": 3,
+    "source_material_count": 3,
+    "rendered_material_indices": [
+      0,
+      1,
+      2
+    ],
+    "vertex_count": 58350,
+    "triangle_count": 19450,
+    "counts_exclude_duplicate_head_primitive": true,
+    "indexing": "Unindexed triangles; runtime may generate sequential indices.",
+    "duplicate_head_primitive": "The exporter repeats the complete head stream for materials 0 and 1 instead of preserving the original FBX polygon groups. The sidecar reconstructs their disjoint index ranges: 1820 equipment triangles using material 0 and 6436 skin triangles using material 1. Body mesh uses material 2. Every head triangle is rendered once; neither complete head stream is assigned a single material.",
+    "skin_joint_counts": [
+      7,
+      51
+    ],
+    "maximum_weights_per_vertex": 4,
+    "requires_compression_decoder": false,
+    "coordinate_units": "centimetres",
+    "up_axis": "Y"
+  },
+  "embedded_images": [
+    {
+      "role": "body_base_color",
+      "width": 1024,
+      "height": 1024,
+      "mime_type": "image/png"
+    },
+    {
+      "role": "body_normal",
+      "width": 512,
+      "height": 512,
+      "mime_type": "image/png"
+    },
+    {
+      "role": "head_base_color",
+      "width": 1024,
+      "height": 1024,
+      "mime_type": "image/png"
+    },
+    {
+      "role": "head_normal",
+      "width": 512,
+      "height": 512,
+      "mime_type": "image/png"
+    }
+  ],
+  "external_textures": [
+    {
+      "file": "body-color.png",
+      "role": "base_color",
+      "material_index": 2,
+      "source_url": "https://raw.githubusercontent.com/baponkar/Third-Person-Shooter-With-Shooter-AI/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat@T-Pose.fbm/Soldier_Body_diffuse.png",
+      "bytes": 6106002,
+      "width": 2048,
+      "height": 2048,
+      "mime_type": "image/png",
+      "sha256": "e611432dbfaec1539a9e4c44649eba2dfcfeef53d73380ef7338612fd3cdee03",
+      "mtk_texture_loader_origin": "bottomLeft",
+      "color_space": "sRGB",
+      "modifications": "None; source PNG bytes retained."
+    },
+    {
+      "file": "body-normal.png",
+      "role": "normal",
+      "material_index": 2,
+      "source_url": "https://raw.githubusercontent.com/baponkar/Third-Person-Shooter-With-Shooter-AI/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat@T-Pose.fbm/Soldier_Body_normal.png",
+      "bytes": 6176695,
+      "width": 2048,
+      "height": 2048,
+      "mime_type": "image/png",
+      "sha256": "3c0b25e3b23a2b5fccc959b4c775e596784039da44845cc88ab36e3e4d51fafb",
+      "mtk_texture_loader_origin": "bottomLeft",
+      "color_space": "linear",
+      "modifications": "None; source PNG bytes retained."
+    },
+    {
+      "file": "head-color.png",
+      "role": "base_color",
+      "material_index": 1,
+      "source_url": "https://raw.githubusercontent.com/baponkar/Third-Person-Shooter-With-Shooter-AI/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat@T-Pose.fbm/Soldier_head_diffuse.png",
+      "bytes": 4366518,
+      "width": 2048,
+      "height": 2048,
+      "mime_type": "image/png",
+      "sha256": "ecd568129629a6da1f7b6c63884f111dfc02327d91d2f0a9688269df03e15ccd",
+      "mtk_texture_loader_origin": "bottomLeft",
+      "color_space": "sRGB",
+      "modifications": "None; source PNG bytes retained."
+    },
+    {
+      "file": "head-normal.png",
+      "role": "normal",
+      "material_index": 1,
+      "source_url": "https://raw.githubusercontent.com/baponkar/Third-Person-Shooter-With-Shooter-AI/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat@T-Pose.fbm/Soldier_head_normal.png",
+      "bytes": 2297583,
+      "width": 2048,
+      "height": 2048,
+      "mime_type": "image/png",
+      "sha256": "b4b88bc8032fb379f2d42b20f2c10658694f0d59926708468847330e2bbdec29",
+      "mtk_texture_loader_origin": "bottomLeft",
+      "color_space": "linear",
+      "modifications": "None; source PNG bytes retained."
+    }
+  ],
+  "texture_orientation_note": "Original external PNGs are vertically opposite to the GLB embedded images. Load the unchanged external PNGs with MTKTextureLoader.Origin.bottomLeft for the GLB UVs; embedded images use topLeft.",
+  "animations": [
+    "Idle",
+    "Jump",
+    "Walking-Shooting",
+    "Walking",
+    "Bored",
+    "Punching",
+    "Running"
+  ],
+  "quality_note": "Authored textured human game character with original human-face and tactical-uniform artwork; no photogrammetric-scan claim. No separate roughness, metallic or ambient-occlusion image is supplied.",
+  "material_repair": {
+    "file": "head-materials.json",
+    "bytes": 17317,
+    "sha256": "1b4dcec345a12177feb194a900f6211e90f9bae67220a07dfd1a2005b9379458",
+    "source_url": "https://raw.githubusercontent.com/baponkar/Third-Person-Shooter-With-Shooter-AI/main/Assets/baponkar/_baponkar_TPS_V_2.2/Model_Meshes/swat@T-Pose.fbx",
+    "source_fbx_sha256": "151909674043fc470bfab60d1355a1c15deff5bd2386f5a5edbae6cb94b264ac",
+    "target_glb_sha256": "6357e45589b83a61a57a2772443d59b7a0d78c53cffacb4947e223e0fbfe0cbf",
+    "generator": "native/scripts/restore-soldier-materials.py",
+    "reproduce": "native/scripts/restore-soldier-materials.py --fbx /path/to/original/swat@T-Pose.fbx",
+    "method": "Read the original FBX ByPolygon material indices. Match each GLB triangle to one original polygon using all three position/UV corners. Validate every original polygon contributes exactly n-2 triangles. No color, shape-region or anatomical heuristic is used.",
+    "head_triangle_count": 8256,
+    "equipment_material_0_triangles": 1820,
+    "skin_material_1_triangles": 6436,
+    "source_polygon_count": 4338,
+    "matched_corner_count": 24768,
+    "missing_or_ambiguous_triangle_count": 0,
+    "numeric_note": "Positions are compared after float32 conversion and canonicalization to 1e-6 centimetres; only 12 corners differ from direct float32 conversion, by at most 9.313225746154785e-10 centimetres in X. UVs match float32 exactly.",
+    "original_fbx_is_bundled": false
+  }
+}

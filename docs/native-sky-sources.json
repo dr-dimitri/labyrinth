@@ -1,0 +1,26 @@
+{
+  "license": "CC0-1.0",
+  "licenseURL": "https://polyhaven.com/license",
+  "retrieved": "2026-09-18",
+  "name": "Kloppenheim 06 (Pure Sky)",
+  "pageURL": "https://polyhaven.com/a/kloppenheim_06_puresky",
+  "authors": {
+    "Greg Zaal": "Original",
+    "Jarod Guest": "Sky edits"
+  },
+  "apiCredit": "Powered by Poly Haven",
+  "files": {
+    "sky": {
+      "path": "native/Assets/environment/sunrise.jpg",
+      "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/kloppenheim_06_puresky.jpg",
+      "resolution": [
+        8192,
+        4096
+      ],
+      "bytes": 18968534,
+      "sha256": "4084ddd6c57d76e05ac7de9f563077aabd77d07f6b03593d0930a3fc515494b4",
+      "colorSpace": "sRGB",
+      "processing": "Original tonemapped 8K pure-sky JPEG unchanged; photographic background, not runtime HDR image-based lighting."
+    }
+  }
+}

@@ -1,0 +1,203 @@
+import Foundation
+import simd
+import BlacksiteCore
+
+/// Deterministic native render fixtures, available only through the smoke-test CLI.
+@MainActor
+enum NativeBattlefieldCheck {
+    struct Result {
+        let simulation: CombatSimulation
+        let metadata: [String: Any]
+    }
+    private struct InvalidScene: LocalizedError {
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, destruction-crate, destruction-barrel, destruction-barrier, destruction-container, destruction-chain, destruction-stress, level-west, level-east, level-north, level-roof, level-gate, level-road, firefight, terrain or hollow." }
+    }
+
+    static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
+        func value(_ flag: String) -> String? {
+            guard let i=arguments.firstIndex(of:flag), i+1<arguments.count else { return nil }
+            return arguments[i+1]
+        }
+        guard let name=value("--scene") else { return nil }
+        let terrain=TerrainProfile.battlefield
+        var player=PlayerState(position:SIMD3(0,0,11))
+        var enemies:[EnemyState]=[]
+        var world = GameMap.obstacles
+        var seconds:Double=0
+        switch name {
+        case "level-west", "level-east", "level-north", "level-roof", "level-gate", "level-road":
+            let target: SIMD3<Float>
+            switch name {
+            case "level-west":
+                player.position = SIMD3(-21,0,33)
+                target = SIMD3(-25,terrain.height(x:-25,z:26)+1.7,26)
+            case "level-east":
+                player.position = SIMD3(30,0,14)
+                target = SIMD3(22,terrain.height(x:22,z:0)+0.8,0)
+            case "level-north":
+                player.position = SIMD3(11,0,-15)
+                target = SIMD3(22,terrain.height(x:24,z:-27)+3,-26)
+            case "level-gate":
+                player.position = SIMD3(0,0,-28)
+                target = SIMD3(0,3.3,-39)
+            case "level-road":
+                player.position = SIMD3(0,0,30)
+                target = SIMD3(0,0.5,24)
+            default:
+                let roof = terrain.height(x:24,z:-27)+7.2
+                player.position = SIMD3(20.4,roof,-24.8)
+                target = SIMD3(25.6,roof+0.55,-26)
+            }
+            let y = player.position.y == 0 ? terrain.height(x:player.position.x,z:player.position.z):player.position.y
+            let offset = target - SIMD3(player.position.x,y+player.height-0.1,player.position.z)
+            player.yaw = atan2(-offset.x,-offset.z)
+            player.pitch = atan2(offset.y,simd_length(SIMD2(offset.x,offset.z)))
+        case "destruction-crate", "destruction-barrel", "destruction-barrier", "destruction-container", "destruction-chain", "destruction-stress":
+            let kind: ObstacleKind = name == "destruction-crate" ? .crate : name == "destruction-barrier" ? .barrier : name == "destruction-container" ? .container : .barrel
+            let size: SIMD3<Float> = kind == .crate ? SIMD3(2.5,1.7,2.2) : kind == .barrier ? SIMD3(5.4,1.05,0.85) : kind == .container ? SIMD3(5,3.1,3.6) : SIMD3(0.8,1.15,0.8)
+            world = [Obstacle(id: 801, kind: kind, position: SIMD3(0,0,5), size: size)]
+            if name == "destruction-chain" {
+                world += [Obstacle(id: 802, kind: .barrel, position: SIMD3(-1.1,0,5), size: size),
+                          Obstacle(id: 803, kind: .barrel, position: SIMD3(1.1,0,5), size: size)]
+            }
+            if name == "destruction-stress" {
+                for row in 0..<5 { for column in -2...2 where row != 0 || column != 0 {
+                    world.append(Obstacle(id: 801 + world.count, kind: .barrel,
+                                          position: SIMD3(Float(column)*1.2,0,5-Float(row)*1.2), size: size))
+                } }
+            }
+            let distance: Float = name == "destruction-stress" ? 9 : 7
+            player.position = SIMD3(0,0,5 + distance)
+            if arguments.contains("--destruction-hill") {
+                world = world.map { Obstacle(id: $0.id, kind: $0.kind, position: $0.position + SIMD3(14,0,24), size: $0.size) }
+                player.position += SIMD3(14,0,24)
+            }
+            let target = world[0].position
+            let targetHeight = terrain.height(x: target.x, z: target.z) + size.y * 0.48
+            let eyeHeight = terrain.height(x: player.position.x, z: player.position.z) + player.height - 0.1
+            player.pitch = atan2(targetHeight - eyeHeight, distance)
+        case "impact-metal", "impact-concrete", "impact-wood":
+            let kind: ObstacleKind = name == "impact-metal" ? .container : name == "impact-wood" ? .crate : .barrier
+            world = [Obstacle(id: 801, kind: kind, position: SIMD3(0, 0, 5), size: SIMD3(4, 2.4, 2))]
+            player.position = SIMD3(0, 0, 9)
+        case "impact-soil", "impact-asphalt", "impact-miss":
+            world = []
+            player.position = SIMD3(name == "impact-soil" ? 10 : 0, 0, 11)
+            player.pitch = name == "impact-miss" ? 0.65 : -0.48
+        case "weapons":
+            player.position = SIMD3(0, 0, 32)
+        case "weapon-wall":
+            // The existing container's front is z=-3.2; the player's collision
+            // capsule fits at this position, while an extended barrel would not.
+            player.position = SIMD3(15, 0, -2.85)
+        case "squad":
+            player.position=SIMD3(0,0,14); player.pitch = -0.06
+            for i in 0..<9 {
+                let x=Float(i%3-1)*3.0, z=Float(i/3)*2.7+3
+                var enemy=EnemyState(id:401+i,position:SIMD3(x,terrain.height(x:x,z:z),z))
+                enemy.yaw=atan2(player.position.x-x,player.position.z-z)
+                enemy.crouchAmount=i%3 == 1 ? 1:0
+                enemy.isMoving=i%3 == 2; enemy.isRunning=enemy.isMoving
+                enemy.walkCycle=Float(i)*0.73; enemy.aimBlend=1; enemy.seesPlayer=true
+                enemies.append(enemy)
+            }
+        case "soldier-close", "soldier-profile", "soldier-back", "soldier-crouch", "soldier-dead":
+            player.position=SIMD3(0,0,7.2); player.pitch = -0.20
+            var enemy=EnemyState(id:301,position:SIMD3(0,0,5))
+            enemy.aimBlend=1; enemy.seesPlayer=true
+            if name == "soldier-profile" { enemy.yaw = .pi/2 }
+            if name == "soldier-back" { enemy.yaw = .pi }
+            if name == "soldier-crouch" { enemy.crouchAmount=1; player.pitch = -0.34 }
+            if name == "soldier-dead" { enemy.health=0; enemy.deathTime = -1; player.pitch = -0.45 }
+            enemy.aimPitch=atan2(player.height-0.1-EnemyPose(enemy).shoulderHeight,
+                                 player.position.z-enemy.position.z)
+            enemies=[enemy]
+        case "soldiers", "soldiers-side":
+            player.pitch = -0.06
+            for i in 0..<3 {
+                var enemy=EnemyState(id:301+i,position:SIMD3(Float(i-1)*2.3,0,5))
+                enemy.aimBlend=1; enemy.seesPlayer=true
+                enemy.yaw=atan2(player.position.x-enemy.position.x,player.position.z-enemy.position.z)
+                if i==1 { enemy.crouchAmount=1 }
+                if i==2 {
+                    enemy.position.y=0.62; enemy.grounded=false
+                    enemy.isMoving=true; enemy.isRunning=true; enemy.walkCycle=1.1
+                    enemy.verticalVelocity=1.5; enemy.aimBlend=0.2
+                }
+                enemy.aimPitch=atan2(player.height-0.1-EnemyPose(enemy).shoulderHeight-enemy.position.y,
+                                     simd_length(SIMD2(player.position.x-enemy.position.x,player.position.z-enemy.position.z)))
+                if name == "soldiers-side" { enemy.yaw = .pi * 0.35 }
+                enemies.append(enemy)
+            }
+        case "shadows-hill", "shadows-roof":
+            let roof = terrain.height(x: 15, z: -5) + 3.1
+            let points: [SIMD3<Float>]
+            if name == "shadows-hill" {
+                player.position = SIMD3(16, terrain.height(x: 16, z: 22), 22)
+                points = [SIMD3(13, terrain.height(x: 13, z: 27), 27),
+                          SIMD3(16, terrain.height(x: 16, z: 28), 28),
+                          SIMD3(19, terrain.height(x: 19, z: 27), 27)]
+            } else {
+                player.position = SIMD3(18.8, roof, -3.85)
+                points = [SIMD3(11.5, roof, -5.85), SIMD3(14, roof, -4), SIMD3(15.8, roof, -5.7)]
+            }
+            let target = points.reduce(.zero, +) / Float(points.count) + SIMD3(0, 0.7, 0)
+            let offset = target - (player.position + SIMD3(0, player.height - 0.1, 0))
+            player.yaw = atan2(-offset.x, -offset.z)
+            player.pitch = atan2(offset.y, simd_length(SIMD2(offset.x, offset.z)))
+            for (i, point) in points.enumerated() {
+                var enemy = EnemyState(id: 501 + i, position: point)
+                enemy.yaw = atan2(player.position.x - point.x, player.position.z - point.z)
+                enemy.aimBlend = 1; enemy.seesPlayer = true
+                if i == 1 { enemy.crouchAmount = 1 }
+                if i == 2 {
+                    enemy.position.y += 0.62; enemy.grounded = false
+                    enemy.isMoving = true; enemy.isRunning = true; enemy.walkCycle = 1.1
+                    enemy.verticalVelocity = 1.5; enemy.aimBlend = 0.2
+                }
+                enemies.append(enemy)
+            }
+        case "firefight":
+            player.position=SIMD3(0,0,23)
+            enemies=[EnemyState(id:301,position:SIMD3(-4,0,14)),
+                     EnemyState(id:302,position:SIMD3(5,0,11)),
+                     EnemyState(id:303,position:SIMD3(10,0,24)),
+                     EnemyState(id:304,position:SIMD3(-12,0,30))]
+            seconds=min(20,max(0,Double(value("--seconds") ?? "4") ?? 4))
+        case "terrain":
+            player.position=SIMD3(5.5,0,32); player.yaw = -0.62; player.pitch = 0.02
+        case "hollow":
+            player.position=SIMD3(24,0,0); player.yaw = -2.13; player.pitch = -0.30
+        default: throw InvalidScene()
+        }
+        if let cameraOffset = Float(value("--camera-offset") ?? "0"), cameraOffset.isFinite {
+            player.position.x += max(-0.5, min(0.5, cameraOffset))
+        }
+        let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:world,
+                                         startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain)
+        var observed=Set<String>(), shots=0
+        var input=GameInput(); input.yaw=player.yaw; input.pitch=player.pitch
+        if seconds.isFinite {
+            for _ in 0..<Int(seconds*120) {
+                simulation.step(deltaTime:1.0/120,input:input)
+                let events=simulation.drainEvents()
+                shots += events.filter { $0.kind == .enemyShot }.count
+                renderer.handle(events:events,simulation:simulation)
+                renderer.advanceEffects(deltaTime:1.0/120,simulation:simulation)
+                for enemy in simulation.enemies {
+                    if enemy.isRunning { observed.insert("running") }
+                    if enemy.crouchAmount>0.6 { observed.insert("crouching") }
+                    if !enemy.grounded { observed.insert("airborne") }
+                    if enemy.aimBlend>0.8 { observed.insert("aiming") }
+                }
+            }
+        }
+        return Result(simulation:simulation,metadata:["scene":name,"enemyShots":shots,"matchState":simulation.state.rawValue,
+                       "observedBehaviors":observed.sorted(),"terrain":"shared triangular heightfield",
+                       "playerGroundHeight":terrain.height(x:simulation.player.position.x,z:simulation.player.position.z),
+                       "enemyStates":simulation.enemies.map { e in
+                           ["id":e.id,"crouch":e.crouchAmount,"running":e.isRunning,
+                            "grounded":e.grounded,"aim":e.aimBlend,"height":e.position.y] as [String:Any]
+                       }])
+    }
+}

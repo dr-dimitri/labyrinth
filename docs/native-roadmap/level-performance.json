@@ -1,0 +1,416 @@
+{
+  "binaries": {
+    "baseline": {
+      "path": "/private/tmp/Blacksite-PreLevel.app/Contents/MacOS/BlacksiteMac",
+      "sha256": "609132b83d2ca55ebd33c988748231a8d32978af46f5ea97ec753bc2c066fd87"
+    },
+    "new": {
+      "path": "/Users/wolfgangbauer/dev/workspace/labyrinth/release/Blacksite.app/Contents/MacOS/BlacksiteMac",
+      "sha256": "86191ec3f092a5b1566bf79e8e2e60b5796dbc57bfb27453b4400a68603fb01d"
+    }
+  },
+  "note": "Sequential completed frames; run-level medians, not a gameplay FPS guarantee.",
+  "repeats": 3,
+  "resolution": [
+    2560,
+    1600
+  ],
+  "runs": [
+    {
+      "measurement": {
+        "cpuAverageMs": 2.526089583261637,
+        "cpuP95Ms": 2.8064583311788738,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 5.451495834131492,
+        "gpuP95Ms": 7.045625010505319,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 1,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.7062718756496906,
+        "cpuP95Ms": 3.330250008730218,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 5.635024305956904,
+        "gpuP95Ms": 7.906083337729797,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19486,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 1,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.826604861547821,
+        "cpuP95Ms": 3.8901250081835315,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 5.851201042120617,
+        "gpuP95Ms": 12.146249995566905,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 1,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.4408881941781146,
+        "cpuP95Ms": 2.610291659948416,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 3.869999999733409,
+        "gpuP95Ms": 4.427499996381812,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14186,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 1,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.5661420137718474,
+        "cpuP95Ms": 3.028958322829567,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 5.5320763884083135,
+        "gpuP95Ms": 8.109208327368833,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19486,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 2,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.992564584201318,
+        "cpuP95Ms": 4.66345832683146,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 6.564316666360052,
+        "gpuP95Ms": 11.358374991687015,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 2,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.4079565975019555,
+        "cpuP95Ms": 2.5973333249567077,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 3.8327277778686644,
+        "gpuP95Ms": 4.424458325956948,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14186,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 2,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.414096527475825,
+        "cpuP95Ms": 2.7177083247806877,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 4.1559437503262115,
+        "gpuP95Ms": 5.893124995054677,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 2,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 3.1871211798716104,
+        "cpuP95Ms": 4.756583337439224,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 7.5599989583376255,
+        "gpuP95Ms": 14.159124999423511,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 3,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.6402815971475015,
+        "cpuP95Ms": 3.0312916642287746,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 1204.390625,
+        "gpuAverageMs": 5.251824652805226,
+        "gpuP95Ms": 7.16070833732374,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 4,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 19486,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 3,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.489270486694295,
+        "cpuP95Ms": 2.8788333293050528,
+        "device": "Apple M2 Pro",
+        "drawCalls": 55,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 4.340612847712085,
+        "gpuP95Ms": 6.66875000752043,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 3,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "cpuAverageMs": 2.95850833329799,
+        "cpuP95Ms": 4.020458334707655,
+        "device": "Apple M2 Pro",
+        "drawCalls": 58,
+        "droppedSoldiers": 0,
+        "frames": 120,
+        "gpuAllocatedMB": 332.015625,
+        "gpuAverageMs": 5.838861458323663,
+        "gpuP95Ms": 12.049124998156913,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "levelDetailInstanceBudget": 96,
+        "levelDetailInstances": 83,
+        "samples": 1,
+        "skinnedSoldiers": 9,
+        "visibleInstances": 14186,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 3,
+      "version": "new"
+    }
+  ],
+  "scene": "squad",
+  "startedUTC": "2026-09-19T11:14:52.703596+00:00",
+  "summary": {
+    "balanced": {
+      "newMinusBaseline": {
+        "cpuAverageMs": {
+          "absolute": -0.048382292516180314,
+          "percent": -1.9436333968041786
+        },
+        "cpuP95Ms": {
+          "absolute": -0.2685416693566367,
+          "percent": -9.328142293720854
+        },
+        "drawCalls": {
+          "absolute": 3,
+          "percent": 5.454545454545445
+        },
+        "gpuAllocatedMB": {
+          "absolute": 0.0,
+          "percent": 0.0
+        },
+        "gpuAverageMs": {
+          "absolute": -0.47061284797867575,
+          "percent": -10.84208300739683
+        },
+        "gpuP95Ms": {
+          "absolute": -2.241250011138618,
+          "percent": -33.60824755180706
+        },
+        "visibleInstances": {
+          "absolute": 21,
+          "percent": 0.1482527356159613
+        }
+      },
+      "runMedians": {
+        "baseline": {
+          "cpuAverageMs": 2.489270486694295,
+          "cpuP95Ms": 2.8788333293050528,
+          "drawCalls": 55,
+          "gpuAllocatedMB": 332.015625,
+          "gpuAverageMs": 4.340612847712085,
+          "gpuP95Ms": 6.66875000752043,
+          "visibleInstances": 14165
+        },
+        "new": {
+          "cpuAverageMs": 2.4408881941781146,
+          "cpuP95Ms": 2.610291659948416,
+          "drawCalls": 58,
+          "gpuAllocatedMB": 332.015625,
+          "gpuAverageMs": 3.869999999733409,
+          "gpuP95Ms": 4.427499996381812,
+          "visibleInstances": 14186
+        }
+      }
+    },
+    "high": {
+      "newMinusBaseline": {
+        "cpuAverageMs": {
+          "absolute": -0.35228298705381667,
+          "percent": -11.771942664617107
+        },
+        "cpuP95Ms": {
+          "absolute": -1.6321666626026854,
+          "percent": -34.99906181667639
+        },
+        "drawCalls": {
+          "absolute": 3,
+          "percent": 5.454545454545445
+        },
+        "gpuAllocatedMB": {
+          "absolute": 0.0,
+          "percent": 0.0
+        },
+        "gpuAverageMs": {
+          "absolute": -1.0322402779517388,
+          "percent": -15.725022579145643
+        },
+        "gpuP95Ms": {
+          "absolute": -3.452291653957218,
+          "percent": -30.39423910976602
+        },
+        "visibleInstances": {
+          "absolute": 21,
+          "percent": 0.10788594913948568
+        }
+      },
+      "runMedians": {
+        "baseline": {
+          "cpuAverageMs": 2.992564584201318,
+          "cpuP95Ms": 4.66345832683146,
+          "drawCalls": 55,
+          "gpuAllocatedMB": 1204.390625,
+          "gpuAverageMs": 6.564316666360052,
+          "gpuP95Ms": 11.358374991687015,
+          "visibleInstances": 19465
+        },
+        "new": {
+          "cpuAverageMs": 2.6402815971475015,
+          "cpuP95Ms": 3.0312916642287746,
+          "drawCalls": 58,
+          "gpuAllocatedMB": 1204.390625,
+          "gpuAverageMs": 5.5320763884083135,
+          "gpuP95Ms": 7.906083337729797,
+          "visibleInstances": 19486
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+SWAT — INTEGRATED GAME CHARACTER
+Third-party character, textures and animations attributed to Adobe Mixamo.
+GLB conversion distributed by Shane Brumback:
+https://www.shanebrumback.com/models/glb/swat/swat-character.glb
+https://gist.github.com/ShaneBrumback/9b0e864813d0ec3f13aa664b397a5dd5
+https://www.shanebrumback.com/tutorials/3d-model-animation-xbox-controller-viewer.html
+
+Original 2048x2048 SWAT body/head diffuse and normal textures were obtained from:
+https://github.com/baponkar/Third-Person-Shooter-With-Shooter-AI
+That project explicitly credits its SWAT character to Mixamo. Its original face
+and uniform maps visually match the reduced, vertically flipped GLB maps.
+Mixamo origin is a corroborated inference; the GLB itself contains no copyright
+or license declaration. Full evidence and file hashes are in SOURCE.json.
+
+Adobe permits royalty-free use of Mixamo characters and animations in personal,
+commercial and non-profit video games. These resources are integrated into
+NACHTGANG — BLACKSITE; they are NOT licensed under MIT or CC0.
+Do not redistribute raw character, animation or texture files as standalone
+assets, asset packages, templates or stock content. The game's code license
+does not replace these third-party content terms.
+
+Adobe Mixamo usage FAQ:
+https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html
+Adobe Mixamo distribution terms:
+https://community.adobe.com/questions-696/mixamo-faq-licensing-royalties-ownership-eula-and-tos-589400
+
+Original GLB and PNG bytes are unchanged. The renderer restores the head mesh's lost material groups from the original
+FBX polygon assignments (head-materials.json) and loads the unchanged PNGs with
+the required bottom-left orientation. The original FBX is not bundled.
+This is an authored textured human character, not a claimed photogrammetric scan.

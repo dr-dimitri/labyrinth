@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 1,
+  "license": "CC0-1.0",
+  "licenseURL": "https://polyhaven.com/license",
+  "retrievedUTC": "2026-09-18T18:57:22+00:00",
+  "processing": "Original JPEG bytes; no upscaling, resizing or recompression.",
+  "resolutionPolicy": "4096x4096 color; 2048x2048 OpenGL normal; 1024x1024 roughness.",
+  "materials": {
+    "forest-earth": {
+      "assetID": "brown_mud_03",
+      "name": "Brown Mud 03",
+      "pageURL": "https://polyhaven.com/a/brown_mud_03",
+      "metadataURL": "https://api.polyhaven.com/info/brown_mud_03",
+      "fileManifestURL": "https://api.polyhaven.com/files/brown_mud_03",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        1.299996,
+        1.299996
+      ],
+      "sourceMaximumResolution": [
+        8192,
+        8192
+      ],
+      "files": {
+        "color": {
+          "path": "textures/forest-earth/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 8264154,
+          "sourceMD5": "04c29985725a1f4e69c63d2f3c565ff4",
+          "sha256": "7a013916fc0b03c65bda800cf8666453d96dc0bc876f91ca55f3a7cc7e64a50c"
+        },
+        "normal": {
+          "path": "textures/forest-earth/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 3728131,
+          "sourceMD5": "dc36255da382749c33eba9288b1cab34",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "4d9ea1c9321618dbde7bdb2287fae85b646e4bd7b27c294a3475096d30b33880"
+        },
+        "roughness": {
+          "path": "textures/forest-earth/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_mud_03/brown_mud_03_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 287221,
+          "sourceMD5": "856d543a9dc18df23cf1239a54025411",
+          "sha256": "e1eff4cb387ab1211b473df6c1e3e280e4d18defdcc8b68ca0791bcd9f3c22da"
+        }
+      }
+    },
+    "floor": {
+      "assetID": "concrete_floor_worn_02",
+      "name": "Concrete Floor Worn 02",
+      "pageURL": "https://polyhaven.com/a/concrete_floor_worn_02",
+      "metadataURL": "https://api.polyhaven.com/info/concrete_floor_worn_02",
+      "fileManifestURL": "https://api.polyhaven.com/files/concrete_floor_worn_02",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.0,
+        2.0
+      ],
+      "sourceMaximumResolution": [
+        8192,
+        8192
+      ],
+      "files": {
+        "color": {
+          "path": "textures/floor/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/concrete_floor_worn_02/concrete_floor_worn_02_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 10622576,
+          "sourceMD5": "fc405cf1a6a02f3918edcb41d359b045",
+          "sha256": "feb74a58dac5cbead413e7a8967d7627d585a8ee3912cf1ff53d9194f73fe09b"
+        },
+        "normal": {
+          "path": "textures/floor/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/concrete_floor_worn_02/concrete_floor_worn_02_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 4470431,
+          "sourceMD5": "210a016fb19b757196dbe8f0ccf9daad",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "1d301d3a42248a7efdb4a5507d2a364847c418bdd56652bc36086edd98579c95"
+        },
+        "roughness": {
+          "path": "textures/floor/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_worn_02/concrete_floor_worn_02_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 253558,
+          "sourceMD5": "579be67d20f4362704ff7f575462214b",
+          "sha256": "3035395368dc4e1e23424f566bac0cb21326fa42a4a9af7031e5467d4ba42150"
+        }
+      }
+    },
+    "forest-rock": {
+      "assetID": "rock_face",
+      "name": "Rock Face",
+      "pageURL": "https://polyhaven.com/a/rock_face",
+      "metadataURL": "https://api.polyhaven.com/info/rock_face",
+      "fileManifestURL": "https://api.polyhaven.com/files/rock_face",
+      "authors": {
+        "Greg Zaal": "Photography",
+        "Dario Barresi": "Processing"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.38,
+        2.38
+      ],
+      "sourceMaximumResolution": [
+        16384,
+        16384
+      ],
+      "files": {
+        "color": {
+          "path": "textures/forest-rock/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/rock_face/rock_face_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 11665139,
+          "sourceMD5": "bd14c0c0141ebee097ca38c607003181",
+          "sha256": "f22c19c46d8a03b199b92d779d1e28a00481098177fba41c4f84cf100c5e7164"
+        },
+        "normal": {
+          "path": "textures/forest-rock/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 4158538,
+          "sourceMD5": "75d644e0c6a9d2534cafe783602d6c41",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "352b87db2502d54487b0ed8abdfb621fae2abf7d360a281b419f567346178cf0"
+        },
+        "roughness": {
+          "path": "textures/forest-rock/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face/rock_face_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 224371,
+          "sourceMD5": "9c0ebb95db6ce5ec16abca0899e506a2",
+          "sha256": "70ddfc5d7f292909d18ad56dbb1ff7c3a65809dc031854356c7a6978cb446219"
+        }
+      }
+    },
+    "forest-bark": {
+      "assetID": "bark_brown_01",
+      "name": "Bark Brown 01",
+      "pageURL": "https://polyhaven.com/a/bark_brown_01",
+      "metadataURL": "https://api.polyhaven.com/info/bark_brown_01",
+      "fileManifestURL": "https://api.polyhaven.com/files/bark_brown_01",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        0.999999,
+        0.999999
+      ],
+      "sourceMaximumResolution": [
+        8192,
+        8192
+      ],
+      "files": {
+        "color": {
+          "path": "textures/forest-bark/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/bark_brown_01/bark_brown_01_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 8193578,
+          "sourceMD5": "16fdd5a3034ae90c079059f028796a1a",
+          "sha256": "545d3c48d3ad237d9fbb7eeaf7e5251cbf9520840e37e28e4e325d833c34bc0b"
+        },
+        "normal": {
+          "path": "textures/forest-bark/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 4621865,
+          "sourceMD5": "60e17a42cf4682ef77891ed92cada3cf",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "971289c90963ef6a3eaf988662f2bce71dbb1024f5382a7dfe9e51e3cd127030"
+        },
+        "roughness": {
+          "path": "textures/forest-bark/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_01/bark_brown_01_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 201307,
+          "sourceMD5": "b7a1aa42ecf0b30aba7f587769d13910",
+          "sha256": "4e7f62508cf77faebfeee15ffb571ff02c45c18d5174aa19fcb8b98506359c5c"
+        }
+      }
+    },
+    "forest-ground": {
+      "assetID": "forrest_ground_03",
+      "name": "Forest Ground 03",
+      "pageURL": "https://polyhaven.com/a/forrest_ground_03",
+      "metadataURL": "https://api.polyhaven.com/info/forrest_ground_03",
+      "fileManifestURL": "https://api.polyhaven.com/files/forrest_ground_03",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.0,
+        2.0
+      ],
+      "sourceMaximumResolution": [
+        8192,
+        8192
+      ],
+      "files": {
+        "color": {
+          "path": "textures/forest-ground/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/forrest_ground_03/forrest_ground_03_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 13090351,
+          "sourceMD5": "7626e0e4001c4e34cdd62c81d86408fd",
+          "sha256": "404cc658c5ba6c6e6a8f74e74b4dc5a93f2363984204c9ed88c045659659cc21"
+        },
+        "normal": {
+          "path": "textures/forest-ground/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 6812765,
+          "sourceMD5": "104ecda19a7dce8f7b809b332cb41d37",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "dcc26b4fd27a8e1f1f14558214fbaf1d68a61d9b569eee805793498e4b30098c"
+        },
+        "roughness": {
+          "path": "textures/forest-ground/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forrest_ground_03/forrest_ground_03_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 418230,
+          "sourceMD5": "99b60c4ba1dc799e8eddf6e2f1460c09",
+          "sha256": "faa2fc4305cb839a2240ffa84de513dc16671879915a13c88fb319d5e168e926"
+        }
+      }
+    },
+    "asphalt": {
+      "assetID": "asphalt_01",
+      "name": "Asphalt 01",
+      "pageURL": "https://polyhaven.com/a/asphalt_01",
+      "metadataURL": "https://api.polyhaven.com/info/asphalt_01",
+      "fileManifestURL": "https://api.polyhaven.com/files/asphalt_01",
+      "authors": {
+        "Dario Barresi": "Processing ",
+        "Charlotte Baglioni": "Photography"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.079999,
+        2.08
+      ],
+      "sourceMaximumResolution": [
+        8192,
+        8192
+      ],
+      "files": {
+        "color": {
+          "path": "textures/asphalt/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/asphalt_01/asphalt_01_diff_4k.jpg",
+          "sourceChannel": "Diffuse",
+          "sourceResolution": "4k",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "colorSpace": "sRGB",
+          "bytes": 12674373,
+          "sourceMD5": "a6931dfbdc94a066606b915b6cda5704",
+          "sha256": "802216690827192e5418ce194622f671f08c476ea48856cadb88804f7d83e42f"
+        },
+        "normal": {
+          "path": "textures/asphalt/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/asphalt_01/asphalt_01_nor_gl_2k.jpg",
+          "sourceChannel": "nor_gl",
+          "sourceResolution": "2k",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "bytes": 4845665,
+          "sourceMD5": "8b513a75b434f95ca268436265742638",
+          "normalConvention": "OpenGL (+Y)",
+          "sha256": "60fd6af2aae30bb3fd2231227ecbe52d0ced2c761d53a64f50dea59d173307cd"
+        },
+        "roughness": {
+          "path": "textures/asphalt/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_01/asphalt_01_rough_1k.jpg",
+          "sourceChannel": "Rough",
+          "sourceResolution": "1k",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "colorSpace": "linear",
+          "bytes": 344964,
+          "sourceMD5": "92ffad35bc543f59ffd9860c53a98214",
+          "sha256": "147891957807bb03cc565c9daa8a16a4af7713449a0f475c638f78f833ad0646"
+        }
+      }
+    }
+  },
+  "apiCredit": "Powered by Poly Haven"
+}

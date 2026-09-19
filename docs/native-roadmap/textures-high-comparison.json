@@ -1,0 +1,18 @@
+{
+  "terrain": {
+    "identical": true,
+    "changedBounds": null
+  },
+  "soldier-close": {
+    "identical": true,
+    "changedBounds": null
+  },
+  "shadows-roof": {
+    "identical": true,
+    "changedBounds": null
+  },
+  "weapons": {
+    "identical": true,
+    "changedBounds": null
+  }
+}
