@@ -13,7 +13,7 @@ public enum WeaponKind: String, CaseIterable, Sendable {
 public enum Difficulty: String, CaseIterable, Sendable { case easy, normal, hard }
 public enum MatchState: String, Sendable { case active, won, lost }
 public enum EnemyAwareness: String, Sendable { case watching, investigating, searching, engaged }
-public enum ObstacleKind: String, Sendable { case bunker, container, barrier, crate, barrel }
+public enum ObstacleKind: String, Sendable { case bunker, container, barrier, crate, barrel, accessPanel, glass }
 
 public struct GameInput: Sendable {
     public var moveForward: Float = 0
@@ -128,6 +128,8 @@ public struct Obstacle: Sendable {
         case .barrier: return 280
         case .crate: return 110
         case .barrel: return 55
+        case .accessPanel: return 160
+        case .glass: return 45
         }
     }
     public init(id: Int, kind: ObstacleKind, position: SIMD3<Float>, size: SIMD3<Float>) {
@@ -138,6 +140,8 @@ public struct Obstacle: Sendable {
         case .barrier: health = 280
         case .crate: health = 110
         case .barrel: health = 55
+        case .accessPanel: health = 160
+        case .glass: health = 45
         }
     }
     var minimum: SIMD3<Float> { position - SIMD3(size.x * 0.5, 0, size.z * 0.5) }
@@ -175,6 +179,7 @@ public struct GameEvent: Sendable {
         case contactReportStarted, contactReportInterrupted, contactReportTransmitted, alarmEscalated
         case extractionSelected
         case throwSmoke, smokeActivated, smokeDissipated
+        case breachOpened
         case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
@@ -194,16 +199,17 @@ public struct GameEvent: Sendable {
     public let alarmReportID: Int?
     public let extractionID: String?
     public let smoke: SmokeVolumeState?
+    public let breach: BreachState?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
                 id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil,
-                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil) {
+                hearing: HearingStimulus? = nil, noiseEmitter: NoiseEmitterState? = nil, device: WorldInteractableState? = nil, contactReport: ContactReport? = nil, alarmReportID: Int? = nil, extractionID: String? = nil, smoke: SmokeVolumeState? = nil, breach: BreachState? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
         self.missionPhase = missionPhase; self.hearing = hearing; self.noiseEmitter = noiseEmitter; self.device = device; self.contactReport = contactReport; self.alarmReportID = alarmReportID; self.extractionID = extractionID
-        self.smoke = smoke
+        self.smoke = smoke; self.breach = breach
     }
 }
 

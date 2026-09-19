@@ -142,7 +142,7 @@ struct LevelRouteTests {
 
     @Test func levelPropMetadataRemainsStableAfterGroundingAndRejectsReusedIDs() throws {
         let game = scene(at: SIMD2(0,32))
-        #expect(GameMap.obstacles.count == 25 && Set(GameMap.obstacles.map(\.id)).count == 25)
+        #expect(GameMap.obstacles.count == 33 && Set(GameMap.obstacles.map(\.id)).count == 33)
         for prop in LevelProp.allCases {
             let grounded = try #require(game.obstacles.first { $0.id == prop.rawValue })
             #expect(GameMap.levelProp(for: grounded) == prop)

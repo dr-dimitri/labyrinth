@@ -4,6 +4,21 @@ import BlacksiteCore
 @testable import BlacksiteMac
 
 struct NativeSoundSynthesisTests {
+    @Test func glassFractureAndPanelTearAreDifferentFiniteCachedSizedSignals() {
+        let glass = NativeSoundSynthesis.breakage(kind: .glass)
+        let panel = NativeSoundSynthesis.breakage(kind: .lightPanel)
+        #expect(glass == NativeSoundSynthesis.breakage(kind: .glass))
+        #expect(panel == NativeSoundSynthesis.breakage(kind: .lightPanel))
+        #expect(glass != panel)
+        for samples in [glass,panel] {
+            #expect(samples.count > 15_000 && samples.count < 31_000)
+            #expect(samples.allSatisfy { $0.isFinite && abs($0) <= 0.8 })
+            #expect((samples.map(abs).max() ?? 0) > 0.08)
+            #expect(samples.reduce(0.0) { $0+Double($1*$1) } > 0.1)
+            #expect(abs(samples.first ?? 1) < 0.001 && abs(samples.last ?? 1) < 0.001)
+        }
+    }
+
     @Test func everySurfaceHasDistinctFiniteBoundedAndRepeatableFootfalls() {
         var signatures=Set<Int>()
         for surface in SurfaceSound.allCases {

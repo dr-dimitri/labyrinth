@@ -135,6 +135,7 @@ public struct MapDefinition: Sendable {
     public let environment: MapEnvironmentDefinition
     public let resources: MapResourceReferences
     public let operation: MapOperationDefinition?
+    public let breaches: [MapBreachDefinition]
 
     public init(id: String, version: Int = 1, displayName: String,
                 minimum: SIMD3<Float>, maximum: SIMD3<Float>, terrain: TerrainProfile,
@@ -144,7 +145,7 @@ public struct MapDefinition: Sendable {
                 serviceApproach: SIMD3<Float>? = nil, roads: [MapSurfaceRegion] = [], supportSurfaces: [Obstacle] = [],
                 levelProps: [Int: LevelProp] = [:], scenery: MapSceneryDefinition? = nil,
                 environment: MapEnvironmentDefinition? = nil, resources: MapResourceReferences = MapResourceReferences(),
-                operation: MapOperationDefinition? = nil) throws {
+                operation: MapOperationDefinition? = nil, breaches: [MapBreachDefinition] = []) throws {
         self.id = id; self.version = version; self.displayName = displayName
         self.minimum = minimum; self.maximum = maximum; self.terrain = terrain; self.obstacles = obstacles
         self.playerStart = playerStart; self.spawns = spawns; self.reinforcementEntries = reinforcementEntries
@@ -167,7 +168,7 @@ public struct MapDefinition: Sendable {
         var plainEnvironment = MapEnvironmentDefinition()
         plainEnvironment.shadowTarget = SIMD3(center.x, floor, center.z)
         plainEnvironment.shadowExtent = max(maximum.x - minimum.x, maximum.z - minimum.z) * 0.8
-        self.environment = environment ?? plainEnvironment; self.resources = resources; self.operation = operation
+        self.environment = environment ?? plainEnvironment; self.resources = resources; self.operation = operation; self.breaches = breaches
         try validateStructure()
     }
 
@@ -178,16 +179,16 @@ public struct MapDefinition: Sendable {
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
         var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil; environment.smokeEmitters = []
-        return copying(terrain: terrain, environment: environment, operation: nil)
+        return copying(terrain: terrain, environment: environment, operation: nil, breaches: [])
     }
-    private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition, operation: MapOperationDefinition?) -> MapDefinition {
+    private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition, operation: MapOperationDefinition?, breaches: [MapBreachDefinition]? = nil) -> MapDefinition {
         // These operations preserve validated dimensions, identifiers and geometry.
         try! MapDefinition(id: id, version: version, displayName: displayName, minimum: minimum, maximum: maximum,
                            terrain: value, obstacles: obstacles, playerStart: playerStart, spawns: spawns,
                            reinforcementEntries: reinforcementEntries, waveStaging: waveStaging,
                            extraction: extraction, extractionRadius: extractionRadius, dataSite: dataSite, radioSite: radioSite,
                            serviceApproach: serviceApproach, roads: roads, supportSurfaces: supportSurfaces,
-                           levelProps: levelProps, scenery: scenery, environment: environment, resources: resources, operation: operation)
+                           levelProps: levelProps, scenery: scenery, environment: environment, resources: resources, operation: operation, breaches: breaches ?? self.breaches)
     }
     public func supportsMission(_ kind: MissionKind) -> Bool { kind != .operation || operation != nil }
 
@@ -276,6 +277,23 @@ public struct MapDefinition: Sendable {
             guard ids.insert(obstacle.id).inserted else { throw MapValidationError("Karte \(id): Objekt-ID \(obstacle.id) ist doppelt vergeben.") }
             guard finite(obstacle.position), finite(obstacle.size), obstacle.size.x > 0, obstacle.size.y > 0, obstacle.size.z > 0,
                   !obstacle.health.isNaN, obstacle.health > 0 else { throw MapValidationError("Karte \(id): Objekt \(obstacle.id) besitzt ungültige Maße oder Trefferpunkte.") }
+        }
+        guard breaches.count <= 16, Set(breaches.map(\.ownerObstacleID)).count == breaches.count else {
+            throw MapValidationError("Karte \(id): Höchstens 16 Zugänge mit eindeutigen Besitzer-IDs sind zulässig.")
+        }
+        for breach in breaches {
+            guard let owner = obstacles.first(where: { $0.id == breach.ownerObstacleID }),
+                  owner.kind == (breach.kind == .glass ? .glass : .accessPanel), owner.health.isFinite,
+                  owner.size.y >= 2.1, owner.size.y <= 4, min(owner.size.x,owner.size.z) <= 0.5,
+                  max(owner.size.x,owner.size.z) >= 1.6, max(owner.size.x,owner.size.z) <= 5,
+                  inside(owner.position), breach.kind == .glass || breach.visibility == .opaque,
+                  Set(breach.frameObstacleIDs).count == breach.frameObstacleIDs.count,
+                  breach.frameObstacleIDs.count <= 8,
+                  breach.frameObstacleIDs.allSatisfy({ frame in
+                      frame != owner.id && obstacles.contains { $0.id == frame && !$0.health.isFinite }
+                  }) else {
+                throw MapValidationError("Karte \(id): Zugang benötigt ein passendes dünnes Paneel, mindestens 1,6 × 2,1 m Durchgang und vorhandene unzerstörbare Rahmen.")
+            }
         }
         guard levelProps.keys.allSatisfy({ key in obstacles.contains { $0.id == key } }) else {
             throw MapValidationError("Karte \(id): Eine Objektgestaltung verweist auf eine fehlende Collider-ID.")
@@ -480,7 +498,7 @@ public struct MapDefinition: Sendable {
 
     public static let blacksite: MapDefinition = try! MapDefinition(
         id: "blacksite", displayName: "Blacksite", minimum: BlacksiteMapData.minimum, maximum: BlacksiteMapData.maximum,
-        terrain: .battlefield, obstacles: BlacksiteMapData.obstacles, playerStart: PlayerState(), spawns: BlacksiteMapData.spawns,
+        terrain: .battlefield, obstacles: BlacksiteMapData.obstacles + BlacksiteBreach.obstacles, playerStart: PlayerState(), spawns: BlacksiteMapData.spawns,
         reinforcementEntries: BlacksiteMapData.reinforcementEntries, waveStaging: [SIMD3(-6, 0, 10), SIMD3(6, 0, 10)],
         extraction: BlacksiteMapData.extraction, dataSite: BlacksiteMapData.dataSite, radioSite: BlacksiteMapData.radioSite,
         serviceApproach: BlacksiteMapData.serviceApproach,
@@ -498,7 +516,7 @@ public struct MapDefinition: Sendable {
             environment.alarm = BlacksiteAlarm.definition
             environment.smokeEmitters = BlacksiteSmoke.emitters
             return environment
-        }(), resources: .blacksite, operation: BlacksiteOperation.definition)
+        }(), resources: .blacksite, operation: BlacksiteOperation.definition, breaches: BlacksiteBreach.definitions)
 
     /// A small elevated, translated fixture catches accidental Blacksite bounds,
     /// zero-height starts, roads and the former 12m terrain-ray ceiling.

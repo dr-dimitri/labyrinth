@@ -194,7 +194,7 @@ extension CombatSimulation {
         }
         var material = map.groundMaterial(at: point), camouflage: CamouflageGround = .none, density: Float = 0
         if let owner {
-            switch owner.kind { case .bunker, .barrier: material = .concrete; case .crate: material = .wood; case .container, .barrel: material = .metal }
+            switch owner.kind { case .bunker, .barrier: material = .concrete; case .crate: material = .wood; case .container, .barrel, .accessPanel: material = .metal; case .glass: material = .glass }
         } else if abs(point.y - ground) <= 0.2 {
             camouflage = map.environment.groundRegions.last(where: { $0.contains(x: point.x, z: point.z) })?.camouflage ?? .earth
             if map.roads.contains(where: { $0.contains(x: point.x, z: point.z) }) { camouflage = .none }
@@ -222,7 +222,7 @@ extension CombatSimulation {
     /// Only recognition speed is reduced. Hard eye sight remains authoritative,
     /// and confirmed visual contact is never cancelled merely by foliage.
     public func vegetationRecognitionFactor(from observer: SIMD3<Float>) -> Float {
-        guard clearLine(observer, eyePosition) else { return 0 }
+        guard sightLine(observer, eyePosition) else { return 0 }
         return vegetationRecognitionFactor(from: observer, eyeLineIsClear: true)
     }
 
@@ -238,7 +238,7 @@ extension CombatSimulation {
         var factor: Float = 0, totalWeight: Float = 0
         for (height, weight) in [(player.height - 0.1, Float(0.5)), (player.height * 0.58, 0.35), (player.height * 0.28, 0.15)] {
             let target = player.position + SIMD3(0, height, 0)
-            guard height == player.height - 0.1 || clearLine(observer, target) else { continue }
+            guard height == player.height - 0.1 || sightLine(observer, target) else { continue }
             let depth = map.vegetationOpticalDepth(from: observer, to: target)
             factor += max(0.25, exp(-depth * 0.8)) * weight; totalWeight += weight
         }

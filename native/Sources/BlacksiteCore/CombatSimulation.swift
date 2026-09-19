@@ -12,6 +12,7 @@ public final class CombatSimulation {
     public private(set) var enemies: [EnemyState]
     public private(set) var obstacles: [Obstacle]
     public private(set) var coverDebris: [CoverDebrisState] = []
+    var breachOpeningTimes: [Int: Double] = [:]
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var smokeGrenades: [SmokeGrenadeState] = []
     public private(set) var smokeVolumes: [SmokeVolumeState] = []
@@ -377,11 +378,12 @@ public final class CombatSimulation {
     }
 
     func wallHit(origin: SIMD3<Float>, direction: SIMD3<Float>, maximumDistance: Float = 150,
-                 padding: Float = 0, excludingObstacle: Int? = nil) -> RayHit {
+                 padding: Float = 0, excludingObstacle: Int? = nil, purpose: WorldRayPurpose = .physical) -> RayHit {
         var closest = RayHit(distance: maximumDistance)
         let pad = SIMD3<Float>(repeating: padding)
         for index in obstacles.indices where !obstacles[index].destroyed && index != excludingObstacle {
             let box = obstacles[index]
+            if purpose == .sight && !blocksSight(box) { continue }
             if var hit = rayBox(origin: origin, direction: direction, minimum: box.minimum - pad, maximum: box.maximum + pad),
                hit.distance < closest.distance {
                 hit.obstacleIndex = index; closest = hit
@@ -487,6 +489,16 @@ public final class CombatSimulation {
         let box = obstacles[index]
         pendingCoverDebris.append(box)
         emit(GameEvent(kind: .coverDestroyed, position: box.position + SIMD3(0, box.size.y * 0.5, 0), id: box.id))
+        if let definition = map.breaches.first(where: { $0.ownerObstacleID == box.id }) {
+            breachOpeningTimes[box.id] = elapsed
+            let snapshot = BreachState(ownerObstacleID: box.id,kind: definition.kind,visibility: definition.visibility,
+                damageStage: .destroyed,position: box.position,size: box.size,openedAt: elapsed)
+            let point = box.position + SIMD3(0,box.size.y*0.5,0)
+            let hearing = recordHearing(kind: .breakage,position: point,
+                surface: definition.kind == .glass ? .glass : .metal,strength: 0.9,
+                range: definition.kind == .glass ? 20 : 26,source: .world,sourceID: box.id)
+            emit(GameEvent(kind: .breachOpened,position: point,id: box.id,hearing: hearing,breach: snapshot))
+        }
         return box.kind == .barrel ? box.position + SIMD3(0, 0.55, 0) : nil
     }
 
@@ -501,9 +513,9 @@ public final class CombatSimulation {
         for box in pendingCoverDebris {
             let lifetime: Double
             switch box.kind {
-            case .crate: lifetime = 12
+            case .crate, .glass: lifetime = 12
             case .barrel: lifetime = 8
-            case .container: lifetime = 15
+            case .container, .accessPanel: lifetime = 15
             case .barrier: lifetime = 20
             case .bunker: continue
             }
@@ -911,7 +923,7 @@ public final class CombatSimulation {
         let facing = viewDirection(yaw: player.yaw, pitch: player.pitch)
         let projectedExtent = abs(facing.x) * extent.x + abs(facing.y) * extent.y + abs(facing.z) * extent.z
         if simd_dot(center - eyePosition, facing) + projectedExtent < -0.1 { return true }
-        for box in obstacles where !box.destroyed {
+        for box in obstacles where !box.destroyed && blocksSight(box) {
             var hidden = true
             for corner in 0..<8 {
                 let point = center + SIMD3<Float>(corner & 1 == 0 ? -extent.x : extent.x,
@@ -1189,7 +1201,7 @@ extension CombatSimulation {
             let forward = SIMD2<Float>(sin(enemy.yaw), cos(enemy.yaw))
             // Local +Z is forward. A cheap 120-degree cone test precedes raycasts.
             let inCone = horizontal < 0.05 || simd_dot(forward, SIMD2(offset.x, offset.z)) >= horizontal * 0.5
-            brain.visualContact = horizontal < 48 && inCone && clearLine(EnemyPose(enemy).eyePosition, eyePosition)
+            brain.visualContact = horizontal < 48 && inCone && sightLine(EnemyPose(enemy).eyePosition, eyePosition)
             let smoke = brain.visualContact && !smokeVolumes.isEmpty ? playerSmokeVisibility(from: EnemyPose(enemy).eyePosition,eyeLineIsClear: true) : SmokeVisibilitySample(opticalDepth: 0)
             if smoke.opaque { brain.visualContact = false }
             brain.sightTimer = 0.1
@@ -1343,7 +1355,7 @@ extension CombatSimulation {
             if brain.visualContact { aim(&enemy, at: eyePosition) }
             let pose = EnemyPose(enemy)
             let needsMuzzleCheck = enemy.seesPlayer && ((enemy.windup > 0 && enemy.windup <= dt) || (enemy.windup <= 0 && brain.cooldown <= 0))
-            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && clearLine(pose.muzzlePosition, eyePosition) &&
+            let muzzleClear = needsMuzzleCheck && clearLine(pose.eyePosition, pose.gunRoot) && clearLine(pose.gunRoot, pose.muzzlePosition) && sightLine(pose.muzzlePosition, eyePosition) &&
                 !smokeVisibility(from: pose.muzzlePosition,to: eyePosition).opaque
             if enemy.windup > 0 {
                 enemy.windup = max(0, enemy.windup - dt)
@@ -1357,9 +1369,21 @@ extension CombatSimulation {
                         if !hit { target.x += (random() > 0.5 ? 1 : -1) * (1 + random()); target.y += 0.5 }
                         let damage: Float = difficulty == .easy ? 6 : difficulty == .hard ? 13 : 9
                         let hearing = recordHearing(kind: .gunshot, position: pose.muzzlePosition, strength: 1, range: 44, source: .enemy, sourceID: enemy.id)
-                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: target,
-                                       amount: hit ? damage : 0, id: enemy.id, hearing: hearing))
-                        if hit { damagePlayer(amount: damage, from: pose.muzzlePosition) }
+                        let offset = target-pose.muzzlePosition, length = simd_length(offset)
+                        let direction = offset/max(0.001,length)
+                        let obstruction = wallHit(origin: pose.muzzlePosition,direction: direction,maximumDistance: length)
+                        let stopped = obstruction.distance < length-0.01
+                        let impactPoint = stopped ? pose.muzzlePosition+direction*obstruction.distance : target
+                        let surface = stopped ? makeSurfaceImpact(for: obstruction,at: impactPoint) : nil
+                        // The very shot that opens a pane ends there. Only a
+                        // later shot may cross the newly navigable aperture.
+                        if let owner = obstruction.obstacleIndex,
+                           obstacles[owner].kind == .glass || obstacles[owner].kind == .accessPanel {
+                            damageCover(index: owner,amount: damage)
+                        }
+                        emit(GameEvent(kind: .enemyShot, position: pose.muzzlePosition, endPosition: impactPoint,
+                                       amount: hit && !stopped ? damage : 0, id: enemy.id, surfaceImpact: surface, hearing: hearing))
+                        if hit && !stopped { damagePlayer(amount: damage, from: pose.muzzlePosition) }
                         enemy.recoil = 1; brain.holdTimer = 0.32
                     }
                     brain.cooldown = 1.1 + random() * 1.7
@@ -1450,7 +1474,7 @@ extension CombatSimulation {
         accumulated += distance
         guard accumulated >= stride else { return }
         accumulated -= stride
-        let surface = environmentSample(at: position).soundSurface
+        let surface: SurfaceSound = standingOnGlassShards(at: position) ? .glass : environmentSample(at: position).soundSurface
         let strength = clamp(0.25 + speed / 10, 0.25, 1) * (lowPosture ? 0.32 : 1)
         let hearing = recordHearing(kind: .footstep, position: position + SIMD3(0,0.1,0), surface: surface,
             strength: strength, range: surface.stepRange, source: source, sourceID: sourceID)
@@ -1468,7 +1492,7 @@ extension CombatSimulation {
         if hearingStimuli.count >= 64 { hearingStimuli.removeFirst() }
         hearingStimuli.append(stimulus)
         guard source != .enemy else { return stimulus }
-        let priority = kind == .gunshot || kind == .explosion ? 3 : kind == .decoy ? 2 : 1
+        let priority = kind == .gunshot || kind == .explosion ? 3 : kind == .decoy || kind == .breakage ? 2 : 1
         for index in enemies.indices where enemies[index].health > 0 {
             let ear = EnemyPose(enemies[index]).eyePosition
             guard simd_distance(ear, position) < range,
@@ -1755,7 +1779,7 @@ extension CombatSimulation {
                   var brain = brains[pending.enemyID] else { pendingContactReports.remove(at: index); continue }
             let enemy = enemies[enemyIndex], source = EnemyPose(enemy).eyePosition
             if enemy.health <= 0 || !enemy.seesPlayer || !brain.visualContact || brain.hurt > 0 ||
-                !clearLine(source, eyePosition) {
+                !sightLine(source, eyePosition) {
                 let report = reportSnapshot(pending, channel: pending.radioAtStart && !pending.radioCancelled ? .radio : .localShout)
                 emit(GameEvent(kind: .contactReportInterrupted, position: source, id: pending.enemyID, contactReport: report))
                 brain.reportCooldownUntil = elapsed + 2

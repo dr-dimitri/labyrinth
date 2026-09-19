@@ -18,6 +18,7 @@ enum NativeSoundSynthesis {
         case .water: duration = 0.32
         case .hard: duration = 0.15
         case .wood: duration = 0.21
+        case .glass: duration = 0.29
         }
         var seed = UInt32(18_013 + choice * 7_919), filtered = 0.0
         let pitch = 0.93 + Double(choice) * 0.07
@@ -51,6 +52,10 @@ enum NativeSoundSynthesis {
                 signal = filtered * exp(-t * 32) * 0.12 + heel * 0.12
                     + sin(t * 420 * pitch * 2 * .pi) * exp(-t * 25) * 0.075
                     + sin(t * 790 * pitch * 2 * .pi) * exp(-t * 37) * 0.025
+            case .glass:
+                let crunch = (noise-filtered) * pow(0.5+0.5*sin(t*970*pitch),3) * exp(-t*21) * 0.15
+                let chink = (sin(t*3_170*pitch*2 * .pi)+0.4*sin(t*5_630*pitch*2 * .pi)) * exp(-t*23) * 0.038
+                signal = crunch + chink + heel*0.045
             }
             return signal * transient * min(1, (duration - t) * 180)
         }
@@ -72,6 +77,29 @@ enum NativeSoundSynthesis {
             let ring = sin(t * 840 * 2 * .pi) * exp(-t * 17) * 0.10
                 + sin(t * 1_370 * 2 * .pi) * exp(-t * 23) * 0.04
             return (click + ring) * min(1, t * 2_000) * min(1, (0.42 - t) * 180)
+        }
+    }
+
+    /// One sharp fracture followed by a finite scatter of light pieces. Both
+    /// sources are original PCM and share the existing limited one-shot voices.
+    static func breakage(kind: BreachKind) -> [Float] {
+        let glass = kind == .glass, duration = glass ? 0.68 : 0.42
+        var seed: UInt32 = glass ? 71_299 : 34_819, filtered = 0.0
+        return samples(duration: duration) { t in
+            seed = seed &* 1_664_525 &+ 1_013_904_223
+            let noise = Double(seed)/Double(UInt32.max)*2-1
+            filtered += (noise-filtered)*0.16
+            let attack = min(1,t*2_000), ending = min(1,(duration-t)*180)
+            if glass {
+                let crack = (noise-filtered)*exp(-t*70)*0.30
+                let scatter = (noise-filtered)*pow(0.5+0.5*sin(t*139),6)*exp(-t*7)*0.12
+                let ringing = (sin(t*2_730*2 * .pi)+0.55*sin(t*4_190*2 * .pi)+0.3*sin(t*6_170*2 * .pi))*exp(-t*11)*0.08
+                return (crack+scatter+ringing)*attack*ending
+            }
+            let tear = (noise-filtered)*exp(-t*22)*0.14
+            let body = sin(t*135*2 * .pi)*exp(-t*15)*0.12
+            let rattle = (sin(t*730*2 * .pi)+0.4*sin(t*1_430*2 * .pi))*exp(-t*13)*0.05
+            return (tear+body+rattle)*attack*ending
         }
     }
 

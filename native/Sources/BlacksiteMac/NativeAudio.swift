@@ -4,6 +4,21 @@ import Foundation
 import simd
 import BlacksiteCore
 
+/// Uses the actual heard fracture, without inferring a position from an opening
+/// or a current owner. Pure selection is testable without an audio device.
+struct NativeBreakageAudioCue {
+    let bufferName: String
+    let spatial: NativeSpatialSample
+    static func make(event: GameEvent, simulation: CombatSimulation) -> NativeBreakageAudioCue? {
+        guard event.kind == .breachOpened, let sound = event.hearing, sound.kind == .breakage else { return nil }
+        let sample = simulation.acousticSample(for: sound, listener: simulation.eyePosition)
+        guard sample.audible else { return nil }
+        return NativeBreakageAudioCue(bufferName: sound.surface == .glass ? "break-glass" : "break-panel",
+            spatial: NativeSpatialAudio.positioned(gain: sample.gain, source: sound.position,
+                listener: simulation.eyePosition, yaw: simulation.player.yaw))
+    }
+}
+
 /// Precomputed native PCM voices: no allocation or synthesis in the audio callback.
 final class NativeAudio {
     private let engine: AVAudioEngine
@@ -27,6 +42,7 @@ final class NativeAudio {
     private var levels = NativeAudioLevels()
     private var threat: Float = 0
     private var contactSoundIDs:[Int]=[]
+    private var breakageSoundIDs:[Int]=[]
     var machineLoopCount: Int { machineIDs.compactMap { $0 }.count }
     var oneShotVoiceCapacity: Int { voices.count }
     var machineVoiceCapacity: Int { machineVoices.count }
@@ -72,6 +88,8 @@ final class NativeAudio {
         } }
         buffers["machine"]=pcm(samples:NativeSoundSynthesis.machine())
         buffers["decoy"]=pcm(samples:NativeSoundSynthesis.decoy())
+        buffers["break-glass"]=pcm(samples:NativeSoundSynthesis.breakage(kind:.glass))
+        buffers["break-panel"]=pcm(samples:NativeSoundSynthesis.breakage(kind:.lightPanel))
         buffers["contact-call"]=pcm(samples:NativeSoundSynthesis.contactCall())
         buffers["contact-radioBegin"]=pcm(samples:NativeSoundSynthesis.radioContact(transmitted:false))
         buffers["contact-radioSent"]=pcm(samples:NativeSoundSynthesis.radioContact(transmitted:true))
@@ -107,7 +125,7 @@ final class NativeAudio {
 
     func reset() {
         voices.forEach { $0.stop() };stopMachines()
-        nextVoice=0;contactSoundIDs.removeAll(keepingCapacity:true);threat=0
+        nextVoice=0;contactSoundIDs.removeAll(keepingCapacity:true);breakageSoundIDs.removeAll(keepingCapacity:true);threat=0
     }
 
     private func stopMachines() {
@@ -148,6 +166,13 @@ final class NativeAudio {
             case .explosion:
                 let spatial = spatial(event,fallback:.explosion,simulation:simulation)
                 play("explosion", gain: spatial.gain, pan: spatial.pan)
+            case .breachOpened:
+                if let hearing=event.hearing,!breakageSoundIDs.contains(hearing.id),
+                   let cue=NativeBreakageAudioCue.make(event:event,simulation:simulation) {
+                    breakageSoundIDs.append(hearing.id)
+                    if breakageSoundIDs.count>64 { breakageSoundIDs.removeFirst(breakageSoundIDs.count-64) }
+                    play(cue.bufferName,gain:cue.spatial.gain,pan:cue.spatial.pan)
+                }
             case .damage: play("damage")
             case .reload: play("reload")
             case .footstep, .land:

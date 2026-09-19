@@ -100,7 +100,7 @@ extension CombatSimulation {
     /// selected terrain are authoritative for light visibility, never exposure settings.
     public func lightSample(at point: SIMD3<Float>) -> WorldLightSample {
         let sun = simd_normalize(map.environment.sunDirection)
-        let sunHit = wallHit(origin: point + sun * 0.02, direction: sun, maximumDistance: 180)
+        let sunHit = wallHit(origin: point + sun * 0.02, direction: sun, maximumDistance: 180, purpose: .sight)
         let direct: Float = sunHit.obstacleIndex == nil && !sunHit.hitGround ? 1 : 0
         var artificial: Float = 0
         for light in spotlights where light.enabled {
@@ -109,7 +109,7 @@ extension CombatSimulation {
             let cone = simd_dot(offset / distance, light.direction)
             guard cone > light.outerCos else { continue }
             let excluded = light.ownerObstacleID.flatMap { id in obstacles.firstIndex { $0.id == id } }
-            guard clearLine(light.position, point, excludingObstacle: excluded) else { continue }
+            guard sightLine(light.position, point, excludingObstacle: excluded) else { continue }
             let angle = clamp((cone - light.outerCos) / (light.innerCos - light.outerCos), 0, 1)
             let falloff = 1 - distance / light.range
             artificial += light.power * angle * angle * (3 - 2 * angle) * falloff * falloff

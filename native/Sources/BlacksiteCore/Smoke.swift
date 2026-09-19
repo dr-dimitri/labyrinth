@@ -159,13 +159,13 @@ extension CombatSimulation {
     /// The flag reuses the awareness pass's already verified head segment.
     func playerSmokeVisibility(from observer: SIMD3<Float>, eyeLineIsClear: Bool = false) -> SmokeVisibilitySample {
         var least = SmokeVisibilitySample(opticalDepth: 20)
-        if eyeLineIsClear || clearLine(observer,eyePosition) {
+        if eyeLineIsClear || sightLine(observer,eyePosition) {
             least = smokeVisibility(from: observer,to: eyePosition)
             if !least.opaque { return least }
         }
         for height in [player.height*0.62,player.height*0.3] {
             let point = player.position+SIMD3<Float>(0,height,0)
-            if clearLine(observer,point) {
+            if sightLine(observer,point) {
                 let body = smokeVisibility(from: observer,to: point)
                 if !body.opaque { return body }
                 if body.opticalDepth < least.opticalDepth { least = body }

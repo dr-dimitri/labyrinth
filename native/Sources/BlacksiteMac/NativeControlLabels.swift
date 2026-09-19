@@ -46,6 +46,7 @@ enum NativeControlLabels {
             "Nachladen: \(key(.reload))     Granate: \(key(.grenade))",
             "Geräuschköder: \(key(.decoy)) · begrenzter Vorrat",
             "Rauchgranate: \(key(.smoke)) · 1,5 s Zündung · kein Explosionsschaden",
+            "Glas: durchsichtig; erst nach Bruch durchschießbar und begehbar.",
             "ESC: Pause     F5: Leistungsanzeige"
         ].joined(separator: "\n")
     }

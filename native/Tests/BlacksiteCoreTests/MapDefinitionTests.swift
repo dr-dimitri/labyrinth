@@ -35,7 +35,7 @@ struct MapDefinitionTests {
         let map = MapDefinition.blacksite
         try map.validateGameplay()
         #expect(map.id == "blacksite" && map.version == 1)
-        #expect(map.obstacles.count == 25 && map.minimum == GameMap.minimum && map.maximum == GameMap.maximum)
+        #expect(map.obstacles.count == 33 && map.minimum == GameMap.minimum && map.maximum == GameMap.maximum)
         #expect(map.extraction == GameMap.extraction && map.dataSite == GameMap.dataSite && map.radioSite == GameMap.radioSite)
         #expect(map.environment.shadowExtent == 65 && map.environment.shadowTarget == .zero)
         let first = CombatSimulation(seed: 41), second = CombatSimulation(map: .blacksite, seed: 41)

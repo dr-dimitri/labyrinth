@@ -247,6 +247,21 @@ float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant 
   }
   return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
 }
+// A local, finite fracture patch. It is a damaged closed sheet, never an
+// alpha-cut fake hole while the authoritative collider remains intact.
+float breachFractures(float2 uv) {
+  float2 q=uv-float2(0.47,0.52);float distance=1;
+  for(uint spoke=0;spoke<7;++spoke) {
+    float angle=float(spoke)*0.8975979+sin(float(spoke)*7.13)*0.19;
+    float2 direction=float2(cos(angle),sin(angle));
+    float length=0.18+0.16*fract(sin(float(spoke+1)*8.27)*314.7);
+    float2 bend=direction*length*0.53+float2(-direction.y,direction.x)*(float(spoke%2)*0.025-0.012);
+    distance=min(distance,min(coverSegmentDistance(q,float2(0),bend),coverSegmentDistance(q,bend,direction*length)));
+  }
+  float fine=1-smoothstep(0.0008,0.0033,distance);
+  float chipped=(1-smoothstep(0.008,0.027,length(q)))*0.7;
+  return max(fine,chipped);
+}
 fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],constant float4x4 &weaponLightMatrix [[buffer(3)]],constant MapAppearance &appearance [[buffer(4)]],constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
@@ -339,6 +354,19 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float3 paint=id==21 ? float3(0.024,0.032,0.027):id==24 ? float3(0.75,0.55,0.18):float3(0.75,0.79,0.65);
     float wear=0.90+noise(in.detailUV*43.0)*0.10;
     albedo=mix(base,paint,ink*wear);rough=0.94;metal=0.04;
+  } else if(id==33) {
+    float salt=noise(in.uv*31.0)*0.18+noise(in.uv*83.0)*0.08;
+    float crack=breachFractures(in.uv)*in.material.z;
+    albedo*=0.78+salt;albedo=mix(albedo,float3(0.76,0.80,0.74),crack*0.8);
+    rough=0.91;metal=0;emissive=0;
+  } else if(id==34) {
+    float diagonal=step(0.54,fract(in.uv.x*5.0+in.uv.y*1.5));
+    float border=step(0.05,in.uv.x)*step(in.uv.x,0.95)*step(0.12,in.uv.y)*step(in.uv.y,0.88);
+    albedo=mix(albedo,float3(0.065,0.075,0.057),diagonal*border);rough=0.9;metal=0;
+  } else if(id==35) {
+    // Tiny resting glass splinters are an opaque reflective surface at this
+    // scale, keeping all cosmetic remnants in one existing instanced batch.
+    rough=0.22;metal=0.25;albedo*=0.65;
   } else if(id==27) {
     float inside=step(0.035,in.uv.x)*step(in.uv.x,0.965)*step(0.075,in.uv.y)*step(in.uv.y,0.925);
     float grille=(1.0-smoothstep(0.22,0.39,abs(fract(in.uv.y*12.0)-0.5)))*inside;
@@ -484,7 +512,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
     lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
   }
-  if((id>=9 && id<=13) || id==15 || id==16 || id==30 || id==31) {
+  if((id>=9 && id<=13) || id==15 || id==16 || id==30 || id==31 || id==35) {
     float3 reflected=reflect(-v,n);
     float2 envUV=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
     float3 environment=photoSky.sample(surface,envUV,level(rough*7.0)).rgb;
@@ -504,6 +532,36 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   float distance=length(u.eyeTime.xyz-in.world),fogDistance=max(0.0,distance-45.0);
   float fog=1-exp(-fogDistance*fogDistance*0.0000065); lit=mix(lit,u.fogColor.rgb,fog);
   return float4(smokeComposite(aces(lit*1.03),u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz),coverage);
+}
+// True clear glass is rendered once, after opaque surfaces, in the same
+// back-to-front intervals as smoke particles and sparks. It writes no depth
+// and never enters an opaque shadow pass; its physical frame still does.
+fragment float4 breachGlassFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
+  constant WorldLighting &lights [[buffer(5)]],constant WorldSmoke &smoke [[buffer(6)]],
+  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
+  depth2d<float> firstSpotMap [[texture(33)]],depth2d<float> secondSpotMap [[texture(34)]],
+  sampler surface [[sampler(0)]],sampler comparison [[sampler(1)]]) {
+  float3 view=normalize(u.eyeTime.xyz-in.world),normal=normalize(in.normal);
+  if(dot(normal,view)<0) normal=-normal;
+  float2 shadow=directionalShadows(in.shadow,in.nearShadow,normal,u,shadowMap,nearShadowMap,comparison);
+  float nv=saturate(dot(normal,view)),fresnel=0.04+0.96*pow(1-nv,5.0);
+  float3 reflected=reflect(-view,normal);
+  float2 uv=float2(fract(atan2(reflected.z,reflected.x)/(2*M_PI_F)+0.97),acos(clamp(reflected.y,-1.0,1.0))/M_PI_F);
+  float3 sky=photoSky.sample(surface,uv,level(1.4)).rgb;
+  float cracks=breachFractures(in.uv)*in.material.z;
+  float edge=1-smoothstep(0.005,0.025,min(min(in.uv.x,1-in.uv.x),min(in.uv.y,1-in.uv.y)));
+  // Matte safety manifestations make a closed, otherwise clear pane readable
+  // head-on. They are part of the sheet, not new geometry or opaque casters.
+  float aa=max(fwidth(in.uv.y),0.0005);
+  float band=1-smoothstep(0.008-aa,0.008+aa,abs(in.uv.y-0.59));
+  float segment=fract(in.uv.x*6.0),frost=band*smoothstep(0.14,0.18,segment)*(1-smoothstep(0.82,0.86,segment));
+  float alpha=clamp(0.075+fresnel*0.42+edge*0.18+cracks*0.64+frost*0.54,0.075,0.82);
+  float highlight=pow(max(0.0,dot(reflect(-normalize(u.sunDirection.xyz),normal),view)),96.0)*shadow.x;
+  float3 color=sky*float3(0.76,0.92,0.86)*0.70+in.tint.rgb*0.12+float3(0.43,0.41,0.34)*highlight;
+  color=mix(color,float3(0.73,0.78,0.74),cracks*0.8);
+  color=mix(color,float3(0.67,0.71,0.67)*(0.78+shadow.x*0.22),frost*0.86);
+  color+=worldLights(lights,in.world,normal,view,float3(0.08),0.18,0,firstSpotMap,secondSpotMap,comparison)*0.09;
+  return float4(smokeComposite(color,u.eyeTime.xyz,in.world,smoke,u.sunDirection.xyz)*alpha,alpha);
 }
 struct SkyRaster { float4 position [[position]]; float2 uv; };
 vertex SkyRaster skyVertex(uint id [[vertex_id]]) { float2 p=float2((id<<1)&2,id&2); SkyRaster o; o.uv=p; o.position=float4(p*2-1,0.99999,1); return o; }

@@ -2,17 +2,17 @@ import Foundation
 import simd
 
 public enum SurfaceSound: String, CaseIterable, Sendable {
-    case earth, vegetation, gravel, metal, water, hard, wood
+    case earth, vegetation, gravel, metal, water, hard, wood, glass
     var stepRange: Float {
         switch self { case .earth: return 9; case .vegetation: return 6; case .gravel: return 14
-        case .metal: return 18; case .water: return 15; case .hard: return 12; case .wood: return 11 }
+        case .metal: return 18; case .water: return 15; case .hard: return 12; case .wood: return 11; case .glass: return 16 }
     }
     static func fallback(_ surface: SurfaceMaterial) -> SurfaceSound {
         switch surface { case .soil: return .earth; case .metal: return .metal; case .wood: return .wood
-        case .concrete, .asphalt: return .hard }
+        case .concrete, .asphalt: return .hard; case .glass: return .glass }
     }
 }
-public enum HearingKind: String, Sendable { case footstep, landing, gunshot, explosion, decoy, shout, radio }
+public enum HearingKind: String, Sendable { case footstep, landing, gunshot, explosion, decoy, shout, radio, breakage }
 public enum NoiseSource: String, Sendable { case player, enemy, world }
 
 /// An immutable source snapshot, independent of audio settings and later actor movement.

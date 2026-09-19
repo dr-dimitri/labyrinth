@@ -1,7 +1,7 @@
 import simd
 
 public enum SurfaceMaterial: String, CaseIterable, Sendable {
-    case soil, concrete, metal, wood, asphalt
+    case soil, concrete, metal, wood, asphalt, glass
 }
 
 /// Immutable snapshot of the winning surface hit, captured before its damage can
@@ -28,8 +28,9 @@ extension CombatSimulation {
             let material: SurfaceMaterial
             switch box.kind {
             case .bunker, .barrier: material = .concrete
-            case .container, .barrel: material = .metal
+            case .container, .barrel, .accessPanel: material = .metal
             case .crate: material = .wood
+            case .glass: material = .glass
             }
             return SurfaceImpact(position: position, normal: hit.normal, material: material, obstacleID: box.id)
         }

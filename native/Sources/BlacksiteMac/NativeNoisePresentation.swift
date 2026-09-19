@@ -34,6 +34,7 @@ final class NativeNoisePresentation {
             case .landing:label="AUFPRALL";priority=2;lifetime=1.6
             case .footstep:label="SCHRITTE";priority=2;lifetime=1.4
             case .shout:label="KONTAKTRUF";priority=4;lifetime=2.2
+            case .breakage:label=sound.surface == .glass ? "GLASBRUCH":"DURCHBRUCH";priority=4;lifetime=2.6
             case .radio:
                 label=event.kind == .contactReportInterrupted ? "FUNK UNTERBROCHEN":event.kind == .contactReportTransmitted ? "FUNK ÜBERMITTELT":"FUNK MELDET"
                 priority=4;lifetime=2.2

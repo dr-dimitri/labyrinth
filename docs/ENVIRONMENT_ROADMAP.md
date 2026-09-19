@@ -296,3 +296,28 @@ zusätzlichen Volumen-Drawcalls. Der optimierte Core-Lauf misst 14,94 µs je Sch
 Die korrigierte Wahrnehmung ändert Ablauf und Arbeitslast, daher ist dies kein
 gleichwertiger Vorher-/Nachher-Geschwindigkeitsvergleich. Diese Messungen sind
 keine vollständigen Spiel-FPS. [Prüfdaten](native-environment/issue21.json).
+
+### #22 – Durchbrechbare Zugänge und getrennte Glasregeln
+
+Zwei optionale Blacksite-Verbindungen lassen sich durch leichte Metallpaneele
+beziehungsweise klare Glasfronten öffnen. Umwege bleiben erhalten. Glas lässt
+Sicht durch, hält aber Kugeln, Körper, Granaten und Explosionen bis zum Bruch auf.
+Der öffnende Schuss endet noch an der Scheibe. Öffnung, KI-Navigation, Kollision
+und Schatten folgen demselben Zustand; feste Rahmen bleiben bestehen. Kleine
+zeitlich begrenzte Scherben erzeugen Schritte, aber keine unsichtbare Schadens-
+oder Kollisionsfläche. Matte Markierungen machen intakte Scheiben lesbar.
+
+Reviews behoben die falsche Scherben-Auflage auf Dächern und einen widersprüchlichen
+Fallback für nicht zugeordnetes Glas. 180 Core- und 163 Mac-Tests sind abgedeckt;
+der korrigierte kurze Hilfetext besteht die erneute Layoutprüfung. Neun native
+Audiotests einschließlich echtem Offline-Mix sowie sechs Synthese-/Hörtests
+bestanden. Zwölf Metal-Szenen zeigen beide Materialien und alle drei Zustände
+auf beiden Grafikstufen. Bestehende vollständige Operationswege bleiben gültig;
+die neuen Zugänge verkürzen tatsächliche KI-Routen von rund 20–21 auf rund 8 m
+und sind nach Öffnung physisch begehbar.
+
+Der optimierte Core-Lauf misst 17,88 µs je Schritt mit acht zusätzlichen
+Blacksite-Körpern. Das ist keine Spiel-FPS-Messung. Der optimierte Appbuild mit
+Signatur und Smokecheck bestand; die abschließenden Glassicherheitsmarkierungen
+wurden anschließend auf beiden Stufen durch Metal geprüft.
+[Prüfdaten](native-environment/issue22.json).
