@@ -16,15 +16,24 @@ struct EnemyTerrainTests {
         Obstacle(id: 1, kind: .barrier, position: .zero, size: SIMD3(6, 1.05, 0.85))
     }
 
-    @Test func mainMapUsesTerrainWhileExplicitScenariosRemainFlat() {
+    @Test func mainMapUsesTerrainWhileExplicitScenariosRemainFlat() throws {
         let game = CombatSimulation()
         #expect(game.terrain == .battlefield)
-        #expect(game.obstacles.allSatisfy { abs($0.position.y - game.terrain.height(x: $0.position.x, z: $0.position.z)) < 0.0001 })
+        for obstacle in game.obstacles {
+            let authored = try #require(GameMap.obstacles.first { $0.id == obstacle.id })
+            let ground = game.terrain.height(x: obstacle.position.x, z: obstacle.position.z)
+            #expect(abs(obstacle.position.y - (ground + authored.position.y)) < 0.0001)
+            if obstacle.id < LevelProp.lowerServiceStep.rawValue {
+                #expect(authored.position.y == 0 && abs(obstacle.position.y - ground) < 0.0001)
+            }
+        }
         #expect(game.obstacles.contains { $0.position.y > 1 })
         #expect(game.extractionPosition.y == game.terrain.height(x: game.extractionPosition.x, z: game.extractionPosition.z))
-        let flat = scenario(player: SIMD3(16, 0, 24))
+        let raised = Obstacle(id: 900, kind: .crate, position: SIMD3(20,1.25,24), size: SIMD3(2,1,2))
+        let flat = scenario(player: SIMD3(16, 0, 24), world: [raised])
         #expect(flat.terrain == .flat)
         #expect(flat.player.position.y == 0)
+        #expect(flat.obstacles.first?.position == raised.position)
     }
 
     @Test func walkingClimbsHillsAndJumpingReturnsToNegativeValleyFloor() {

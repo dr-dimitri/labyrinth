@@ -23,7 +23,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 7 | #3 Einschläge und Explosionen | Umgesetzt und geprüft |
 | 8 | #5 Texturbudget | Umgesetzt und geprüft |
 | 9 | #4 Schadensstufen und Trümmer | Umgesetzt und geprüft |
-| 10 | #6 Schauplätze und alternative Wege | Offen |
+| 10 | #6 Schauplätze und alternative Wege | Umgesetzt und geprüft |
 | 11 | #9 Missionsvarianten | Offen |
 | 12 | #11 Steuerung und Zielkomfort | Offen |
 
@@ -309,3 +309,58 @@ Hangspalten wurden behoben. Keine verbliebenen Restschatten nach Ablauf.
 Reproduzierbar beispielsweise mit `--smoke-test --scene destruction-barrier
 --destruction-phase destroyed --destruction-hill`; weitere Phasen sind
 `intact`, `damaged` und `expired`, Neustart über `--destruction-reset`.
+
+### #6 – Schauplätze und alternative Wege
+
+Der West-Verladehof verwendet gelbe CARGO-Kennzeichnung und stärker abgenutzten
+Boden; die östliche Wartungsmulde blaue SERVICE-Schilder und feuchteres Laub.
+Das Nordtor trägt EVAC-Schilder, Straßenpfeile und markierte Aufstellflächen.
+Bodenmaterialien mischen vorhandene Fotos mit lokalen Masken; aufgelockerte
+Asphaltränder und freigelegte Außenpfade ergänzen die Orientierung. Keine neuen
+Bilddateien, Textursamples oder Renderpipelines sind dafür erforderlich.
+
+Die Zentralstraße sowie West- und Ostumgehung verbinden den Start mit dem Tor.
+Beide Gefechtsbereiche besitzen außerdem einen geprüften inneren und äußeren
+Verbindungsweg sowie weiterhin kletterbare Container. Der Nordbunker erhält zwei
+unabhängig bis ins Gelände gegründete Betonstufen: 3,270 → 5,205 → 7,475 Meter.
+Die Stufen ruhen nicht auf zerstörbarer Unterstützung. Beide bisherigen
+Dachaggregate wurden durch kollisionsgleiche Metallgehäuse ohne Auflagespalt
+ersetzt; sie blockieren Bewegung, Sicht und Treffer. Aufgemalte Wegweiser werfen
+keine zusätzlichen Schatten, räumliche Schilder und Bauteile verwenden die
+vorhandenen Nah-/Fernschatten. Container- und Kistenschilder gehören zum Besitzer
+und verschwinden mit dessen Zerstörung.
+
+Das feste Budget von 96 Zusatzdetails wird mit 83 Instanzen eingehalten:
+16 Teile für die vier neuen Collider, 33 statische Wegweiser und 34
+besitzergebundene Schilder/Details. Alte Dachdekoration entfällt. Bestehende
+Sichtbarkeits- und Baumdetailstufen bleiben aktiv.
+
+Validierung: 141 reguläre Tests bestanden. Sechs neue Routentests prüfen echte
+Lauf- und Kletterbewegung, frische Trümmer, drei Schadenszustände, beide
+Geländeprofile, Navigation zu Tor/Daten-/Funkposition, Dachdeckung und eindeutige
+Objektkennungen. Die alte Testannahme ausschließlich ebener Objektbasen wurde
+auf die explizit vorgesehenen Fundament- und Dachversätze erweitert.
+Unabhängiges Code-/Bildreview abgeschlossen. Vier identische Vorher-/Nachher-
+Blickwinkel und zusätzliche Tor-, Straßen- und Balanced-Dachansichten wurden
+mit Metal-Validierung geprüft. Eine verdeckte ROOF-Markierung wurde versetzt.
+
+| Rundgang | Vorher | Nachher |
+| --- | --- | --- |
+| Verladehof | [Bild](native-roadmap/level-west-before.png) | [Bild](native-roadmap/level-west-after.png) |
+| Wartungsmulde | [Bild](native-roadmap/level-east-before.png) | [Bild](native-roadmap/level-east-after.png) |
+| Bunkeraufstieg | [Bild](native-roadmap/level-north-before.png) | [Bild](native-roadmap/level-north-after.png) |
+| Dachdeckung | [Bild](native-roadmap/level-roof-before.png) | [Bild](native-roadmap/level-roof-after.png) |
+
+[Wegweiser](native-roadmap/level-road.png), [Nordtor](native-roadmap/level-gate.png).
+Reproduzierbar mit `--smoke-test --scene level-west` beziehungsweise `level-east`,
+`level-north`, `level-roof`, `level-road` und `level-gate`.
+
+Drei abwechselnde Messpaare je Grafikstufe, Apple M2 Pro, Squad mit neun Soldaten,
+2560×1600, jeweils zehn Aufwärm- und 120 abgeschlossene Frames:
+High CPU-P95 4,663 → 3,031 ms, GPU-P95 11,358 → 7,906 ms;
+Balanced CPU-P95 2,879 → 2,610 ms, GPU-P95 6,669 → 4,427 ms.
+Die Einzelläufe streuen deutlich; daraus wird kein gesicherter Geschwindigkeitsgewinn
+abgeleitet. GPU-Allokation unverändert bei 1204,39/332,02 MiB.
+Sichtbare Instanzen steigen jeweils um 21, Zeichenaufrufe von 55 auf 58;
+die zusätzliche Geometrie verwendet vorhandene Pipelines und Instanzpuffer.
+[Messdaten](native-roadmap/level-performance.json).

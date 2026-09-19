@@ -38,6 +38,7 @@ private struct RenderItem {
     var center: SIMD3<Float>
     var radius: Float
     var shadow: Bool
+    var levelAddition = false
 }
 private struct CoverVisual {
     let stage: CoverDamageStage
@@ -117,6 +118,8 @@ final class NativeRenderer {
     private var damagedCoverCount = 0
     private var solidDebrisCount = 0
     private var decorativeDebrisCount = 0
+    private var staticLevelDetailCount = 0
+    private var activeLevelItemCount = 0
     private var tracers: [Tracer] = []
     private var recoil: Float = 0
     private var shake: Float = 0
@@ -147,6 +150,8 @@ final class NativeRenderer {
         diagnostics["decorativeDebrisInstances"]=decorativeDebrisCount
         diagnostics["coverCacheEntries"]=coverCache.count
         diagnostics["debrisCacheEntries"]=debrisCache.count
+        diagnostics["levelDetailInstances"]=activeLevelItemCount
+        diagnostics["levelDetailInstanceBudget"]=96
         return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
@@ -510,6 +515,8 @@ final class NativeRenderer {
             if rubble { solidDebrisCount+=1 }
             else if obstacle.damageStage == .damaged { damagedCoverCount+=1 }
         }
+        activeLevelItemCount=staticLevelDetailCount+coverCache.values.reduce(0) { $0+$1.items.filter(\.levelAddition).count }
+        assert(activeLevelItemCount<=96,"Authored level details exceeded the fixed instance budget.")
         appendCoverDebris(to:&all,simulation:simulation)
         for enemy in simulation.enemies { all.append(contentsOf: soldierWeapon(enemy, time: simulation.elapsed)) }
         for grenade in simulation.grenades {
@@ -736,7 +743,7 @@ final class NativeRenderer {
             appendItem(to: &items, position: SIMD3(x, floor+0.5, -39), scale: SIMD3(1.5, 1, 1.5), color: concrete, material: SIMD4(0.9, 0, 0, 2))
         }
         appendItem(to: &items, position: SIMD3(0, 6.9, -39), scale: SIMD3(20, 1.1, 0.7), color: SIMD3(0.24, 0.29, 0.22), material: SIMD4(0.7, 0.5, 0, 0))
-        for x in stride(from: Float(-7.5), through: 7.5, by: 1.5) { appendItem(to: &items, position: SIMD3(x, 6.9, -38.64), scale: SIMD3(0.8, 0.08, 0.02), color: SIMD3(0.9, 0.71, 0.33), material: SIMD4(0.4, 0, 0.3, 0), shadow: false) }
+        for x in stride(from: Float(-7.5), through: 7.5, by: 1.5) where abs(x)>3 { appendItem(to: &items, position: SIMD3(x, 6.9, -38.64), scale: SIMD3(0.8, 0.08, 0.02), color: SIMD3(0.9, 0.71, 0.33), material: SIMD4(0.4, 0, 0.3, 0), shadow: false) }
         for flat: SIMD3<Float> in [SIMD3(-32, 0, -36), SIMD3(32, 0, 33)] {
             let p = grounded(flat)
             for dx: Float in [-1.7, 1.7] { for dz: Float in [-1.7, 1.7] { appendItem(to: &items, position: p + SIMD3(dx, 3, dz), scale: SIMD3(0.22, 6, 0.22), color: metal) } }
@@ -786,6 +793,10 @@ final class NativeRenderer {
             let s = 0.25 + rng.next() * 0.6, tone = 0.62 + rng.next() * 0.55
             appendItem(to: &items, mesh: 4, position: SIMD3(x, Self.terrainHeight(x, z), z), scale: SIMD3(0.6 + rng.next(), s * 0.6, 1), color: SIMD3(0.26, 0.33, 0.15) * tone, material: SIMD4(1, 0, 0, 8), yaw: rng.next() * .pi * 2, shadow: false)
         }
+        let levelStart=items.count
+        appendLevelGroundDetails(to:&items)
+        staticLevelDetailCount=items.count-levelStart
+        for index in levelStart..<items.count { items[index].levelAddition=true }
         scenery = items
     }
 
@@ -848,6 +859,109 @@ final class NativeRenderer {
         return ForestTree(center: position + SIMD3(0, height * 0.5, 0), radius: height * 0.65, levels: levels)
     }
 
+    /// Signs share the existing box draw batch. Only the shallow metal plate
+    /// and its fittings cast shadows; text is a material on that same surface.
+    private func appendLevelSign(to items:inout [RenderItem],transform:simd_float4x4,width:Float,materialID:Float) {
+        appendTransformed(to:&items,mesh:0,transform:transform*Self.scale(SIMD3(width,0.62,0.016)),color:SIMD3(repeating:1),material:SIMD4(0.89,0.05,0,materialID))
+        let frame=SIMD3<Float>(0.12,0.15,0.13)
+        for y:Float in [-0.33,0.33] {
+            appendTransformed(to:&items,mesh:0,transform:transform*Self.translation(SIMD3(0,y,-0.006))*Self.scale(SIMD3(width+0.05,0.035,0.028)),color:frame,material:SIMD4(0.75,0.30,0,0))
+        }
+        for x in [-width*0.46,width*0.46] {
+            appendTransformed(to:&items,mesh:1,transform:transform*Self.translation(SIMD3(x,0,0.013))*Self.scale(SIMD3(0.018,0.018,0.008)),color:SIMD3(0.41,0.42,0.36),material:SIMD4(0.45,0.75,0,9))
+        }
+    }
+
+    private func appendLevelGroundDetails(to items:inout [RenderItem]) {
+        // The existing evacuation gantry supplies the support and silhouette.
+        appendLevelSign(to:&items,transform:Self.translation(SIMD3(0,6.9,-38.624)),width:4.8,materialID:23)
+        let amber=SIMD3<Float>(0.70,0.51,0.19),blue=SIMD3<Float>(0.28,0.49,0.55),ivory=SIMD3<Float>(0.74,0.78,0.62)
+        func stripe(_ a:SIMD2<Float>,_ b:SIMD2<Float>,width:Float,color:SIMD3<Float>) {
+            let delta=b-a,length=simd_length(delta),center=(a+b)*0.5
+            appendItem(to:&items,position:SIMD3(center.x,0.0162,center.y),scale:SIMD3(width,0.001,length),color:color,material:SIMD4(0.96,0,0,0),yaw:atan2(delta.x,delta.y),shadow:false)
+        }
+        for (position,direction,word,color):(SIMD2<Float>,SIMD2<Float>,Float,SIMD3<Float>) in [
+            (SIMD2(-2.7,25.3),SIMD2(-1,0),21,amber),
+            (SIMD2(2.7,12.1),SIMD2(1,0),22,blue),
+            (SIMD2(0,-28),SIMD2(0,-1),23,ivory)
+        ] {
+            appendItem(to:&items,position:SIMD3(position.x,0.0162,position.y),scale:SIMD3(2.5,0.001,0.7),color:SIMD3(repeating:1),material:SIMD4(0.97,0,0,word),shadow:false)
+            let base=position+SIMD2<Float>(0,-1.6),tip=base+direction*0.65,side=SIMD2(-direction.y,direction.x)
+            stripe(base-direction*0.55,tip,width:0.14,color:color)
+            stripe(tip,tip-direction*0.44+side*0.34,width:0.14,color:color)
+            stripe(tip,tip-direction*0.44-side*0.34,width:0.14,color:color)
+        }
+        // Worn loading/service bay paint stays entirely on the flat asphalt.
+        for (side,start,color):(Float,Float,SIMD3<Float>) in [(-1,19.8,amber),(1,6.9,blue)] {
+            for index in 0..<3 {
+                let z=start+Float(index)*2
+                stripe(SIMD2(side*3.9,z),SIMD2(side*5.75,z),width:0.075,color:color)
+            }
+            stripe(SIMD2(side*5.75,start),SIMD2(side*5.75,start+4),width:0.075,color:color)
+        }
+        for x:Float in [-2.8,2.8] { for z:Float in [-32.8,-37.2] {
+            stripe(SIMD2(x,z),SIMD2(x-(x<0 ? -0.8:0.8),z),width:0.13,color:ivory)
+            stripe(SIMD2(x,z),SIMD2(x,z+(z < -35 ? 0.8:-0.8)),width:0.13,color:ivory)
+        } }
+    }
+
+    private func authoredCoverID(_ obstacle:Obstacle)->Int? {
+        guard GameMap.obstacles.indices.contains(obstacle.id) else { return nil }
+        let source=GameMap.obstacles[obstacle.id]
+        return source.kind == obstacle.kind && source.size == obstacle.size && source.position.x == obstacle.position.x && source.position.z == obstacle.position.z ? obstacle.id:nil
+    }
+
+    private func appendOwnerLevelDetails(to items:inout [RenderItem],obstacle:Obstacle) {
+        guard let id=authoredCoverID(obstacle) else { return }
+        let start=items.count,p=obstacle.position,s=obstacle.size
+        func sign(_ offset:SIMD3<Float>,width:Float,word:Float,yaw:Float=0) {
+            appendLevelSign(to:&items,transform:Self.translation(p+offset)*Self.rotationY(yaw),width:width,materialID:word)
+        }
+        switch id {
+        case 2:
+            sign(SIMD3(0,1.72,s.z*0.5+0.10),width:2.5,word:21)
+            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.8,word:21,yaw:.pi/2)
+        case 4:
+            sign(SIMD3(-2.2,1.72,s.z*0.5+0.085),width:3.0,word:21)
+        case 3:
+            sign(SIMD3(2.4,1.72,s.z*0.5+0.083),width:3.1,word:22)
+            sign(SIMD3(s.x*0.5+0.083,1.72,0),width:2.7,word:22,yaw:.pi/2)
+        case 11:
+            // The near maintenance crate identifies the hollow before the
+            // more distant service container comes into view.
+            sign(SIMD3(0,s.y*0.58,s.z*0.5+0.085),width:2.25,word:22)
+            for x:Float in [-s.x*0.38,s.x*0.38] {
+                appendItem(to:&items,position:p+SIMD3(x,s.y*0.5,s.z*0.5+0.052),scale:SIMD3(0.14,s.y*0.9,0.004),color:SIMD3(0.18,0.35,0.42),material:SIMD4(0.94,0,0,0),shadow:false)
+            }
+        case 0:
+            appendItem(to:&items,position:p+SIMD3(s.x*0.25,2.35,s.z*0.5+0.012),scale:SIMD3(2.3,0.56,0.003),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,21),shadow:false)
+        case 1:
+            appendItem(to:&items,position:p+SIMD3(-s.x*0.5-0.002,6.35,3),scale:SIMD3(0.003,0.56,2.0),color:SIMD3(repeating:1),material:SIMD4(0.98,0,0,24),shadow:false)
+        default:break
+        }
+        for index in start..<items.count { items[index].levelAddition=true }
+    }
+
+    private func buildLevelProp(_ obstacle:Obstacle,kind:LevelProp)->[RenderItem] {
+        var items:[RenderItem]=[];let p=obstacle.position,s=obstacle.size
+        let step=kind == .lowerServiceStep || kind == .upperServiceStep
+        // This is exactly the Core AABB, including embedded foundations. No
+        // second decorative vent or floating platform sits above the collider.
+        appendItem(to:&items,position:p+SIMD3(0,s.y*0.5,0),scale:s,color:step ? SIMD3(0.66,0.67,0.60):SIMD3(0.27,0.32,0.30),material:step ? SIMD4(0.94,0,0,2):SIMD4(0.68,0.25,0,15))
+        if step {
+            appendItem(to:&items,position:p+SIMD3(-s.x*0.5-0.002,s.y-0.075,0),scale:SIMD3(0.003,0.11,s.z-0.12),color:SIMD3(0.75,0.56,0.19),material:SIMD4(0.95,0,0,0),shadow:false)
+            appendItem(to:&items,position:p+SIMD3(0,s.y-0.075,s.z*0.5+0.002),scale:SIMD3(s.x-0.12,0.11,0.003),color:SIMD3(0.75,0.56,0.19),material:SIMD4(0.95,0,0,0),shadow:false)
+            appendItem(to:&items,position:p+SIMD3(-s.x*0.5-0.002,s.y-0.60,0),scale:SIMD3(0.003,0.44,min(1.65,s.z-0.2)),color:SIMD3(repeating:1),material:SIMD4(0.97,0,0,24),shadow:false)
+        } else {
+            for side:Float in [-1,1] {
+                appendItem(to:&items,position:p+SIMD3(0,s.y*0.51,side*(s.z*0.5+0.001)),scale:SIMD3(s.x-0.28,s.y*0.63,0.002),color:SIMD3(0.20,0.24,0.22),material:SIMD4(0.85,0.2,0,27),shadow:false)
+            }
+            appendItem(to:&items,position:p+SIMD3(s.x*0.5+0.001,s.y*0.54,0),scale:SIMD3(0.002,0.29,s.z*0.64),color:SIMD3(repeating:1),material:SIMD4(0.97,0,0,22),shadow:false)
+        }
+        for index in items.indices { items[index].levelAddition=true }
+        return items
+    }
+
     private func coverItems(_ obstacle:Obstacle,isRubble:Bool)->[RenderItem] {
         if let cached=coverCache[obstacle.id],cached.stage == obstacle.damageStage,
            cached.isRubble == isRubble,cached.position == obstacle.position,cached.size == obstacle.size { return cached.items }
@@ -860,7 +974,8 @@ final class NativeRenderer {
             items=[]
             appendItem(to:&items,position:obstacle.position+SIMD3(0,obstacle.size.y*0.5,0),scale:obstacle.size,
                 color:SIMD3(0.61,0.61,0.55),material:SIMD4(0.98,0,0,19))
-        } else { items=buildCover(obstacle) }
+        } else if let prop=GameMap.levelProp(for:obstacle) { items=buildLevelProp(obstacle,kind:prop) }
+        else { items=buildCover(obstacle) }
         coverCache[obstacle.id]=CoverVisual(stage:obstacle.damageStage,isRubble:isRubble,position:obstacle.position,size:obstacle.size,items:items)
         return items
     }
@@ -967,8 +1082,8 @@ final class NativeRenderer {
             box(SIMD3(-s.x * 0.3 + 0.54, 1.1, s.z * 0.5 + 0.16), SIMD3(0.1, 0.1, 0.15), metal)
             for x in stride(from: -s.x * 0.5 + 1, to: s.x * 0.5, by: 2.7) { box(SIMD3(x, s.y * 0.5, s.z * 0.5 + 0.012), SIMD3(0.025, s.y, 0.021), metal * 1.4) }
             for y in stride(from: Float(1), to: s.y, by: 1.1) { box(SIMD3(0, y, s.z * 0.5 + 0.012), SIMD3(s.x, 0.024, 0.021), metal * 1.4) }
-            box(SIMD3(1.6, s.y + 0.55, 1), SIMD3(2.5, 1, 2), metal)
-            for x in stride(from: Float(0.55), to: 2.6, by: 0.16) { box(SIMD3(x, s.y + 0.56, 2.01), SIMD3(0.05, 0.7, 0.03), metal * 0.5) }
+            // Authored roof equipment is now a separate Core obstacle. Its
+            // compact renderer supplies the exact collision-aligned shell.
         case .barrier:
             box(SIMD3(0, s.y * 0.5, 0), s, concrete, material: SIMD4(0.98, 0, 0, 2))
             box(SIMD3(0, 0.13, 0), SIMD3(s.x + 0.13, 0.26, s.z + 0.26), concrete * 0.8, material: SIMD4(1, 0, 0, 2))
@@ -993,6 +1108,7 @@ final class NativeRenderer {
             switch obstacle.kind { case .crate:materialID=18;case .barrier,.bunker:materialID=19;case .barrel:materialID=20;case .container:materialID=17 }
             for index in out.indices { out[index].instance.material.w=materialID }
         }
+        appendOwnerLevelDetails(to:&out,obstacle:obstacle)
         return out
     }
 

@@ -10,7 +10,7 @@ enum NativeBattlefieldCheck {
         let metadata: [String: Any]
     }
     private struct InvalidScene: LocalizedError {
-        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, destruction-crate, destruction-barrel, destruction-barrier, destruction-container, destruction-chain, destruction-stress, firefight, terrain or hollow." }
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, weapons, weapon-wall, impact-metal, impact-concrete, impact-wood, impact-soil, impact-asphalt, impact-miss, destruction-crate, destruction-barrel, destruction-barrier, destruction-container, destruction-chain, destruction-stress, level-west, level-east, level-north, level-roof, level-gate, level-road, firefight, terrain or hollow." }
     }
 
     static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
@@ -25,6 +25,33 @@ enum NativeBattlefieldCheck {
         var world = GameMap.obstacles
         var seconds:Double=0
         switch name {
+        case "level-west", "level-east", "level-north", "level-roof", "level-gate", "level-road":
+            let target: SIMD3<Float>
+            switch name {
+            case "level-west":
+                player.position = SIMD3(-21,0,33)
+                target = SIMD3(-25,terrain.height(x:-25,z:26)+1.7,26)
+            case "level-east":
+                player.position = SIMD3(30,0,14)
+                target = SIMD3(22,terrain.height(x:22,z:0)+0.8,0)
+            case "level-north":
+                player.position = SIMD3(11,0,-15)
+                target = SIMD3(22,terrain.height(x:24,z:-27)+3,-26)
+            case "level-gate":
+                player.position = SIMD3(0,0,-28)
+                target = SIMD3(0,3.3,-39)
+            case "level-road":
+                player.position = SIMD3(0,0,30)
+                target = SIMD3(0,0.5,24)
+            default:
+                let roof = terrain.height(x:24,z:-27)+7.2
+                player.position = SIMD3(20.4,roof,-24.8)
+                target = SIMD3(25.6,roof+0.55,-26)
+            }
+            let y = player.position.y == 0 ? terrain.height(x:player.position.x,z:player.position.z):player.position.y
+            let offset = target - SIMD3(player.position.x,y+player.height-0.1,player.position.z)
+            player.yaw = atan2(-offset.x,-offset.z)
+            player.pitch = atan2(offset.y,simd_length(SIMD2(offset.x,offset.z)))
         case "destruction-crate", "destruction-barrel", "destruction-barrier", "destruction-container", "destruction-chain", "destruction-stress":
             let kind: ObstacleKind = name == "destruction-crate" ? .crate : name == "destruction-barrier" ? .barrier : name == "destruction-container" ? .container : .barrel
             let size: SIMD3<Float> = kind == .crate ? SIMD3(2.5,1.7,2.2) : kind == .barrier ? SIMD3(5.4,1.05,0.85) : kind == .container ? SIMD3(5,3.1,3.6) : SIMD3(0.8,1.15,0.8)

@@ -187,11 +187,22 @@ public struct GameEvent: Sendable {
     }
 }
 
+/// Compact authored structures whose visual shell must match their collider.
+/// Raw values are stable world IDs, shared with surface hits and render caches.
+public enum LevelProp: Int, CaseIterable, Sendable {
+    case lowerServiceStep = 19, upperServiceStep = 20
+    case westRoofEquipment = 21, northRoofEquipment = 22
+}
+
 public enum GameMap {
     public static let minimum = SIMD3<Float>(-38, 0, -42)
     public static let maximum = SIMD3<Float>(38, 0, 42)
     public static let extraction = SIMD3<Float>(0, 0, -35)
     public static let extractionRadius: Float = 3.5
+    /// Ground-accessible landmarks reserved for the next mission objectives.
+    public static let dataSite = SIMD3<Float>(-31, 0, 31)
+    public static let radioSite = SIMD3<Float>(32, 0, 5)
+    public static let serviceApproach = SIMD3<Float>(13, 0, -24)
     public static let obstacles: [Obstacle] = {
         let definitions: [(ObstacleKind, Float, Float, Float, Float, Float)] = [
             (.bunker, -22, -12, 13, 13, 5.6), (.bunker, 24, -27, 12, 14, 7.2),
@@ -205,10 +216,35 @@ public enum GameMap {
             (.barrel, 10, -1, 0.8, 0.8, 1.15), (.barrel, -11, 11, 0.8, 0.8, 1.15),
             (.barrel, 18, 17, 0.8, 0.8, 1.15), (.barrel, -12, -22, 0.8, 0.8, 1.15)
         ]
-        return definitions.enumerated().map { index, d in
+        var result = definitions.enumerated().map { index, d in
             Obstacle(id: index, kind: d.0, position: SIMD3(d.1, 0, d.2), size: SIMD3(d.3, d.5, d.4))
         }
+        // Each concrete stage has its own embedded foundation. It never relies
+        // on a destructible box below it, and remains closed on sloping ground.
+        result.append(Obstacle(id: LevelProp.lowerServiceStep.rawValue, kind: .bunker,
+                               position: SIMD3(15.8,-3,-24), size: SIMD3(3.8,5.4,3.8)))
+        result.append(Obstacle(id: LevelProp.upperServiceStep.rawValue, kind: .bunker,
+                               position: SIMD3(16.4,-3,-24), size: SIMD3(2.2,7.6,2.2)))
+        // Both parent roofs are permanent and lie on level terrain foundations.
+        // These metal housings replace previously decorative, floating vents.
+        for (prop, position) in [(LevelProp.westRoofEquipment, SIMD3<Float>(-20.4,5.6,-11)),
+                                 (.northRoofEquipment, SIMD3<Float>(25.6,7.2,-26))] {
+            var housing = Obstacle(id: prop.rawValue, kind: .container, position: position, size: SIMD3(2.5,1,2))
+            housing.health = .infinity
+            result.append(housing)
+        }
+        return result
     }()
+
+    /// Grounding changes only y. Verify the other authored dimensions so an
+    /// isolated scenario reusing an ID does not acquire unrelated prop visuals.
+    public static func levelProp(for obstacle: Obstacle) -> LevelProp? {
+        guard let prop = LevelProp(rawValue: obstacle.id) else { return nil }
+        let authored = obstacles[prop.rawValue]
+        guard obstacle.kind == authored.kind, obstacle.size == authored.size,
+              obstacle.position.x == authored.position.x, obstacle.position.z == authored.position.z else { return nil }
+        return prop
+    }
     static let spawns: [SIMD3<Float>] = [
         SIMD3(9, 0, 1), SIMD3(-8, 0, 5), SIMD3(25, 0, -10), SIMD3(-11, 0, -17),
         SIMD3(2, 0, -30), SIMD3(-30, 0, 14), SIMD3(30, 0, 21), SIMD3(11, 0, -30), SIMD3(-28, 0, -30)

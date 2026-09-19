@@ -42,6 +42,36 @@ float noise(float2 p) { float2 i=floor(p),f=fract(p); f=f*f*(3-2*f); return mix(
 float coverSegmentDistance(float2 p,float2 a,float2 b) {
   float2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/max(dot(ab,ab),0.0001),0.0,1.0));
 }
+// Ten compact stencil glyphs are sufficient for four consistent wayfinding
+// labels. They add neither image assets nor texture bindings/draw calls.
+uint2 levelGlyph(uint character) {
+  switch(character) {
+    case 65:return uint2(1033774u,17969u); // A
+    case 67:return uint2(541199u,15888u);  // C
+    case 82:return uint2(1001022u,18004u); // R
+    case 71:return uint2(770606u,14897u);  // G
+    case 79:return uint2(575022u,14897u);  // O
+    case 83:return uint2(475663u,30753u);  // S
+    case 69:return uint2(999967u,32272u);  // E
+    case 86:return uint2(575025u,4433u);  // V
+    case 73:return uint2(135327u,31876u); // I
+    case 70:return uint2(999967u,16912u); // F
+    default:return uint2(0);
+  }
+}
+constant uint levelWords[4][7]={{67,65,82,71,79,0,0},{83,69,82,86,73,67,69},{69,86,65,67,0,0,0},{82,79,79,70,0,0,0}};
+float levelSignInk(float2 uv,int word) {
+  int count=word==0 ? 5:word==1 ? 7:4;
+  float2 p=float2((uv.x-0.10)*float(count*6-1)/0.80,(0.79-uv.y)*7.0/0.58);
+  int2 pixel=int2(floor(p));
+  float border=1.0-smoothstep(0.019,0.027,min(min(uv.x,1-uv.x),min(uv.y,1-uv.y)));
+  if(pixel.x<0 || pixel.x>=count*6-1 || pixel.y<0 || pixel.y>=7) return border;
+  uint2 glyph=levelGlyph(levelWords[word][pixel.x/6]);
+  int column=pixel.x%6;
+  if(column>=5) return border;
+  uint row=pixel.y<4 ? (glyph.x>>(pixel.y*5)):(glyph.y>>((pixel.y-4)*5));
+  return max(border,float((row>>(4-column))&1u));
+}
 float3 perturbNormal(float3 n,float3 position,float2 uv,float3 map,float strength) {
   float3 q1=dfdx(position),q2=dfdy(position); float2 st1=dfdx(uv),st2=dfdy(uv);
   float jacobian=st1.x*st2.y-st1.y*st2.x;
@@ -130,11 +160,20 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     uv=in.world.xz*0.76923; float2 leafUV=in.world.xz*0.5+float2(12.73,4.29);
     float macro=noise(in.world.xz*0.041); float forest=smoothstep(0.2,0.75,macro+smoothstep(7.0,32.0,abs(in.world.x))*0.36);
     if(id==7) forest=max(forest,0.6);
+    float loading=1.0-smoothstep(0.65,1.15,length((in.world.xz-float2(-21,20))/float2(12,18)));
+    float service=1.0-smoothstep(0.58,1.12,length((in.world.xz-float2(31,5))/float2(9,18)));
+    float westTrack=(1.0-smoothstep(0.65,1.9,abs(in.world.x+32)))*(1.0-smoothstep(25.0,30.0,abs(in.world.z-5)));
+    float eastTrack=(1.0-smoothstep(0.65,1.9,abs(in.world.x-32.5)))*(1.0-smoothstep(21.0,27.0,abs(in.world.z+8)));
+    forest=max(forest*(1.0-loading*0.72),service*0.78);
+    forest*=1.0-max(westTrack,eastTrack)*0.85;
     float3 soil=earthColor.sample(surface,uv).rgb,leaves=groundColor.sample(surface,leafUV).rgb;
     // Different scales/materials and low-frequency colour masks suppress obvious
     // repeats without multiplying texture storage or adding terrain draw calls.
     albedo*=mix(soil,leaves,forest)*(0.83+macro*0.22+noise(in.world.xz*0.14)*0.10);
+    albedo*=mix(float3(1),float3(1.08,1.02,0.88),loading*0.60);
+    albedo*=mix(float3(1),float3(0.73,0.80,0.73),service*0.70);
     rough*=mix(earthRough.sample(surface,uv).r,groundRough.sample(surface,leafUV).r,forest);
+    rough*=1.0-service*0.10;
     map=mix(earthNormal.sample(surface,uv).xyz,groundNormal.sample(surface,leafUV).xyz,forest)*2-1;
     float exposed=smoothstep(0.12,0.38,1.0-n.y)*(0.45+noise(in.world.xz*0.35)*0.4);
     albedo=mix(albedo,rockColor.sample(surface,uv*0.6).rgb*in.tint.rgb,exposed);
@@ -164,10 +203,21 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
     map=barkNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.9);
   } else if(id==6) {
     uv=in.world.xz*0.48077; albedo*=asphaltColor.sample(surface,uv).rgb;
-    float shoulder=smoothstep(4.4,6.0,abs(in.world.x)); float grime=shoulder*(0.45+noise(in.world.xz*0.7)*0.25);
+    float edgeNoise=noise(in.world.xz*0.7);
+    float shoulder=smoothstep(4.15,6.0,abs(in.world.x)+(edgeNoise-0.5)*0.9); float grime=shoulder*(0.45+edgeNoise*0.25);
     albedo=mix(albedo,earthColor.sample(surface,in.world.xz*0.76923).rgb*0.52,grime);
     albedo*=0.91+noise(in.world.xz*0.12)*0.14; rough=max(0.78,rough*asphaltRough.sample(surface,uv).r);
     map=asphaltNormal.sample(surface,uv).xyz*2-1; n=perturbNormal(n,in.world,uv,map,0.55);
+  } else if(id>=21 && id<=24) {
+    int word=id-21;float ink=levelSignInk(in.uv,word);
+    float3 base=id==21 ? float3(0.64,0.41,0.105):id==22 ? float3(0.046,0.13,0.17):id==23 ? float3(0.065,0.20,0.12):float3(0.085,0.12,0.10);
+    float3 paint=id==21 ? float3(0.024,0.032,0.027):id==24 ? float3(0.75,0.55,0.18):float3(0.75,0.79,0.65);
+    float wear=0.90+noise(in.detailUV*43.0)*0.10;
+    albedo=mix(base,paint,ink*wear);rough=0.94;metal=0.04;
+  } else if(id==27) {
+    float inside=step(0.035,in.uv.x)*step(in.uv.x,0.965)*step(0.075,in.uv.y)*step(in.uv.y,0.925);
+    float grille=(1.0-smoothstep(0.22,0.39,abs(fract(in.uv.y*12.0)-0.5)))*inside;
+    albedo*=mix(1.12,0.22,grille);rough=0.85;metal=0.28;
   } else if(id==17 || id==20) {
     // Existing photographic painted-metal maps also describe damaged cover.
     // The object's own tint preserves the container/barrel identification.
