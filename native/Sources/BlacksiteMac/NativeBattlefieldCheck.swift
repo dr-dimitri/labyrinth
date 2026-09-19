@@ -10,7 +10,7 @@ enum NativeBattlefieldCheck {
         let metadata: [String: Any]
     }
     private struct InvalidScene: LocalizedError {
-        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, firefight, terrain or hollow." }
+        var errorDescription: String? { "--scene accepts soldiers, soldiers-side, squad, soldier-close, soldier-profile, soldier-back, soldier-crouch, soldier-dead, shadows-hill, shadows-roof, firefight, terrain or hollow." }
     }
 
     static func prepare(arguments: [String], renderer: NativeRenderer) throws -> Result? {
@@ -63,6 +63,34 @@ enum NativeBattlefieldCheck {
                 if name == "soldiers-side" { enemy.yaw = .pi * 0.35 }
                 enemies.append(enemy)
             }
+        case "shadows-hill", "shadows-roof":
+            let roof = terrain.height(x: 15, z: -5) + 3.1
+            let points: [SIMD3<Float>]
+            if name == "shadows-hill" {
+                player.position = SIMD3(16, terrain.height(x: 16, z: 22), 22)
+                points = [SIMD3(13, terrain.height(x: 13, z: 27), 27),
+                          SIMD3(16, terrain.height(x: 16, z: 28), 28),
+                          SIMD3(19, terrain.height(x: 19, z: 27), 27)]
+            } else {
+                player.position = SIMD3(18.8, roof, -3.85)
+                points = [SIMD3(11.5, roof, -5.85), SIMD3(14, roof, -4), SIMD3(15.8, roof, -5.7)]
+            }
+            let target = points.reduce(.zero, +) / Float(points.count) + SIMD3(0, 0.7, 0)
+            let offset = target - (player.position + SIMD3(0, player.height - 0.1, 0))
+            player.yaw = atan2(-offset.x, -offset.z)
+            player.pitch = atan2(offset.y, simd_length(SIMD2(offset.x, offset.z)))
+            for (i, point) in points.enumerated() {
+                var enemy = EnemyState(id: 501 + i, position: point)
+                enemy.yaw = atan2(player.position.x - point.x, player.position.z - point.z)
+                enemy.aimBlend = 1; enemy.seesPlayer = true
+                if i == 1 { enemy.crouchAmount = 1 }
+                if i == 2 {
+                    enemy.position.y += 0.62; enemy.grounded = false
+                    enemy.isMoving = true; enemy.isRunning = true; enemy.walkCycle = 1.1
+                    enemy.verticalVelocity = 1.5; enemy.aimBlend = 0.2
+                }
+                enemies.append(enemy)
+            }
         case "firefight":
             player.position=SIMD3(0,0,23)
             enemies=[EnemyState(id:301,position:SIMD3(-4,0,14)),
@@ -75,6 +103,9 @@ enum NativeBattlefieldCheck {
         case "hollow":
             player.position=SIMD3(24,0,0); player.yaw = -2.13; player.pitch = -0.30
         default: throw InvalidScene()
+        }
+        if let cameraOffset = Float(value("--camera-offset") ?? "0"), cameraOffset.isFinite {
+            player.position.x += max(-0.5, min(0.5, cameraOffset))
         }
         let simulation=CombatSimulation(difficulty:.easy,seed:1745,world:GameMap.obstacles,
                                          startingPlayer:player,startingEnemies:enemies,startingWave:3,terrain:terrain)

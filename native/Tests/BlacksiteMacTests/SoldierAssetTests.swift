@@ -139,6 +139,61 @@ struct SoldierAssetTests {
         for i in before.indices { for c in 0..<4 { #expect(simd_length(before[i][c]-after[i][c])<0.0001) } }
     }
 
+    @Test func soleSamplesFollowBothFeetOnSlopesRoofsAndAirbornePoses() throws {
+        let model=try asset(),terrain=TerrainProfile.battlefield
+        let scenes:[(roof:Bool,player:SIMD3<Float>,positions:[SIMD3<Float>])] = [
+            (false,SIMD3(16,terrain.height(x:16,z:22),22),[SIMD3(13,terrain.height(x:13,z:27),27),SIMD3(16,terrain.height(x:16,z:28),28),SIMD3(19,terrain.height(x:19,z:27),27)]),
+            (true,SIMD3(18.8,3.925,-3.85),[SIMD3(11.5,3.925,-5.85),SIMD3(14,3.925,-4),SIMD3(15.8,3.925,-5.7)])
+        ]
+        for scene in scenes { for (style,base) in scene.positions.enumerated() {
+            model.resetAnimation()
+            var enemy=EnemyState(id:501+style,position:base)
+            enemy.yaw=atan2(scene.player.x-base.x,scene.player.z-base.z);enemy.aimBlend=1
+            if style==1 { enemy.crouchAmount=1 }
+            if style==2 {
+                enemy.position.y += 0.62;enemy.grounded=false;enemy.isMoving=true;enemy.isRunning=true
+                enemy.walkCycle=1.1;enemy.verticalVelocity=1.5;enemy.aimBlend=0.2
+            }
+            let palette=model.palette(enemy:enemy,time:0,terrain:terrain)
+            let soles=model.soleContactPoints(palette:palette)
+            let joints=model.jointPositions(enemy:enemy,time:0,terrain:terrain)
+            let skin=model.primitives.flatMap { $0.vertices.map { SoldierAsset.skin($0,palette:palette) } }
+            for (side,sole) in [("Left",soles.left),("Right",soles.right)] {
+                let points=[sole.heelLeft,sole.heelRight,sole.toeLeft,sole.toeRight]
+                let ankle=try #require(joints["mixamorig"+side+"Foot"])
+                #expect(Set(points).count==4)
+                #expect(simd_distance((sole.heelLeft+sole.heelRight)*0.5,(sole.toeLeft+sole.toeRight)*0.5)>0.13)
+                #expect(simd_distance(sole.heelLeft,sole.heelRight)>0.04)
+                for p in points {
+                    #expect(p.x.isFinite && p.y.isFinite && p.z.isFinite)
+                    // The probes must remain original, visibly rendered vertices.
+                    #expect(skin.contains { simd_distance($0,p)<0.000001 })
+                    #expect(simd_distance(p,ankle)<0.30)
+                    let gap=p.y-(scene.roof ? 3.925:terrain.height(x:p.x,z:p.z))
+                    if enemy.grounded { #expect(gap > -0.025 && gap < 0.025) }
+                    else { #expect(gap>0.75) }
+                }
+            }
+        } }
+    }
+
+    @Test func soleQueriesUseTheProvidedPaletteWithoutAdvancingAnimation() throws {
+        let model=try asset()
+        var enemy=EnemyState(id:84,position:SIMD3(4,2,-3));enemy.crouchAmount=1;enemy.yaw=0.8
+        let palette=model.palette(enemy:enemy,time:1,terrain:.flat)
+        let original=model.soleContactPoints(palette:palette)
+        var translation=matrix_identity_float4x4
+        let offset=SIMD3<Float>(7,-3,11);translation.columns.3=SIMD4(offset,1)
+        let moved=model.soleContactPoints(palette:palette.map { translation * $0 })
+        let repeated=model.soleContactPoints(palette:palette)
+        for (a,b,c) in [(original.left,moved.left,repeated.left),(original.right,moved.right,repeated.right)] {
+            for (before,after,again) in [(a.heelLeft,b.heelLeft,c.heelLeft),(a.heelRight,b.heelRight,c.heelRight),(a.toeLeft,b.toeLeft,c.toeLeft),(a.toeRight,b.toeRight,c.toeRight)] {
+                #expect(simd_distance(before+offset,after)<0.00001)
+                #expect(before==again)
+            }
+        }
+    }
+
     @Test func malformedContainersAndAccessorOffsetsThrowRatherThanCrash() throws {
         let original=try Data(contentsOf:Self.fixture)
         let folder=FileManager.default.temporaryDirectory.appendingPathComponent("soldier-loader-"+UUID().uuidString)

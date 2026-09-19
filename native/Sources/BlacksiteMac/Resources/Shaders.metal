@@ -2,8 +2,8 @@
 using namespace metal;
 struct Vertex { float3 position; float3 normal; float2 uv; };
 struct Instance { float4x4 model; float4 normal0; float4 normal1; float4 normal2; float4 tint; float4 material; };
-struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; };
-struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 tint; float4 material; float4 shadow; };
+struct Uniforms { float4x4 viewProjection; float4x4 inverseViewProjection; float4x4 lightViewProjection; float4 eyeTime; float4 sunDirection; float4 fogColor; float4 viewport; float4x4 nearLightViewProjection; float4 shadowParameters; };
+struct Raster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 tint; float4 material; float4 shadow; float4 nearShadow; };
 float3 windPosition(float3 p, float2 uv, float material, float time) {
   if(material>3.5 && material<4.5) {
     // Flex only the tips of individual twigs. No whole-tree billboard rotation.
@@ -21,12 +21,12 @@ vertex Raster worldVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const de
   Vertex v=vertices[vi]; Instance i=instances[ii]; Raster o;
   float4 p=i.model*float4(v.position,1); p.xyz=windPosition(p.xyz,v.uv,i.material.w,u.eyeTime.w);
   o.position=u.viewProjection*p; o.world=p.xyz; o.normal=normalize(float3x3(i.normal0.xyz,i.normal1.xyz,i.normal2.xyz)*v.normal);
-  o.uv=v.uv; o.tint=i.tint; o.material=i.material; o.shadow=u.lightViewProjection*p; return o;
+  o.uv=v.uv; o.tint=i.tint; o.material=i.material; o.shadow=u.lightViewProjection*p; o.nearShadow=u.nearLightViewProjection*p; return o;
 }
 vertex Raster shadowVertex(uint vi [[vertex_id]],uint ii [[instance_id]],const device Vertex *vertices [[buffer(0)]],const device Instance *instances [[buffer(1)]],constant Uniforms &u [[buffer(2)]]) {
   Vertex v=vertices[vi]; Instance i=instances[ii]; Raster o;
   float4 p=i.model*float4(v.position,1); p.xyz=windPosition(p.xyz,v.uv,i.material.w,u.eyeTime.w);
-  o.position=u.lightViewProjection*p; o.world=p.xyz; o.uv=v.uv; o.material=i.material; o.tint=i.tint; o.normal=v.normal; o.shadow=o.position; return o;
+  o.position=u.lightViewProjection*p; o.world=p.xyz; o.uv=v.uv; o.material=i.material; o.tint=i.tint; o.normal=v.normal; o.shadow=o.position; o.nearShadow=o.position; return o;
 }
 fragment void shadowFragment(Raster in [[stage_in]],texture2d<float> pineAlpha [[texture(0)]],sampler surface [[sampler(0)]]) {
   if(in.material.w>3.5 && in.material.w<4.5 && pineAlpha.sample(surface,in.uv).r<0.43) discard_fragment();
@@ -41,6 +41,62 @@ float3 perturbNormal(float3 n,float3 position,float2 uv,float3 map,float strengt
   t=normalize(t-n*dot(n,t)); b=normalize(b-n*dot(n,b));
   return normalize(n*max(map.z,0.15)+t*map.x*strength+b*map.y*strength);
 }
+// Both static and skinned geometry use this single bias/filter implementation.
+// Receiver-plane correction keeps a sloping surface's PCF taps on its plane,
+// allowing millimetre contact offsets instead of a detached centimetre shadow.
+float2 receiverPlaneGradient(float3 p) {
+  float2 uv=p.xy*float2(0.5,-0.5)+0.5;
+  float2 du=dfdx(uv),dv=dfdy(uv); float dzdu=dfdx(p.z),dzdv=dfdy(p.z);
+  float determinant=du.x*dv.y-du.y*dv.x;
+  float2 gradient=abs(determinant)>1e-12 ? float2(dzdu*dv.y-dzdv*du.y,dzdv*du.x-dzdu*dv.x)/determinant:float2(0);
+  return clamp(gradient,float2(-2),float2(2));
+}
+float shadowPCF(depth2d<float> map,sampler comparison,float3 p,float bias,float2 gradient) {
+  float2 uv=p.xy*float2(0.5,-0.5)+0.5;
+  float2 dimensions=float2(map.get_width(),map.get_height()),pixel=uv*dimensions;
+  float2 centre=floor(pixel)+0.5;float visibility=0,weightSum=0;
+  for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++) {
+    float2 tapPixel=centre+float2(x,y),tapUV=tapPixel/dimensions;
+    float2 distance=abs(tapPixel-pixel),tent=max(float2(0),1.5-distance);
+    float weight=tent.x*tent.y;
+    // Nearest comparison is deliberate: every depth comparison gets the
+    // receiver-plane depth of its actual texel centre, including subpixel UV.
+    visibility+=map.sample_compare(comparison,tapUV,p.z+dot(gradient,tapUV-uv)-bias,level(0))*weight;
+    weightSum+=weight;
+  }
+  return visibility/max(weightSum,0.001);
+}
+float2 directionalShadows(float4 farClip,float4 nearClip,float3 normal,constant Uniforms &u,
+  depth2d<float> farMap,depth2d<float> nearMap,sampler comparison) {
+  float3 p=nearClip.xyz/nearClip.w,farP=farClip.xyz/farClip.w;
+  // Derivatives must execute for the entire quad, before cascade branches.
+  float2 nearGradient=receiverPlaneGradient(p),farGradient=receiverPlaneGradient(farP);
+  float edge=max(abs(p.x),abs(p.y));
+  float nearWeight=(p.z>0 && p.z<1) ? 1-smoothstep(0.80,0.98,edge):0;
+  float nl=saturate(dot(normal,normalize(u.sunDirection.xyz)));
+  float nearVisibility=1,contact=1;
+  if(nearWeight>0) {
+    float worldTexel=u.shadowParameters.x*u.shadowParameters.y;
+    float bias=max(0.002,worldTexel*0.20*(1-nl))/u.shadowParameters.z;
+    nearVisibility=shadowPCF(nearMap,comparison,p,bias,nearGradient);
+    // Only an actual nearby occluder can darken ambient light. This works on
+    // hills and roofs, without any dependence on the absolute world height.
+    constexpr sampler nearestDepth(coord::normalized,address::clamp_to_edge,filter::nearest);
+    float2 nearUV=p.xy*float2(0.5,-0.5)+0.5;
+    float2 nearestUV=(floor(nearUV/u.shadowParameters.x)+0.5)*u.shadowParameters.x;
+    float stored=nearMap.sample(nearestDepth,nearestUV,level(0));
+    float separation=(p.z+dot(nearGradient,nearestUV-nearUV)-stored)*u.shadowParameters.z;
+    float closeOccluder=step(bias*u.shadowParameters.z,separation)*(1-smoothstep(0.06,0.80,separation));
+    contact=1-u.shadowParameters.w*closeOccluder*(1-nearVisibility)*nearWeight;
+    if(nearWeight>=0.999) return float2(nearVisibility,contact);
+  }
+  // No far PCF at all in the inner near cascade; only the overlap pays twice.
+  float farVisibility=1;
+  if(all(abs(farP.xy)<1) && farP.z>0 && farP.z<1) {
+    farVisibility=shadowPCF(farMap,comparison,farP,max(0.00014,0.00055*(1-nl)),farGradient);
+  }
+  return float2(mix(farVisibility,nearVisibility,nearWeight),contact);
+}
 fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
   texture2d<float> earthColor [[texture(0)]],texture2d<float> earthNormal [[texture(1)]],texture2d<float> earthRough [[texture(2)]],
   texture2d<float> concreteColor [[texture(3)]],texture2d<float> concreteNormal [[texture(4)]],texture2d<float> concreteRough [[texture(5)]],
@@ -49,7 +105,7 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   texture2d<float> barkColor [[texture(11)]],texture2d<float> barkNormal [[texture(12)]],texture2d<float> barkRough [[texture(13)]],
   texture2d<float> groundColor [[texture(14)]],texture2d<float> groundNormal [[texture(15)]],texture2d<float> groundRough [[texture(16)]],
   texture2d<float> asphaltColor [[texture(17)]],texture2d<float> asphaltNormal [[texture(18)]],texture2d<float> asphaltRough [[texture(19)]],
-  texture2d<float> pineNormal [[texture(20)]],texture2d<float> pineAlpha [[texture(21)]],texture2d<float> pineRough [[texture(22)]],texture2d<float> photoSky [[texture(23)]],
+  texture2d<float> pineNormal [[texture(20)]],texture2d<float> pineAlpha [[texture(21)]],texture2d<float> pineRough [[texture(22)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   float3 n=normalize(in.normal),albedo=in.tint.rgb,map=float3(0,0,1);
   float rough=in.material.x,metal=in.material.y,emissive=in.material.z,coverage=1.0,canopyAO=1.0;
@@ -128,16 +184,11 @@ fragment float4 worldFragment(Raster in [[stage_in]],constant Uniforms &u [[buff
   float geometry=(nl/(nl*(1-k)+k))*(nv/(nv*(1-k)+k));
   float3 f0=mix(float3(0.04),albedo,metal),fresnel=f0+(1-f0)*pow(1-vh,5.0);
   float3 specular=distribution*geometry*fresnel/max(4*nl*nv,0.001);
-  float visibility=1; float3 projected=in.shadow.xyz/in.shadow.w; float2 shadowUV=projected.xy*float2(0.5,-0.5)+0.5;
-  if(all(shadowUV>0.0) && all(shadowUV<1.0) && projected.z>0 && projected.z<1) {
-    float bias=max(0.00014,0.00055*(1-nl)); float2 texel=1.0/float2(shadowMap.get_width(),shadowMap.get_height()); visibility=0;
-    for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++) visibility+=shadowMap.sample_compare(shadowSampler,shadowUV+float2(x,y)*texel,projected.z-bias);
-    visibility/=9;
-  }
+  float2 shadow=directionalShadows(in.shadow,in.nearShadow,normalize(in.normal),u,shadowMap,nearShadowMap,shadowSampler);
+  float visibility=shadow.x;
   float3 ambient=mix(float3(0.12,0.115,0.085),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
-  float contact=mix(0.64,1.0,saturate(in.world.y*1.8)); if(id==1 || id==7 || id==6) contact=0.95;
   float3 irradiance=float3(3.05,2.90,2.52);
-  float3 lit=ambient*contact*canopyAO+(albedo*(1-metal)/M_PI_F+specular)*irradiance*nl*visibility;
+  float3 lit=ambient*shadow.y*canopyAO+(albedo*(1-metal)/M_PI_F+specular)*irradiance*nl*visibility;
   if(id==4) {
     float wrap=pow(max(dot(-l,v),0.0),3.0); float transmission=(0.10+wrap*0.55)*max(0.0,0.5-dot(n,l)*0.5);
     lit+=albedo*float3(1.1,1.30,0.83)*transmission*mix(0.5,1.0,visibility)*canopyAO;
@@ -178,7 +229,23 @@ fragment float4 skyFragment(SkyRaster in [[stage_in]],constant Uniforms &u [[buf
 // The glTF vertex layout is 64 bytes in Swift and Metal. Joint indices address
 // the concatenated body/visor skins; every palette matrix is already in world space.
 struct SoldierSkinVertex { float3 position; float3 normal; float2 uv; ushort4 joints; float4 weights; };
-struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; };
+// Actual skinned sole probes determine these short support-plane patches on
+// the CPU. Their local ambient occlusion remains visible inside a sun shadow.
+struct ContactPatch { float4 centerOpacity; float4 axisU; float4 axisV; };
+struct ContactRaster { float4 position [[position]]; float2 uv; float opacity; };
+vertex ContactRaster footContactVertex(uint vertexID [[vertex_id]],uint instanceID [[instance_id]],
+  const device ContactPatch *patches [[buffer(0)]],constant Uniforms &u [[buffer(2)]]) {
+  const float2 corners[6]={float2(-1,-1),float2(1,-1),float2(1,1),float2(-1,-1),float2(1,1),float2(-1,1)};
+  ContactPatch p=patches[instanceID];float2 corner=corners[vertexID];
+  float3 world=p.centerOpacity.xyz+p.axisU.xyz*corner.x+p.axisV.xyz*corner.y;
+  ContactRaster o;o.position=u.viewProjection*float4(world,1);o.uv=corner;o.opacity=p.centerOpacity.w;return o;
+}
+fragment float4 footContactFragment(ContactRaster in [[stage_in]]) {
+  float radiusSquared=dot(in.uv,in.uv);
+  float falloff=(1-smoothstep(0.05,1.0,radiusSquared));
+  return float4(0,0,0,in.opacity*falloff*falloff);
+}
+struct SoldierRaster { float4 position [[position]]; float3 world; float3 normal; float2 uv; float4 shadow; float4 nearShadow; };
 float4x4 soldierSkinMatrix(SoldierSkinVertex v,const device float4x4 *joints,uint offset) {
   return joints[offset+v.joints.x]*v.weights.x+joints[offset+v.joints.y]*v.weights.y+
          joints[offset+v.joints.z]*v.weights.z+joints[offset+v.joints.w]*v.weights.w;
@@ -188,7 +255,7 @@ vertex SoldierRaster soldierVertex(uint vi [[vertex_id]],uint ii [[instance_id]]
   constant Uniforms &u [[buffer(2)]],constant uint &paletteCount [[buffer(3)]]) {
   SoldierSkinVertex v=vertices[vi];float4x4 skin=soldierSkinMatrix(v,joints,ii*paletteCount);
   float4 world=skin*float4(v.position,1);SoldierRaster o;
-  o.position=u.viewProjection*world;o.world=world.xyz;o.uv=v.uv;o.shadow=u.lightViewProjection*world;
+  o.position=u.viewProjection*world;o.world=world.xyz;o.uv=v.uv;o.shadow=u.lightViewProjection*world;o.nearShadow=u.nearLightViewProjection*world;
   // Cofactors retain the correct surface normal under blended/nonuniform bone
   // transforms, including the model's centimetre-to-metre normalisation.
   float3 a=skin[0].xyz,b=skin[1].xyz,c=skin[2].xyz;
@@ -200,7 +267,7 @@ vertex SoldierRaster soldierShadowVertex(uint vi [[vertex_id]],uint ii [[instanc
   const device SoldierSkinVertex *vertices [[buffer(0)]],const device float4x4 *joints [[buffer(1)]],
   constant Uniforms &u [[buffer(2)]],constant uint &paletteCount [[buffer(3)]]) {
   SoldierSkinVertex v=vertices[vi];float4 p=soldierSkinMatrix(v,joints,ii*paletteCount)*float4(v.position,1);
-  SoldierRaster o;o.position=u.lightViewProjection*p;o.world=p.xyz;o.uv=v.uv;o.normal=v.normal;o.shadow=o.position;return o;
+  SoldierRaster o;o.position=u.lightViewProjection*p;o.world=p.xyz;o.uv=v.uv;o.normal=v.normal;o.shadow=o.position;o.nearShadow=o.position;return o;
 }
 fragment void soldierShadowFragment(SoldierRaster in [[stage_in]],texture2d<float> color [[texture(0)]],
   sampler surface [[sampler(0)]],constant uint &material [[buffer(3)]]) {
@@ -218,7 +285,7 @@ float3 soldierMappedNormal(float3 n,float3 p,float2 uv,float3 map) {
 fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms &u [[buffer(2)]],
   constant uint &material [[buffer(3)]],texture2d<float> color [[texture(0)]],
   texture2d<float> normalMap [[texture(1)]],texture2d<float> roughnessMap [[texture(2)]],
-  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],
+  depth2d<float> shadowMap [[texture(10)]],texture2d<float> photoSky [[texture(23)]],depth2d<float> nearShadowMap [[texture(24)]],
   sampler surface [[sampler(0)]],sampler shadowSampler [[sampler(1)]]) {
   bool visor=material==2,skin=material==1;float4 texel=color.sample(surface,in.uv);
   if(!visor && texel.a<0.35) discard_fragment();
@@ -240,14 +307,10 @@ fragment float4 soldierFragment(SoldierRaster in [[stage_in]],constant Uniforms 
   float geometry=(nl/(nl*(1-k)+k))*(nv/(nv*(1-k)+k));
   float3 f0=visor ? float3(0.055,0.063,0.066):float3(0.035);
   float3 fresnel=f0+(1-f0)*pow(1-vh,5.0),specular=distribution*geometry*fresnel/max(4*nl*nv,0.001);
-  float visibility=1;float3 projected=in.shadow.xyz/in.shadow.w;float2 shadowUV=projected.xy*float2(0.5,-0.5)+0.5;
-  if(all(shadowUV>0.0) && all(shadowUV<1.0) && projected.z>0 && projected.z<1) {
-    float bias=max(0.00012,0.0005*(1-nl));float2 texelSize=1.0/float2(shadowMap.get_width(),shadowMap.get_height());visibility=0;
-    for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++) visibility+=shadowMap.sample_compare(shadowSampler,shadowUV+float2(x,y)*texelSize,projected.z-bias);
-    visibility/=9;
-  }
+  float2 shadow=directionalShadows(in.shadow,in.nearShadow,normalize(in.normal),u,shadowMap,nearShadowMap,shadowSampler);
+  float visibility=shadow.x;
   float3 ambient=mix(float3(0.13,0.125,0.10),float3(0.38,0.46,0.51),n.y*0.5+0.5)*albedo;
-  float3 lit=ambient+(albedo/M_PI_F+specular)*float3(3.05,2.90,2.52)*nl*visibility;
+  float3 lit=ambient*shadow.y+(albedo/M_PI_F+specular)*float3(3.05,2.90,2.52)*nl*visibility;
   if(skin) {
     float wrap=max(0.0,saturate((dot(n,l)+0.25)/1.25)-nl);
     lit+=albedo*float3(0.52,0.27,0.17)*wrap*0.28;

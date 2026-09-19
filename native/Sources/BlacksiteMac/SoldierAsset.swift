@@ -20,6 +20,14 @@ struct SoldierPrimitive {
     var indices: [UInt32]
     var material: Int
 }
+/// Four original mesh samples, named in the normalized +Z-forward bind pose.
+/// Fixed fields keep the per-frame contact query free of array allocations.
+struct SoldierSolePoints {
+    let heelLeft: SIMD3<Float>
+    let heelRight: SIMD3<Float>
+    let toeLeft: SIMD3<Float>
+    let toeRight: SIMD3<Float>
+}
 
 enum SoldierAssetError: Error, CustomStringConvertible {
     case malformed(String)
@@ -45,6 +53,19 @@ final class SoldierAsset {
     private let bindLocal: [AssetTRS]
     private let headOffset: Float
     private let footMinima: [String: SIMD2<Float>]
+    private struct SoleVertices {
+        let heelLeft: SoldierVertex
+        let heelRight: SoldierVertex
+        let toeLeft: SoldierVertex
+        let toeRight: SoldierVertex
+        func deformed(by palette: [simd_float4x4]) -> SoldierSolePoints {
+            SoldierSolePoints(heelLeft: SoldierAsset.skin(heelLeft, palette: palette),
+                              heelRight: SoldierAsset.skin(heelRight, palette: palette),
+                              toeLeft: SoldierAsset.skin(toeLeft, palette: palette),
+                              toeRight: SoldierAsset.skin(toeRight, palette: palette))
+        }
+    }
+    private let soles: (left: SoleVertices, right: SoleVertices)
     private struct PoseBlend { var clip:String;var start:Double;var lastTime:Double;var from:[AssetTRS];var current:[AssetTRS];var fromActivity:Float;var activity:Float;var fromMinimum:SIMD2<Float>;var minimum:SIMD2<Float> }
     private var blends: [Int:PoseBlend] = [:]
 
@@ -213,6 +234,32 @@ final class SoldierAsset {
         let scale = 1.9 / height
         let normalize = Self.rotationY(heading) * Self.scaling(SIMD3(repeating: scale)) * Self.translation(SIMD3(-(minimum.x + maximum.x) * 0.5, -minimum.y, -(minimum.z + maximum.z) * 0.5))
         let normalizedRest = bindGlobals.map { normalize * $0 }
+        func soleVertices(_ chain: Rig.Side) throws -> SoleVertices {
+            var candidates: [(vertex: SoldierVertex, point: SIMD3<Float>)] = []
+            for primitive in geometry { for vertex in primitive.vertices {
+                var weight: Float = 0
+                for k in 0..<4 {
+                    let node = palette[Int(vertex.joints[k])].node
+                    if node == chain.foot || node == chain.toe { weight += vertex.weights[k] }
+                }
+                if weight > 0.5 { candidates.append((vertex, Self.point(normalize, Self.skin(vertex, palette: bindPalette)))) }
+            } }
+            guard let bottom = candidates.map({ $0.point.y }).min() else { throw SoldierAssetError.malformed("missing sole vertices") }
+            // Select actual sole geometry, excluding the ankle and raised toe cap.
+            candidates.removeAll { $0.point.y > bottom + 0.008 }
+            guard candidates.count >= 4 else { throw SoldierAssetError.malformed("incomplete sole geometry") }
+            let lo = candidates.reduce(SIMD3<Float>(repeating: .infinity)) { simd_min($0, $1.point) }
+            let hi = candidates.reduce(SIMD3<Float>(repeating: -.infinity)) { simd_max($0, $1.point) }
+            func corner(_ x: Float, _ z: Float) -> SoldierVertex {
+                let target = SIMD2(x, z)
+                return candidates.min {
+                    simd_length_squared(SIMD2($0.point.x, $0.point.z) - target) < simd_length_squared(SIMD2($1.point.x, $1.point.z) - target)
+                }!.vertex
+            }
+            return SoleVertices(heelLeft: corner(lo.x, lo.z), heelRight: corner(hi.x, lo.z),
+                                toeLeft: corner(lo.x, hi.z), toeRight: corner(hi.x, hi.z))
+        }
+        let soleSamples = try (left: soleVertices(skeleton.left), right: soleVertices(skeleton.right))
         var headLow: Float = .infinity, headHigh: Float = -.infinity
         for primitive in geometry { for vertex in primitive.vertices {
             var headWeight: Float = 0
@@ -241,11 +288,18 @@ final class SoldierAsset {
         primitives = geometry; paletteCount = palette.count; entries = palette
         nodes = parsedNodes; order = ordered; descendants = below; clips = animations; animationNames = animations.keys.sorted()
         rig = skeleton; normalization = normalize; bindWorld = normalizedRest; bindLocal = bindingLocal; headOffset = centerOffset; footMinima = minima
+        soles = soleSamples
     }
 
     func palette(enemy: EnemyState, time: Double, terrain: TerrainProfile) -> [simd_float4x4] {
         let pose = posedJoints(enemy: enemy, time: time, terrain: terrain)
         return entries.map { pose[$0.node] * $0.inverseBind }
+    }
+
+    /// Uses the exact palette already submitted for rendering: eight vertex
+    /// transforms, with no animation sampling or full-mesh deformation.
+    func soleContactPoints(palette: [simd_float4x4]) -> (left: SoldierSolePoints, right: SoldierSolePoints) {
+        (soles.left.deformed(by: palette), soles.right.deformed(by: palette))
     }
 
     func resetAnimation() { blends.removeAll(keepingCapacity: true) }

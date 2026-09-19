@@ -18,8 +18,8 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 2 | #7 Faire Sichtwahrnehmung | Umgesetzt und geprüft |
 | 3 | #8 Sichere Verstärkungen | Umgesetzt und geprüft |
 | 4 | #10 Richtungsfeedback und räumlicher Sound | Umgesetzt und geprüft |
-| 5 | #1 Nahschatten | Offen |
-| 6 | #2 Ego-Waffen und Hände | Offen |
+| 5 | #1 Nahschatten | Umgesetzt und geprüft |
+| 6 | #2 Ego-Waffen und Hände | In Umsetzung |
 | 7 | #3 Einschläge und Explosionen | Offen |
 | 8 | #5 Texturbudget | Offen |
 | 9 | #4 Schadensstufen und Trümmer | Offen |
@@ -90,3 +90,42 @@ macOS-AudioUnits; die normalen Tests benötigen keine Audioausgabe.
 Unabhängiges Review abgeschlossen und den dabei gefundenen vertikalen
 Richtungsfehler behoben. Interaktive Bedienprüfung vorerst durch gesperrten Mac
 unterbrochen; vollständiger nativer Paketbuild und automatisierte Tests geprüft.
+
+### #1 – Nahschatten und Bodenkontakt
+
+Ein texelstabilisiertes 40-Meter-Nahschattenfeld ergänzt die vorhandenen
+Fernschatten. Die Grafikstufen verwenden 2048² beziehungsweise 1024² für das
+Nahfeld. Beide verwenden dieselbe vorberechnete Soldatenpose; Lichtfrustum-Culling
+und vereinfachte Schattenmodelle für entfernte Bäume begrenzen die Kosten.
+Empfängerflächen erhalten gefilterte, ebenenkorrigierte Schatten. Kleine,
+oberflächengeprüfte Kontaktflächen unter den tatsächlichen animierten Sohlen
+bleiben auch im Bunkerschatten sichtbar und verschwinden bei abgehobenen Füßen.
+
+Validierung: 97 reguläre Tests bestanden. Neue Prüfungen decken Stabilisierung,
+Sohlenpositionen, geneigten Boden, Dachkanten und fliegende Figuren ab. Fünf
+Metal-validierte Ansichten prüfen Straße, Hügel, Containerdach, Balanced und
+eine kleine Kameraverschiebung; keine ungültigen Charakterposen oder GPU-Fehler.
+Unabhängiges Review behob Shader-Ableitungen in divergenten Zweigen und eine
+inkorrekte lineare Tiefenfilterung. [Vorher](native-roadmap/shadows-before.png)
+und [nachher](native-roadmap/shadows-after.png) zeigen dieselbe 1280×800-Ansicht.
+
+Drei abwechselnde Vergleichsläufe je Grafikstufe auf Apple M2 Pro, 2560×1600,
+neun Soldaten, je zehn Aufwärm- und 120 vollständig abgeschlossene Messframes:
+High CPU-P95 4,149 → 3,550 ms, GPU-P95 13,399 → 12,641 ms;
+Balanced CPU-P95 3,641 → 3,505 ms, GPU-P95 11,493 → 9,034 ms.
+Die Werte sind Mediane der Einzelläufe, keine garantierte Spielbildrate.
+GPU-Allokation steigt um 20,16 MiB; das zusätzliche Schattenbudget von 1 ms
+wird eingehalten. [Messdaten](native-roadmap/shadow-performance.json).
+
+### #14 – Sichtbare Deckung auf Kollisionshöhe
+
+Im Schattenreview fiel auf, dass Container- und Bunkerdächer über ihren
+Kollisionsflächen lagen und Betonbarrieren darunter endeten. Das separat angelegte
+[Bug-Issue #14](https://github.com/dr-dimitri/labyrinth/issues/14) korrigiert die
+sichtbaren Oberkanten. Container verwenden ihre vorhandene Dachfläche; beim
+Bunker treffen Wand und Dach ohne überlagerte Flächen aufeinander. Dadurch stehen
+Figuren und Kontaktschatten auf der sichtbaren Deckung.
+
+Validierung: unabhängiges Geometriereview, Metal-Containerdachansicht und die
+vollständige Testsuite einschließlich Klettern bestanden. Separater lokaler
+Commit `3d1fa82`.

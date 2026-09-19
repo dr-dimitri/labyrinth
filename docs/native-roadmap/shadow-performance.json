@@ -1,0 +1,1465 @@
+{
+  "device": "Apple M2 Pro",
+  "framesPerRun": 120,
+  "note": "Sequential completed frames; run-level medians, not a gameplay FPS guarantee.",
+  "repeats": 3,
+  "resolution": [
+    2560,
+    1600
+  ],
+  "runs": [
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 3.2627090280584525,
+        "cpuP95Ms": 4.064041670062579,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1129.609375,
+        "gpuAverageMs": 6.4450440968357725,
+        "gpuP95Ms": 12.750499998219311,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 10.412054861808429,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19466,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 1,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.7791065980030303,
+        "cpuP95Ms": 3.635708344518207,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1149.765625,
+        "gpuAverageMs": 6.405170832658769,
+        "gpuP95Ms": 12.640750006539747,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 2048,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 9.948512499492304,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 1,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.9273336813882147,
+        "cpuP95Ms": 3.6408333253348246,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1018.484375,
+        "gpuAverageMs": 5.233839583282436,
+        "gpuP95Ms": 11.685749996104278,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 8.84080972270264,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14166,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 1,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.3738663200977803,
+        "cpuP95Ms": 2.6017083291662857,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1038.640625,
+        "gpuAverageMs": 3.969311805728163,
+        "gpuP95Ms": 5.565500003285706,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 1024,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 7.0797673619381385,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 1,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.7927322919519306,
+        "cpuP95Ms": 3.4738749964162707,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1149.765625,
+        "gpuAverageMs": 6.8674381954527535,
+        "gpuP95Ms": 13.051625006482936,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 2048,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 10.446029861122952,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 2,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 3.893538888466234,
+        "cpuP95Ms": 5.0306666671531275,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1129.609375,
+        "gpuAverageMs": 7.820722570734991,
+        "gpuP95Ms": 13.398750001215376,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 12.477872569919176,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19466,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 2,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.692484374953589,
+        "cpuP95Ms": 3.563958322047256,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1038.640625,
+        "gpuAverageMs": 4.850064931573191,
+        "gpuP95Ms": 9.542750005493872,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 1024,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 8.294371874944773,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 2,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 3.545282986063588,
+        "cpuP95Ms": 4.047124995850027,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1018.484375,
+        "gpuAverageMs": 7.043656250122392,
+        "gpuP95Ms": 11.493375001009554,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 11.314098611668063,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14166,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 2,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 3.4943513895996148,
+        "cpuP95Ms": 4.14887499937322,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1129.609375,
+        "gpuAverageMs": 6.977674999749676,
+        "gpuP95Ms": 13.569249989814125,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 11.187716667579176,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19466,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 3,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.766333679755917,
+        "cpuP95Ms": 3.5496249911375344,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1149.765625,
+        "gpuAverageMs": 6.143192708016916,
+        "gpuP95Ms": 10.272791667375714,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 2048,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 4,
+        "scene": "squad",
+        "serialFrameAverageMs": 9.627338195059565,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 19465,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "high",
+      "repeat": 3,
+      "version": "new"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.8020131947414484,
+        "cpuP95Ms": 3.0531666707247496,
+        "device": "Apple M2 Pro",
+        "drawCalls": 30,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1018.484375,
+        "gpuAverageMs": 3.656391319721782,
+        "gpuP95Ms": 5.7274583232356235,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 7.166538541544772,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 6,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14166,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 3,
+      "version": "baseline"
+    },
+    {
+      "measurement": {
+        "backend": "Metal",
+        "cpuAverageMs": 2.6346343745293175,
+        "cpuP95Ms": 3.5048333375016227,
+        "device": "Apple M2 Pro",
+        "drawCalls": 44,
+        "droppedSoldiers": 0,
+        "enemyShots": 0,
+        "enemyStates": [
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 401,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 402,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 403,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 404,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 405,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 406,
+            "running": true
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 407,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 1,
+            "grounded": true,
+            "height": 0,
+            "id": 408,
+            "running": false
+          },
+          {
+            "aim": 1,
+            "crouch": 0,
+            "grounded": true,
+            "height": 0,
+            "id": 409,
+            "running": true
+          }
+        ],
+        "farShadowInstances": 6663,
+        "footContactPatches": 14,
+        "forestTrees": 228,
+        "frames": 120,
+        "gpuAllocatedMB": 1038.640625,
+        "gpuAverageMs": 5.067110764745546,
+        "gpuP95Ms": 9.034166665514931,
+        "height": 1600,
+        "invalidSoldierPoses": 0,
+        "matchState": "active",
+        "nearShadowInstances": 1557,
+        "nearShadowResolution": 1024,
+        "observedBehaviors": [],
+        "playerGroundHeight": 0,
+        "samples": 1,
+        "scene": "squad",
+        "serialFrameAverageMs": 8.427264235676072,
+        "skinnedSoldiers": 9,
+        "skyTextureWidth": 8192,
+        "soldierDrawCallsIncludingShadows": 10,
+        "soldierTextureWidth": 2048,
+        "soldierTriangles": 175050,
+        "terrain": "shared triangular heightfield",
+        "visibleInstances": 14165,
+        "warmupFrames": 10,
+        "width": 2560
+      },
+      "quality": "balanced",
+      "repeat": 3,
+      "version": "new"
+    }
+  ],
+  "scene": "squad",
+  "startedUTC": "2026-09-19T08:48:05.117377+00:00",
+  "summary": {
+    "balanced": {
+      "newMinusBaseline": {
+        "cpuAverageMs": {
+          "absolute": -0.2926993068588972,
+          "percent": -9.99883644013182
+        },
+        "cpuP95Ms": {
+          "absolute": -0.13599998783320189,
+          "percent": -3.7354082343413753
+        },
+        "drawCalls": {
+          "absolute": 14,
+          "percent": 46.66666666666666
+        },
+        "gpuAllocatedMB": {
+          "absolute": 20.15625,
+          "percent": 1.9790436156666535
+        },
+        "gpuAverageMs": {
+          "absolute": -0.3837746517092455,
+          "percent": -7.33256427910155
+        },
+        "gpuP95Ms": {
+          "absolute": -2.4592083354946226,
+          "percent": -21.396746693452627
+        },
+        "visibleInstances": {
+          "absolute": -1,
+          "percent": -0.007059155724975508
+        }
+      },
+      "runMedians": {
+        "baseline": {
+          "cpuAverageMs": 2.9273336813882147,
+          "cpuP95Ms": 3.6408333253348246,
+          "drawCalls": 30,
+          "gpuAllocatedMB": 1018.484375,
+          "gpuAverageMs": 5.233839583282436,
+          "gpuP95Ms": 11.493375001009554,
+          "visibleInstances": 14166
+        },
+        "new": {
+          "cpuAverageMs": 2.6346343745293175,
+          "cpuP95Ms": 3.5048333375016227,
+          "drawCalls": 44,
+          "gpuAllocatedMB": 1038.640625,
+          "gpuAverageMs": 4.850064931573191,
+          "gpuP95Ms": 9.034166665514931,
+          "visibleInstances": 14165
+        }
+      }
+    },
+    "high": {
+      "newMinusBaseline": {
+        "cpuAverageMs": {
+          "absolute": -0.7152447915965845,
+          "percent": -20.46859951536064
+        },
+        "cpuP95Ms": {
+          "absolute": -0.5992500082356855,
+          "percent": -14.443674690758712
+        },
+        "drawCalls": {
+          "absolute": 14,
+          "percent": 46.66666666666666
+        },
+        "gpuAllocatedMB": {
+          "absolute": 20.15625,
+          "percent": 1.7843557645756958
+        },
+        "gpuAverageMs": {
+          "absolute": -0.5725041670909077,
+          "percent": -8.204798405076852
+        },
+        "gpuP95Ms": {
+          "absolute": -0.7579999946756288,
+          "percent": -5.657244105658155
+        },
+        "visibleInstances": {
+          "absolute": -1,
+          "percent": -0.0051371622315832255
+        }
+      },
+      "runMedians": {
+        "baseline": {
+          "cpuAverageMs": 3.4943513895996148,
+          "cpuP95Ms": 4.14887499937322,
+          "drawCalls": 30,
+          "gpuAllocatedMB": 1129.609375,
+          "gpuAverageMs": 6.977674999749676,
+          "gpuP95Ms": 13.398750001215376,
+          "visibleInstances": 19466
+        },
+        "new": {
+          "cpuAverageMs": 2.7791065980030303,
+          "cpuP95Ms": 3.5496249911375344,
+          "drawCalls": 44,
+          "gpuAllocatedMB": 1149.765625,
+          "gpuAverageMs": 6.405170832658769,
+          "gpuP95Ms": 12.640750006539747,
+          "visibleInstances": 19465
+        }
+      }
+    }
+  },
+  "warmupFrames": 10
+}

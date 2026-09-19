@@ -28,6 +28,9 @@ private struct GPUUniforms {
     var sunDirection: SIMD4<Float>
     var fogColor: SIMD4<Float>
     var viewport: SIMD4<Float>
+    var nearLightViewProjection: simd_float4x4
+    // Inverse map size, world width, depth range, contact occlusion strength.
+    var shadowParameters: SIMD4<Float>
 }
 private struct RenderItem {
     var mesh: Int
@@ -85,6 +88,7 @@ final class NativeRenderer {
     private let shadowSampler: MTLSamplerState
     private let textures: [MTLTexture]
     private let shadowTexture: MTLTexture
+    private let nearShadowTextures: [Int: MTLTexture]
     private let meshes: [Mesh]
     private let skinnedSoldiers: SkinnedSoldierRenderer
     private let inflight = DispatchSemaphore(value: 3)
@@ -113,7 +117,9 @@ final class NativeRenderer {
          "soldierDrawCallsIncludingShadows": skinnedSoldiers.drawCallCount,
          "soldierTextureWidth": skinnedSoldiers.baseColorSize.x,
          "invalidSoldierPoses": skinnedSoldiers.invalidPoseCount,
-         "droppedSoldiers": skinnedSoldiers.capacityDropCount]
+         "droppedSoldiers": skinnedSoldiers.capacityDropCount,
+         "footContactPatches": skinnedSoldiers.footContactCount,
+         "farShadowInstances": farShadowInstanceCount, "nearShadowInstances": nearShadowInstanceCount]
     }
     // These shallow surfaces only affect visual shell physics. Append them
     // after gameplay cover so ShellSimulation's support indices remain stable.
@@ -123,6 +129,8 @@ final class NativeRenderer {
         Obstacle(id: -10003, kind: .bunker, position: SIMD3(6.2,0,0), size: SIMD3(0.3,0.08,85))
     ]
     private var shellCollisionCache: [Obstacle] = []
+    private var farShadowInstanceCount = 0
+    private var nearShadowInstanceCount = 0
     private var shotAge: Float = 10
     var shellCount: Int { shells.casings.count }
     private var frameAverage: Float = 1 / 60
@@ -138,6 +146,11 @@ final class NativeRenderer {
     init(view: MTKView, assetRoot: URL?) throws {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { throw RenderError.unavailable("Metal wird auf diesem Mac nicht unterstützt.") }
         self.device = device; self.queue = queue; deviceName = device.name
+        guard MemoryLayout<GPUUniforms>.stride == 336,
+              MemoryLayout<GPUUniforms>.offset(of: \.nearLightViewProjection) == 256,
+              MemoryLayout<GPUUniforms>.offset(of: \.shadowParameters) == 320 else {
+            throw RenderError.unavailable("CPU- und Metal-Schattenlayout stimmen nicht überein.")
+        }
         // The packaged .app intentionally carries a direct resource rather than
         // SwiftPM's generated bundle. Access Bundle.module only for swift run.
         var shaderURL = Bundle.main.resourceURL?.appendingPathComponent("Shaders.metal")
@@ -167,10 +180,17 @@ final class NativeRenderer {
         dd.isDepthWriteEnabled = false; dd.depthCompareFunction = .always; skyDepthState = device.makeDepthStencilState(descriptor: dd)!
         let sm = MTLSamplerDescriptor(); sm.minFilter = .linear; sm.magFilter = .linear; sm.mipFilter = .linear; sm.maxAnisotropy = 8; sm.sAddressMode = .repeat; sm.tAddressMode = .repeat
         sampler = device.makeSamplerState(descriptor: sm)!
-        let ss = MTLSamplerDescriptor(); ss.minFilter = .linear; ss.magFilter = .linear; ss.compareFunction = .lessEqual; ss.sAddressMode = .clampToEdge; ss.tAddressMode = .clampToEdge
+        let ss = MTLSamplerDescriptor(); ss.minFilter = .nearest; ss.magFilter = .nearest; ss.compareFunction = .lessEqual; ss.sAddressMode = .clampToEdge; ss.tAddressMode = .clampToEdge
         shadowSampler = device.makeSamplerState(descriptor: ss)!
         let shadowDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float, width: 2048, height: 2048, mipmapped: false); shadowDesc.storageMode = .private; shadowDesc.usage = [.renderTarget, .shaderRead]
         guard let shadow = device.makeTexture(descriptor: shadowDesc) else { throw RenderError.unavailable("Schattenpuffer konnte nicht angelegt werden.") }; shadowTexture = shadow; shadow.label = "2048 directional shadow atlas"
+        var nearMaps: [Int: MTLTexture] = [:]
+        for resolution in [1024, 2048] {
+            shadowDesc.width = resolution; shadowDesc.height = resolution
+            guard let map = device.makeTexture(descriptor: shadowDesc) else { throw RenderError.unavailable("Nahschattenpuffer konnte nicht angelegt werden.") }
+            map.label = "Stabilized near shadows \(resolution)"; nearMaps[resolution] = map
+        }
+        nearShadowTextures = nearMaps
         meshes = try Self.makeMeshes(device: device)
         textures = try Self.loadTextures(device: device, assetRoot: assetRoot)
         guard let characterRoot = assetRoot ?? NativeResources.assetRoot else {
@@ -248,7 +268,7 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.shadows.count + skinnedSoldiers.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + skinnedSoldiers.soldierCount) Instanzen · \(scene.main.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -318,7 +338,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.shadows.count + skinnedSoldiers.drawCallCount + 1
+                visible = scene.visibleCount + skinnedSoldiers.soldierCount; draws = scene.main.count + scene.shadows.count + scene.nearShadows.count + skinnedSoldiers.drawCallCount + 1
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }
@@ -326,7 +346,7 @@ final class NativeRenderer {
         return ["device": deviceName, "backend": "Metal", "width": width, "height": height, "frames": count, "warmupFrames": 10,
                 "samples": samples, "cpuAverageMs": mean(cpu), "cpuP95Ms": p95(cpu), "gpuAverageMs": mean(gpu), "gpuP95Ms": p95(gpu),
                 "serialFrameAverageMs": mean(wall), "gpuAllocatedMB": Double(device.currentAllocatedSize)/1_048_576,
-                "visibleInstances": visible, "drawCalls": draws, "forestTrees": forest.count, "skyTextureWidth": textures[23].width]
+                "visibleInstances": visible, "drawCalls": draws, "forestTrees": forest.count, "skyTextureWidth": textures[23].width, "nearShadowResolution": highQuality ? 2048 : 1024]
     }
 
     private func resize(_ view: MTKView) {
@@ -341,11 +361,14 @@ final class NativeRenderer {
         var instances: [GPUInstance]
         var main: [RenderBatch]
         var shadows: [RenderBatch]
+        var nearShadows: [RenderBatch]
+        var nearVolume: DirectionalShadowVolume
         var uniforms: GPUUniforms
         var visibleCount: Int
         var enemies: [EnemyState]
         var time: Double
         var terrain: TerrainProfile
+        var obstacles: [Obstacle]
     }
     private func prepare(simulation: CombatSimulation, mode: NativeRenderMode, size: SIMD2<Float>, deltaTime: Float) -> PreparedScene {
         let p = simulation.player
@@ -363,17 +386,12 @@ final class NativeRenderer {
         let view = Self.lookAt(eye: eye, target: eye + forward)
         let projection = Self.perspective(fov: smoothFOV * .pi / 180, aspect: size.x / max(size.y, 1), near: 0.04, far: 450)
         let vp = projection * view
+        let shadowResolution = highQuality ? 2048 : 1024
+        // Use the unshaken camera for a stable grid: recoil must not move shadows.
+        let nearVolume = DirectionalShadowVolume.near(eye: mode == .menu ? eye : simulation.eyePosition,
+            forward: mode == .menu ? forward : viewDirection(yaw: p.yaw, pitch: p.pitch), sun: sun, resolution: shadowResolution)
+        let farVolume = DirectionalShadowVolume(matrix: lightMatrix)
         var all = scenery
-        // Select whole-tree LOD before touching individual instances. The near
-        // crown is only uploaded for close trees; distant trees keep true 3D
-        // branches but use fewer photographic twig clusters.
-        for tree in forest {
-            let offset = tree.center - eye, distance = simd_length(offset)
-            let castsVisibleShadow = abs(tree.center.x) < 70 && abs(tree.center.z) < 70
-            if !castsVisibleShadow && (distance > 340 || simd_dot(offset, forward) + tree.radius < distance * 0.32) { continue }
-            let lod = distance < (highQuality ? 85 : 60) ? 0 : distance < (highQuality ? 155 : 125) ? 1 : 2
-            all.append(contentsOf: tree.levels[lod])
-        }
         for obstacle in simulation.obstacles {
             if coverCache[obstacle.id] == nil { coverCache[obstacle.id] = buildCover(obstacle) }
             if !obstacle.destroyed { all.append(contentsOf: coverCache[obstacle.id] ?? []) }
@@ -409,19 +427,54 @@ final class NativeRenderer {
             }
         }
         var worldByMesh = [[GPUInstance]](repeating: [], count: meshes.count), shadowByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
+        var nearByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         // Conservative sphere frustum checks keep tall trees and nearby cover
         // visible. Scope narrows the horizontal cone without rebuilding scenery.
         let aspect = size.x / max(size.y, 1); let halfAngle = atan(tan(smoothFOV * .pi / 360) * max(aspect, 1)) + 0.2
         let cosCone = cos(halfAngle)
+        // Render and shadow detail are independent. Sparse far crowns still
+        // cast foliage silhouettes without resubmitting the dense visible LOD.
+        for tree in forest {
+            let offset = tree.center - eye, distance = simd_length(offset)
+            let visibleTree = distance < tree.radius + 7 || (distance < 360 + tree.radius && simd_dot(offset,forward) + tree.radius > distance*cosCone)
+            if visibleTree {
+                let lod = distance < (highQuality ? 85 : 60) ? 0 : distance < (highQuality ? 155 : 125) ? 1 : 2
+                for item in tree.levels[lod] {
+                    let delta = item.center-eye, range = simd_length(delta)
+                    if range < item.radius+7 || (range < 360+item.radius && simd_dot(delta,forward)+item.radius > range*cosCone) {
+                        worldByMesh[item.mesh].append(item.instance)
+                    }
+                }
+            }
+            if farVolume.intersects(center:tree.center,radius:tree.radius+0.3) {
+                // LOD2's leaves intentionally have shadow=false for the legacy
+                // camera-LOD path. Explicitly include them in this shadow LOD.
+                for item in tree.levels[2] where item.shadow || item.mesh == 6 {
+                    if farVolume.intersects(center:item.center,radius:item.radius+0.25) { shadowByMesh[item.mesh].append(item.instance) }
+                }
+            }
+            if nearVolume.intersects(center:tree.center,radius:tree.radius+0.3) {
+                let lod = distance <= 35 ? 0 : 1
+                for item in tree.levels[lod] where item.shadow {
+                    if nearVolume.intersects(center:item.center,radius:item.radius+0.25) { nearByMesh[item.mesh].append(item.instance) }
+                }
+            }
+        }
         for item in all {
-            if item.shadow && abs(item.center.x) < 65 && abs(item.center.z) < 65 { shadowByMesh[item.mesh].append(item.instance) }
+            if item.shadow {
+                // Wind-displaced twig tips need a small conservative margin.
+                let shadowRadius = item.radius + 0.25
+                if farVolume.intersects(center: item.center, radius: shadowRadius) { shadowByMesh[item.mesh].append(item.instance) }
+                if nearVolume.intersects(center: item.center, radius: shadowRadius) { nearByMesh[item.mesh].append(item.instance) }
+            }
             let offset = item.center - eye, distance = simd_length(offset)
             if distance < item.radius + 7 || (distance < 360 + item.radius && simd_dot(offset, forward) + item.radius > distance * cosCone) { worldByMesh[item.mesh].append(item.instance) }
         }
         if mode != .menu && !(aiming && simulation.activeWeapon == .sniper) {
             for item in weapon(simulation: simulation, eye: eye, yaw: yaw, pitch: pitch) { worldByMesh[item.mesh].append(item.instance) }
         }
-        var instances: [GPUInstance] = []; instances.reserveCapacity(min(instanceCapacity, all.count * 2))
+        var instances: [GPUInstance] = []
+        instances.reserveCapacity(worldByMesh.reduce(0) { $0+$1.count } + shadowByMesh.reduce(0) { $0+$1.count } + nearByMesh.reduce(0) { $0+$1.count })
         func batches(_ source: [[GPUInstance]]) -> [RenderBatch] {
             var result: [RenderBatch] = []
             for mesh in source.indices where !source[mesh].isEmpty {
@@ -430,15 +483,19 @@ final class NativeRenderer {
                 result.append(RenderBatch(mesh: mesh, offset: instances.count, count: count)); instances.append(contentsOf: source[mesh].prefix(count))
             }; return result
         }
-        let shadows = batches(shadowByMesh), visible = worldByMesh.reduce(0) { $0 + $1.count }, main = batches(worldByMesh)
-        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0))
-        return PreparedScene(instances: instances, main: main, shadows: shadows, uniforms: uniform, visibleCount: visible,
-                             enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain)
+        farShadowInstanceCount = shadowByMesh.reduce(0) { $0+$1.count }
+        nearShadowInstanceCount = nearByMesh.reduce(0) { $0+$1.count }
+        let shadows = batches(shadowByMesh), nearShadows = batches(nearByMesh)
+        let visible = worldByMesh.reduce(0) { $0 + $1.count }, main = batches(worldByMesh)
+        let uniform = GPUUniforms(viewProjection: vp, inverseViewProjection: vp.inverse, lightViewProjection: lightMatrix, eyeTime: SIMD4(eye, visualTime), sunDirection: SIMD4(sun, 1), fogColor: SIMD4(fog, 1), viewport: SIMD4(size.x, size.y, 0, 0), nearLightViewProjection: nearVolume.matrix,
+                                  shadowParameters: SIMD4(1 / Float(shadowResolution), DirectionalShadowVolume.nearWidth, DirectionalShadowVolume.nearDepth, 0.30))
+        return PreparedScene(instances: instances, main: main, shadows: shadows, nearShadows: nearShadows, nearVolume: nearVolume, uniforms: uniform, visibleCount: visible,
+                             enemies: simulation.enemies, time: simulation.elapsed, terrain: simulation.terrain, obstacles: simulation.obstacles)
     }
     private func encode(command: MTLCommandBuffer, descriptor: MTLRenderPassDescriptor, samples: Int, slot: Int, scene: PreparedScene) {
         // The frame semaphore has granted ownership of this slot before any
         // joint upload. Main and shadow passes share the exact same pose.
-        skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot)
+        skinnedSoldiers.prepare(enemies: scene.enemies, time: scene.time, terrain: scene.terrain, slot: slot, nearShadow: scene.nearVolume, supportObstacles: scene.obstacles + shellGroundColliders)
         let requiredBytes = scene.instances.count * MemoryLayout<GPUInstance>.stride
         if requiredBytes > buffers[slot].length, let grown = device.makeBuffer(length: requiredBytes + 4096 * MemoryLayout<GPUInstance>.stride, options: .storageModeShared) {
             buffers[slot] = grown
@@ -455,6 +512,21 @@ final class NativeRenderer {
             skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot)
             encoder.endEncoding()
         }
+        let nearTexture = nearShadowTextures[highQuality ? 2048 : 1024]!
+        let nearPass = MTLRenderPassDescriptor(); nearPass.depthAttachment.texture = nearTexture
+        nearPass.depthAttachment.loadAction = .clear; nearPass.depthAttachment.storeAction = .store; nearPass.depthAttachment.clearDepth = 1
+        if let encoder = command.makeRenderCommandEncoder(descriptor: nearPass) {
+            encoder.label = "Stabilized near sun shadows"; encoder.setRenderPipelineState(shadowPipeline)
+            encoder.setDepthStencilState(depthState); encoder.setCullMode(.none)
+            encoder.setDepthBias(0, slopeScale: 0.65, clamp: 0.00015)
+            // setVertexBytes owns a copy; never overwrite uniforms used by the far pass.
+            var nearUniform = uniform; nearUniform.lightViewProjection = uniform.nearLightViewProjection
+            encoder.setVertexBytes(&nearUniform, length: MemoryLayout<GPUUniforms>.stride, index: 2)
+            encoder.setFragmentTexture(textures[21], index: 0); encoder.setFragmentSamplerState(sampler, index: 0)
+            drawBatches(scene.nearShadows, encoder: encoder, buffer: instanceBuffer)
+            skinnedSoldiers.encodeShadow(encoder: encoder, slot: slot, near: true)
+            encoder.endEncoding()
+        }
         guard let encoder = command.makeRenderCommandEncoder(descriptor: descriptor), let pipeline = pipelines[samples], let skyPipeline = skyPipelines[samples] else { return }
         encoder.label = "Atmosphere and instanced world"; encoder.setCullMode(.none)
         encoder.setVertexBuffer(uniformBuffer, offset: 0, index: 2); encoder.setFragmentBuffer(uniformBuffer, offset: 0, index: 2)
@@ -462,9 +534,11 @@ final class NativeRenderer {
         encoder.setRenderPipelineState(skyPipeline); encoder.setDepthStencilState(skyDepthState); encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.setRenderPipelineState(pipeline); encoder.setDepthStencilState(depthState)
         for (index, texture) in textures.enumerated() { encoder.setFragmentTexture(texture, index: index) }
-        encoder.setFragmentTexture(shadowTexture, index: 10); encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
+        encoder.setFragmentTexture(shadowTexture, index: 10); encoder.setFragmentTexture(nearTexture, index: 24)
+        encoder.setFragmentSamplerState(sampler, index: 0); encoder.setFragmentSamplerState(shadowSampler, index: 1)
         drawBatches(scene.main, encoder: encoder, buffer: instanceBuffer)
         skinnedSoldiers.encodeMain(encoder: encoder, samples: samples, slot: slot)
+        skinnedSoldiers.encodeContacts(encoder: encoder, samples: samples, slot: slot)
         encoder.endEncoding()
     }
     private func drawBatches(_ batches: [RenderBatch], encoder: MTLRenderCommandEncoder, buffer: MTLBuffer) {
