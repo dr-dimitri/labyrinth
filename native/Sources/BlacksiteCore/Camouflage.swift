@@ -13,14 +13,25 @@ public enum CamouflagePattern: String, CaseIterable, Codable, Sendable {
     }
 }
 
-/// One immutable source for the selected equipment and its actual capacity.
-/// A camouflage suit occupies the auxiliary slot of the fourth fragmentation grenade.
+/// One immutable source for every role's equipment and tradeoffs. Camouflage
+/// replaces one fragmentation grenade without consuming its class tool.
 public struct LoadoutDefinition: Sendable, Equatable {
+    public let operatorClass: OperatorClass
     public let camouflage: CamouflagePattern
-    public var fragmentationGrenades: Int { camouflage == .none ? 4 : 3 }
-    public var noiseDecoys: Int { 2 }
-    public var smokeGrenades: Int { 2 }
-    public init(camouflage: CamouflagePattern = .none) { self.camouflage = camouflage }
+    public var fragmentationGrenades: Int { (operatorClass == .recon ? 3 : 4) - (camouflage == .none ? 0 : 1) }
+    public var noiseDecoys: Int { operatorClass == .recon ? 1 : 0 }
+    public var smokeGrenades: Int { operatorClass == .assault ? 2 : 0 }
+    public var breachCharges: Int { operatorClass == .engineer ? 1 : 0 }
+    public var rifleReserve: Int { operatorClass == .recon ? 210 : operatorClass == .engineer ? 120 : 270 }
+    public var sniperReserve: Int { 35 }
+    public var deviceInteractionMultiplier: Float { operatorClass == .engineer ? 0.65 : 1 }
+    public init(operatorClass: OperatorClass = .assault, camouflage: CamouflagePattern = .none) {
+        self.operatorClass = operatorClass; self.camouflage = camouflage
+    }
+    /// Integer simulation ticks are shared by the HUD duration and completion.
+    public func deviceInteractionTicks(manual: Bool) -> Int {
+        operatorClass == .engineer ? (manual ? 156 : 78) : (manual ? 240 : 120)
+    }
 }
 
 public enum ConcealmentReason: String, Sendable {

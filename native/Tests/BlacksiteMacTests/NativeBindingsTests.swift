@@ -5,7 +5,7 @@ import Testing
 struct NativeBindingsTests {
     @Test func defaultsPreserveAlternateMovementFireAimAndNormalizedModifiers() {
         let bindings = NativeBindings.defaults
-        #expect(NativeInputAction.allCases.count == 21)
+        #expect(NativeInputAction.allCases.count == 22)
         #expect(bindings.inputs(for: .moveForward) == [.key(13),.key(126)])
         #expect(bindings.inputs(for: .moveBackward) == [.key(1),.key(125)])
         #expect(bindings.inputs(for: .fire) == [.mouse(0),.key(12)])

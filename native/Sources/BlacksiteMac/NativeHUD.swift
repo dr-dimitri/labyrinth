@@ -138,6 +138,7 @@ final class GameHUDView: NSView {
                     suppliesRadio: s.map.environment.alarm?.radioDeviceID == $0.id).accessibilityText } ?? "") +
                 ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
                 ". " + NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).accessibilityText +
+                ". " + NativeClassPresentation.accessibilityText(s, bindings: c.settings.bindings) +
                 (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
                 (c.alarmPresentation.accessibilityText.isEmpty ? "" : ". " + c.alarmPresentation.accessibilityText) +
                 (s.operationStatus.map { ". " + NativeOperationPresentation($0).accessibilityText } ?? "") +
@@ -339,6 +340,7 @@ final class GameHUDView: NSView {
         text("/ \(weapon.reserve)", x: ax + 160, y: hy + 60, size: 18, color: muted, width: 80, alignment: .right, mono: true)
         line(x1: ax, y1: hy + 91, x2: ax + aw, y2: hy + 91, color: muted.withAlphaComponent(0.4))
         text("\(hints.reloadLabel) NACHLADEN    ◈ \(s.grenadeCount)", x: ax, y: hy + 105, size: 9, width: aw, alignment: .right, mono: true)
+        text(NativeClassPresentation.stockText(s, bindings: c.settings.bindings), x: w / 2 - 130, y: hy + 71, size: 9, color: muted, width: 260, alignment: .center, mono: true)
         text("\(NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings)) KÖDER · \(s.noiseDecoyCount)", x: w / 2 - 130, y: hy + 88, size: 9, color: muted, width: 260, alignment: .center, mono: true)
         text(NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).stockText, x: w / 2 - 130, y: hy + 105, size: 9, color: muted, width: 260, alignment: .center, mono: true)
         if weapon.reloadRemaining > 0 {

@@ -5,9 +5,9 @@ import BlacksiteCore
 /// input. This checks static layout; it does not claim a native interaction test.
 @MainActor
 enum NativeBriefingCheck {
-    static func makePNG(output: URL) throws -> [String: Any] {
+    static func makePNG(output: URL, loadout: LoadoutDefinition = .init(camouflage: .mineral)) throws -> [String: Any] {
         let view = NativeBriefingView(draft: NativeBriefingDraft(map: .blacksite,
-            mission: .operation, difficulty: .normal, camouflage: .mineral))
+            mission: .operation, difficulty: .normal, camouflage: loadout.camouflage, operatorClass: loadout.operatorClass))
         view.appearance = NSAppearance(named: .darkAqua)
         view.layoutSubtreeIfNeeded()
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds),
@@ -29,7 +29,7 @@ enum NativeBriefingCheck {
         }
         try png.write(to: output, options: .atomic)
         return ["width": bitmap.pixelsWide, "height": bitmap.pixelsHigh,
-                "mapID": view.draft.map.id, "mission": view.draft.mission.rawValue,
+                "operatorClass": loadout.operatorClass.rawValue, "mapID": view.draft.map.id, "mission": view.draft.mission.rawValue,
                 "accessibilitySummary": view.mapView.accessibilitySummary,
                 "scope": "static AppKit briefing layout; no window interaction"]
     }

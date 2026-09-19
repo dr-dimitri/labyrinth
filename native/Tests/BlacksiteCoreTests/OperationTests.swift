@@ -250,7 +250,7 @@ struct OperationTests {
             let reset = scene(map)
             #expect(reset.missionStatus.phase == .prepareOperation && reset.selectedExtractionID == nil && reset.extractionProgress == 0)
             #expect(reset.devices[0].enabled && gate(reset).gateProgress == 0 && !reset.alarmStatus.escalated)
-            #expect(reset.pendingReinforcements == 0 && reset.noiseDecoyCount == 2 && reset.grenadeCount == 4)
+            #expect(reset.pendingReinforcements == 0 && reset.noiseDecoyCount == 0 && reset.grenadeCount == 4)
         }
     }
 

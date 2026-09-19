@@ -86,7 +86,7 @@ struct BlacksiteMain {
                 let output: String
                 if let index = args.firstIndex(of: "--output"), index + 1 < args.count { output = args[index + 1] }
                 else { output = FileManager.default.currentDirectoryPath + "/native-briefing.png" }
-                let result = try NativeBriefingCheck.makePNG(output: URL(fileURLWithPath: output))
+                let result = try NativeBriefingCheck.makePNG(output: URL(fileURLWithPath: output), loadout: NativeLoadoutCheck.loadout(arguments: args))
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
                 print(String(decoding: data, as: UTF8.self))
             } catch { fputs("Briefing check failed: \(error.localizedDescription)\n", stderr); exit(1) }
@@ -109,18 +109,19 @@ struct BlacksiteMain {
                 let highQuality = !args.contains("--balanced")
                 let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: highQuality)
                 let loadout = try NativeLoadoutCheck.loadout(arguments: args)
-                let breachCheck = try NativeBreachCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
-                let smokeCheck = breachCheck == nil ? try NativeSmokeCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let mapCheck = breachCheck == nil && smokeCheck == nil ? try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let operationCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let alarmCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let deviceCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let soundCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let environmentCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let missionCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                let sceneCheck = breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                var simulation = breachCheck?.simulation ?? smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
-                if breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
+                let classCheck = try NativeClassCheck.prepare(arguments: args, renderer: renderer, loadout: loadout)
+                let breachCheck = classCheck == nil ? try NativeBreachCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let smokeCheck = classCheck == nil && breachCheck == nil ? try NativeSmokeCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let mapCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil ? try NativeMapCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let operationCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil ? try NativeOperationCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let alarmCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil ? try NativeAlarmCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let deviceCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil ? try NativeDeviceCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let soundCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil ? try NativeSoundCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let environmentCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let missionCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                let sceneCheck = classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
+                var simulation = classCheck?.simulation ?? breachCheck?.simulation ?? smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
+                if classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
                 renderer.handle(events: simulation.drainEvents(), simulation: simulation)
@@ -134,6 +135,7 @@ struct BlacksiteMain {
                 if benchmark {
                     var result = try renderer.benchmark(simulation: simulation, width: width, height: height, frames: 120)
                     result.merge(renderer.characterDiagnostics) { _, value in value }
+                    result["loadoutClass"] = simulation.loadout.operatorClass.rawValue
                     result["loadoutCamouflage"] = simulation.loadout.camouflage.rawValue
                     result["loadoutFragmentationGrenades"] = simulation.loadout.fragmentationGrenades
                     result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }
@@ -141,6 +143,7 @@ struct BlacksiteMain {
                     result.merge(effectsCheck) { _, value in value }
                     result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(textureCheck) { _, value in value }
+                    result.merge(classCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(breachCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(smokeCheck?.metadata ?? [:]) { _, value in value }
                     result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
@@ -162,6 +165,7 @@ struct BlacksiteMain {
                 result.merge(effectsCheck) { _, value in value }
                 result.merge(destructionCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(textureCheck) { _, value in value }
+                result.merge(classCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(breachCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(smokeCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(mapCheck?.metadata ?? [:]) { _, value in value }
@@ -172,6 +176,7 @@ struct BlacksiteMain {
                 result.merge(operationCheck?.metadata ?? [:]) { _, value in value }
                 result.merge(mapCycles) { _, value in value }
                 result.merge(renderer.characterDiagnostics) { _, value in value }
+                result["loadoutClass"] = simulation.loadout.operatorClass.rawValue
                 result["loadoutCamouflage"] = simulation.loadout.camouflage.rawValue
                 result["loadoutFragmentationGrenades"] = simulation.loadout.fragmentationGrenades
                 result.merge(sceneCheck?.metadata ?? [:]) { _, value in value }

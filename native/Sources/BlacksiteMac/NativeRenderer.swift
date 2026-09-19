@@ -148,6 +148,9 @@ final class NativeRenderer {
     private var forest: [ForestTree] = []
     private var coverCache: [Int: CoverVisual] = [:]
     private var debrisCache: [Int: CachedCoverFragments] = [:]
+    private var reconMarkerCount=0
+    private var breachChargeVisualCount=0
+    private var operatorVisualParts=0
     private var clearGlassCount=0
     private var activeBreachCount=0
     private var breachFrameCount=0
@@ -217,6 +220,10 @@ final class NativeRenderer {
         diagnostics["smokeDensities"]=smokeDensities
         diagnostics["smokeUniformBytes"]=MemoryLayout<GPUWorldSmoke>.stride
         diagnostics["smokeVolumeDrawCalls"]=0
+        diagnostics["visibleReconMarkers"]=reconMarkerCount
+        diagnostics["breachChargeVisuals"]=breachChargeVisualCount
+        diagnostics["operatorVisualParts"]=operatorVisualParts
+        diagnostics["reconMarkerShadowCasters"]=0
         diagnostics["clearGlassSurfaces"]=clearGlassCount
         diagnostics["activeBreachSurfaces"]=activeBreachCount
         diagnostics["breachFrameBodies"]=breachFrameCount
@@ -442,7 +449,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { clearGlassCount=0;activeBreachCount=0;breachFrameCount=0;smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { reconMarkerCount=0;breachChargeVisualCount=0;operatorVisualParts=0;clearGlassCount=0;activeBreachCount=0;breachFrameCount=0;smokeVolumeCount=0;smokeGrenadeVisualCount=0;smokeDensities.removeAll(keepingCapacity:true);alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
@@ -722,6 +729,21 @@ final class NativeRenderer {
         appendAcousticProps(to:&all,simulation:simulation)
         appendAlarmProps(to:&all,simulation:simulation)
         appendDeviceProps(to:&all,simulation:simulation)
+        let marks=simulation.visibleReconMarks
+        reconMarkerCount=marks.count;breachChargeVisualCount=simulation.breachCharges.count;operatorVisualParts=0
+        for mark in marks.prefix(ReconMark.maximumCount) {
+            for part in NativeOperatorGeometry.marker(mark,eye:eye,time:simulation.elapsed) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+                operatorVisualParts+=1
+            }
+        }
+        for charge in simulation.breachCharges.prefix(BreachChargeState.maximumCount) {
+            for part in NativeOperatorGeometry.charge(charge) {
+                appendTransformed(to:&all,mesh:part.mesh,transform:part.transform,color:part.color,material:part.material,shadow:part.castsShadow)
+                operatorVisualParts+=1
+            }
+        }
+        assert(operatorVisualParts<=NativeOperatorGeometry.maximumMarkerParts+NativeOperatorGeometry.maximumChargeParts)
         smokeVolumeCount=simulation.smokeVolumes.count
         smokeGrenadeVisualCount=simulation.smokeGrenades.count
         smokeDensities=simulation.smokeVolumes.map(\.density)

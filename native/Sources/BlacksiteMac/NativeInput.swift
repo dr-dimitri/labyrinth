@@ -38,6 +38,7 @@ struct NativeSettings {
     var difficulty: Difficulty = .normal
     var selectedMapID = PublishedMapRegistry.defaultMapID
     var selectedMission: MissionKind = .waves
+    var selectedClass: OperatorClass = .assault
     var selectedCamouflage: CamouflagePattern = .none
     var highQuality = true
     var musicVolume: Float = 0.45
@@ -58,6 +59,7 @@ struct NativeSettings {
         difficulty = Difficulty(rawValue: defaults.string(forKey: "native.difficulty") ?? "normal") ?? .normal
         selectedMapID = PublishedMapRegistry.normalizedID(defaults.string(forKey: "native.mapID"))
         selectedMission = MissionKind(rawValue: defaults.string(forKey: "native.mission") ?? "waves") ?? .waves
+        selectedClass = OperatorClass(rawValue: defaults.string(forKey: "native.operatorClass") ?? "assault") ?? .assault
         selectedCamouflage = CamouflagePattern(rawValue: defaults.string(forKey: "native.camouflage") ?? "none") ?? .none
         soundCaptions = defaults.object(forKey: "native.soundCaptions") == nil || defaults.bool(forKey: "native.soundCaptions")
         highQuality = defaults.bool(forKey: "native.highQuality")
@@ -77,6 +79,7 @@ struct NativeSettings {
         defaults.set(difficulty.rawValue, forKey: "native.difficulty")
         defaults.set(PublishedMapRegistry.normalizedID(selectedMapID), forKey: "native.mapID")
         defaults.set(selectedMission.rawValue, forKey: "native.mission")
+        defaults.set(selectedClass.rawValue, forKey: "native.operatorClass")
         defaults.set(selectedCamouflage.rawValue, forKey: "native.camouflage")
         defaults.set(highQuality, forKey: "native.highQuality")
         defaults.set(musicVolume, forKey: "native.musicVolume")

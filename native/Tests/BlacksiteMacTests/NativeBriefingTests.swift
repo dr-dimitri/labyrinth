@@ -30,13 +30,15 @@ struct NativeBriefingTests {
     @Test func minimumWindowHasCompleteKeyboardChainReadableInventoryAndKnownMap() {
         for mission in MissionKind.allCases {
             for pattern in CamouflagePattern.allCases {
+              for role in OperatorClass.allCases {
                 let view = NativeBriefingView(draft: NativeBriefingDraft(map: .blacksite, mission: mission,
-                    difficulty: .normal, camouflage: pattern))
+                    difficulty: .normal, camouflage: pattern, operatorClass: role))
                 #expect(view.bounds.width <= 960 && view.bounds.height + 22 <= 618)
                 #expect(view.subviews.allSatisfy { view.bounds.contains($0.frame) })
                 #expect(view.mapChoice.nextKeyView === view.missionChoice)
                 #expect(view.missionChoice.nextKeyView === view.difficultyChoice)
-                #expect(view.difficultyChoice.nextKeyView === view.patternChoice)
+                #expect(view.difficultyChoice.nextKeyView === view.classChoice)
+                #expect(view.classChoice.nextKeyView === view.patternChoice)
                 #expect(view.patternChoice.nextKeyView === view.cancelButton)
                 #expect(view.cancelButton.nextKeyView === view.applyButton)
                 #expect(view.applyButton.nextKeyView === view.startButton)
@@ -48,12 +50,15 @@ struct NativeBriefingTests {
                 let text = labels.map(\.stringValue).joined(separator: " ")
                 #expect(text.contains("\(game.grenadeCount) Splittergranaten"))
                 #expect(text.contains("\(game.noiseDecoyCount) Köder"))
+                #expect(text.contains("+ \(game.loadout.rifleReserve)"))
+                #expect(game.loadout.operatorClass == role)
                 #expect(!view.mapView.accessibilitySummary.isEmpty)
                 for label in labels where label.stringValue.count > 60 {
                     let height = (label.stringValue as NSString).boundingRect(with: NSSize(width: label.bounds.width, height: 1000),
                         options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: label.font!]).height
                     #expect(height <= label.bounds.height, "Briefing text clipped: \(label.stringValue)")
                 }
+              }
             }
         }
     }

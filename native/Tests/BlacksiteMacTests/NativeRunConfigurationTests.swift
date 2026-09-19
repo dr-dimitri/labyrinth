@@ -65,7 +65,7 @@ struct NativeRunConfigurationTests {
         #expect(run.seed == 0x193A7 && run.difficulty == .hard)
         #expect(retry.missionKind == .operation && retry.missionStatus.phase == .prepareOperation)
         #expect(retry.loadout == LoadoutDefinition(camouflage: .mineral))
-        #expect(retry.grenadeCount == 3 && retry.noiseDecoyCount == 2 && retry.grenades.isEmpty)
+        #expect(retry.grenadeCount == 3 && retry.noiseDecoyCount == run.loadout.noiseDecoys && retry.grenades.isEmpty)
         #expect(retry.elapsed == 0 && retry.player.health == 100 && retry.selectedExtractionID == nil)
         var input = GameInput(); input.yaw = retry.player.yaw; input.pitch = retry.player.pitch
         for tick in 0..<240 {

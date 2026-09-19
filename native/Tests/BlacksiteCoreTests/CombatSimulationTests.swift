@@ -152,7 +152,7 @@ struct CombatSimulationTests {
         #expect((game.weapons[.sniper]?.ammo) == (4))
         advance(game, 1.7)
         #expect((game.weapons[.rifle]?.ammo) == (30))
-        #expect((game.weapons[.rifle]?.reserve) == (205))
+        #expect((game.weapons[.rifle]?.reserve) == (game.loadout.rifleReserve-5))
         #expect((game.activeWeapon) == (.sniper))
     }
 

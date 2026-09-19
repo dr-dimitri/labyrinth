@@ -15,7 +15,7 @@ struct HearingTests {
     private func game(regions: [MapSurfaceRegion] = [], emitters: [NoiseEmitterDefinition] = [], world: [Obstacle] = [],
                       player: PlayerState? = nil, enemies: [EnemyState] = []) throws -> CombatSimulation {
         CombatSimulation(seed: 41, world: world, startingPlayer: player, startingEnemies: enemies,
-                         startingWave: 3, map: try map(regions: regions, emitters: emitters, world: world))
+                         startingWave: 3, map: try map(regions: regions, emitters: emitters, world: world),loadout: .init(operatorClass: .recon))
     }
     private func region(_ surface: SurfaceSound, low: Float = -30, high: Float = 30) -> MapSurfaceRegion {
         MapSurfaceRegion(minimum: SIMD2(-30,low), maximum: SIMD2(30,high), material: .soil, soundSurface: surface)
@@ -184,11 +184,11 @@ struct HearingTests {
 
     @Test func DecoysUseActualFlightAndFiniteInventoryPulsesLifetimeAndPause() throws {
         let simulation = try game()
-        #expect(simulation.noiseDecoyCount == 2 && simulation.throwNoiseDecoy())
+        #expect(simulation.noiseDecoyCount == 1 && simulation.throwNoiseDecoy())
         #expect(!simulation.throwNoiseDecoy())
         advance(simulation, ticks: 86)
-        #expect(simulation.throwNoiseDecoy() && simulation.noiseDecoyCount == 0)
-        #expect(simulation.decoys.count == 2 && !simulation.throwNoiseDecoy())
+        #expect(!simulation.throwNoiseDecoy() && simulation.noiseDecoyCount == 0)
+        #expect(simulation.decoys.count == 1 && !simulation.throwNoiseDecoy())
         let ages = simulation.decoys.map(\.age), positions = simulation.decoys.map(\.position)
         for _ in 0..<120 { simulation.step(deltaTime: 0, input: GameInput()) }
         #expect(simulation.decoys.map(\.age) == ages && simulation.decoys.map(\.position) == positions)
@@ -197,14 +197,14 @@ struct HearingTests {
         let events = simulation.drainEvents()
         let throwsMade = events.filter { $0.kind == .decoyThrown }
         let pulses = events.filter { $0.kind == .decoyPulse }
-        #expect(throwsMade.count == 2 && pulses.count == 12)
+        #expect(throwsMade.count == 1 && pulses.count == 6)
         for thrown in throwsMade {
             let ownPulses = pulses.filter { $0.id == thrown.id }
             #expect(ownPulses.count == 6 && ownPulses.allSatisfy { $0.hearing?.sourceID == thrown.id && $0.hearing?.kind == .decoy })
             #expect(ownPulses.allSatisfy { $0.position.y >= 0.08 && simd_distance($0.position, thrown.position) > 1 })
         }
         let restarted = try game()
-        #expect(restarted.noiseDecoyCount == 2 && restarted.decoys.isEmpty && restarted.hearingStimuli.isEmpty)
+        #expect(restarted.noiseDecoyCount == 1 && restarted.decoys.isEmpty && restarted.hearingStimuli.isEmpty)
     }
 
     @Test func FreshConfirmedDamageCannotBeReplacedByAQuieterDecoyAfterLossOfSight() throws {
@@ -228,7 +228,7 @@ struct HearingTests {
         #expect(simulation.hearingStimuli.first?.id == 37 && simulation.hearingStimuli.last?.id == 100)
         advance(simulation, ticks: 1080)
         #expect(simulation.hearingStimuli.isEmpty)
-        let foreign = CombatSimulation(map: .testRange)
+        let foreign = CombatSimulation(map: .testRange,loadout: .init(operatorClass: .recon))
         foreign.throwGrenade(); #expect(foreign.throwNoiseDecoy())
         advance(foreign, ticks: 120)
         #expect(foreign.grenades.count == 1 && foreign.decoys.count == 1)

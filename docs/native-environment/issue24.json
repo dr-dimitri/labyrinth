@@ -1,0 +1,256 @@
+{
+  "issue": 24,
+  "tests": {
+    "core": 191,
+    "macInitial": 174,
+    "finalGeometryBriefingAndPresentationRerun": 9,
+    "macCoveredTotal": 175
+  },
+  "review": {
+    "independentCoreGraphicsUIFixtures": "passed",
+    "fixes": [
+      "Detached charges settle along the actual sloped support normal, with matching physical and visual contact.",
+      "Recon markers keep a bounded minimum projected size and orange contrast at long range."
+    ],
+    "nativeUI": "Deferred: app launched successfully, but the Mac was locked and CUA could not acquire its window. User asked to unlock; native interaction remains on the final release checklist.",
+    "images": "Five actual Metal gadget scenes and three actual AppKit class briefings passed. Final recon geometry re-rendered after readability adjustment."
+  },
+  "loadouts": {
+    "recon": {
+      "fragmentation": 3,
+      "camouflageFragmentation": 2,
+      "decoys": 1,
+      "smoke": 0,
+      "charges": 0,
+      "rifleReserve": 210
+    },
+    "engineer": {
+      "fragmentation": 4,
+      "camouflageFragmentation": 3,
+      "decoys": 0,
+      "smoke": 0,
+      "charges": 1,
+      "rifleReserve": 120
+    },
+    "assault": {
+      "fragmentation": 4,
+      "camouflageFragmentation": 3,
+      "decoys": 0,
+      "smoke": 2,
+      "charges": 0,
+      "rifleReserve": 270
+    }
+  },
+  "rules": {
+    "reconMaxMarks": 3,
+    "reconLifetimeSeconds": 12,
+    "reconRepeatCooldown": 0.75,
+    "chargeFuseSeconds": 3,
+    "chargeMaximumPlacementMeters": 2,
+    "engineerDeviceTicks": [
+      78,
+      156
+    ],
+    "ordinaryDeviceTicks": [
+      120,
+      240
+    ],
+    "healthAndWeaponDamage": "unchanged; both weapons available to every role",
+    "camouflage": "one fragmentation grenade exchanged, class tool retained"
+  },
+  "referenceOperations": [
+    {
+      "class": "recon",
+      "exit": "north",
+      "equipmentUsed": {
+        "observations": 1,
+        "decoys": 1
+      },
+      "route": "west ground bypass",
+      "result": "won"
+    },
+    {
+      "class": "engineer",
+      "exit": "north",
+      "equipmentUsed": {
+        "breachCharges": 1
+      },
+      "route": "actual west panel opened with charge, crossed, service gate electrically opened in 78 ticks",
+      "result": "won"
+    },
+    {
+      "class": "assault",
+      "exit": "service",
+      "equipmentUsed": {
+        "smoke": 1
+      },
+      "route": "east ground depression",
+      "result": "won"
+    }
+  ],
+  "scenes": {
+    "recon": {
+      "operatorClass": "recon",
+      "camouflage": "none",
+      "playerHealth": 100,
+      "matchState": "active",
+      "invalidPlacementOrAimRejected": true,
+      "duplicateAttemptRejected": true,
+      "selfDamage": 0,
+      "walkedDistance": 0,
+      "reconMarkedEvents": 1,
+      "reconMarkCount": 1,
+      "visibleReconMarkCount": 1,
+      "visibleReconMarkers": 1,
+      "observedPoint": [
+        0,
+        1.7281666994094849,
+        -5.750006675720215
+      ],
+      "actualSoldierFeet": [
+        0,
+        0,
+        -5.249994277954102
+      ],
+      "chargePlacedEvents": 0,
+      "chargeDetonatedEvents": 0,
+      "chargeFuse": null,
+      "chargeAttached": null,
+      "breachOpen": false,
+      "smokeThrows": 0,
+      "smokeRemaining": 0,
+      "activeCharges": 0,
+      "chargeRemaining": 0,
+      "rifleReserve": 210,
+      "operatorVisualParts": 4,
+      "reconMarkerShadowCasters": 0,
+      "metalValidation": "passed"
+    },
+    "recon-hidden": {
+      "operatorClass": "recon",
+      "camouflage": "none",
+      "playerHealth": 100,
+      "matchState": "active",
+      "invalidPlacementOrAimRejected": true,
+      "duplicateAttemptRejected": true,
+      "selfDamage": 0,
+      "walkedDistance": 6.0316572189331055,
+      "reconMarkedEvents": 1,
+      "reconMarkCount": 1,
+      "visibleReconMarkCount": 0,
+      "visibleReconMarkers": 0,
+      "observedPoint": [
+        0,
+        1.7281666994094849,
+        -5.750006675720215
+      ],
+      "actualSoldierFeet": [
+        0,
+        0,
+        -3.979151725769043
+      ],
+      "chargePlacedEvents": 0,
+      "chargeDetonatedEvents": 0,
+      "chargeFuse": null,
+      "chargeAttached": null,
+      "breachOpen": false,
+      "smokeThrows": 0,
+      "smokeRemaining": 0,
+      "activeCharges": 0,
+      "chargeRemaining": 0,
+      "rifleReserve": 210,
+      "operatorVisualParts": 0,
+      "reconMarkerShadowCasters": 0,
+      "metalValidation": "passed"
+    },
+    "charge": {
+      "operatorClass": "engineer",
+      "camouflage": "none",
+      "playerHealth": 100,
+      "matchState": "active",
+      "invalidPlacementOrAimRejected": true,
+      "duplicateAttemptRejected": true,
+      "selfDamage": 0,
+      "walkedDistance": 0,
+      "reconMarkedEvents": 0,
+      "reconMarkCount": 0,
+      "visibleReconMarkCount": 0,
+      "visibleReconMarkers": 0,
+      "observedPoint": null,
+      "actualSoldierFeet": null,
+      "chargePlacedEvents": 1,
+      "chargeDetonatedEvents": 0,
+      "chargeFuse": 2,
+      "chargeAttached": true,
+      "breachOpen": false,
+      "smokeThrows": 0,
+      "smokeRemaining": 0,
+      "activeCharges": 1,
+      "chargeRemaining": 0,
+      "rifleReserve": 120,
+      "operatorVisualParts": 7,
+      "reconMarkerShadowCasters": 0,
+      "metalValidation": "passed"
+    },
+    "charge-retreat": {
+      "operatorClass": "engineer",
+      "camouflage": "none",
+      "playerHealth": 61.92668914794922,
+      "matchState": "active",
+      "invalidPlacementOrAimRejected": true,
+      "duplicateAttemptRejected": true,
+      "selfDamage": 38.07331085205078,
+      "walkedDistance": 4.621657371520996,
+      "reconMarkedEvents": 0,
+      "reconMarkCount": 0,
+      "visibleReconMarkCount": 0,
+      "visibleReconMarkers": 0,
+      "observedPoint": null,
+      "actualSoldierFeet": null,
+      "chargePlacedEvents": 1,
+      "chargeDetonatedEvents": 1,
+      "chargeFuse": null,
+      "chargeAttached": null,
+      "breachOpen": true,
+      "smokeThrows": 0,
+      "smokeRemaining": 0,
+      "activeCharges": 0,
+      "chargeRemaining": 0,
+      "rifleReserve": 120,
+      "operatorVisualParts": 0,
+      "reconMarkerShadowCasters": 0,
+      "metalValidation": "passed"
+    },
+    "smoke": {
+      "operatorClass": "assault",
+      "camouflage": "none",
+      "playerHealth": 100,
+      "matchState": "active",
+      "invalidPlacementOrAimRejected": false,
+      "duplicateAttemptRejected": true,
+      "selfDamage": 0,
+      "walkedDistance": 0,
+      "reconMarkedEvents": 0,
+      "reconMarkCount": 0,
+      "visibleReconMarkCount": 0,
+      "visibleReconMarkers": 0,
+      "observedPoint": null,
+      "actualSoldierFeet": null,
+      "chargePlacedEvents": 0,
+      "chargeDetonatedEvents": 0,
+      "chargeFuse": null,
+      "chargeAttached": null,
+      "breachOpen": false,
+      "smokeThrows": 1,
+      "smokeRemaining": 1,
+      "activeCharges": 0,
+      "chargeRemaining": 0,
+      "rifleReserve": 270,
+      "operatorVisualParts": 0,
+      "reconMarkerShadowCasters": 0,
+      "metalValidation": "passed"
+    }
+  },
+  "build": "Optimized ARM64 app, ad-hoc signature and smoke check passed. Final marker-size and shorter device-description adjustments additionally passed targeted tests and actual Metal rendering.",
+  "qualification": "Reference operations use actual movement, terrain, actions and extraction, with combat explicitly isolated. They prove solo reachability and consumption, not human combat balancing. No GPU-FPS claim is inferred from these captures."
+}

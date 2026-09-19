@@ -13,6 +13,10 @@ public final class CombatSimulation {
     public private(set) var obstacles: [Obstacle]
     public private(set) var coverDebris: [CoverDebrisState] = []
     var breachOpeningTimes: [Int: Double] = [:]
+    public private(set) var reconMarks: [ReconMark] = []
+    public private(set) var breachCharges: [BreachChargeState] = []
+    public private(set) var breachChargeCount = 0
+    private var reconReadyAt: Double = 0
     public private(set) var grenades: [GrenadeState] = []
     public private(set) var smokeGrenades: [SmokeGrenadeState] = []
     public private(set) var smokeVolumes: [SmokeVolumeState] = []
@@ -210,7 +214,8 @@ public final class CombatSimulation {
         let mission = selected.supportsMission(mission) ? mission : .recoverData
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
         self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
-        smokeGrenadeCount = loadout.smokeGrenades
+        smokeGrenadeCount = loadout.smokeGrenades; breachChargeCount = loadout.breachCharges
+        weapons[.rifle]?.reserve = loadout.rifleReserve; weapons[.sniper]?.reserve = loadout.sniperReserve
         missionPhase = mission == .waves ? .waves : mission == .secureRadio ? .activateRadio : mission == .operation ? .prepareOperation : .collectData
         navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
         navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
@@ -256,6 +261,7 @@ public final class CombatSimulation {
         grenades.reserveCapacity(8); supplies.reserveCapacity(8)
         smokeGrenades.reserveCapacity(SmokeVolumeState.maximumCount); smokeVolumes.reserveCapacity(SmokeVolumeState.maximumCount)
         coverDebris.reserveCapacity(CoverDebrisState.maximumCount)
+        reconMarks.reserveCapacity(ReconMark.maximumCount); breachCharges.reserveCapacity(BreachChargeState.maximumCount)
         hearingStimuli.reserveCapacity(64); decoys.reserveCapacity(NoiseDecoyState.maximumCount)
         pendingContactReports.reserveCapacity(4); contactReports.reserveCapacity(16); assignedGuardIDs.reserveCapacity(2)
         pendingCoverDebris.reserveCapacity(world.count)
@@ -651,6 +657,7 @@ public final class CombatSimulation {
                 recentShot: elapsed - lastShot < ConcealmentEvaluation.shotLockoutDuration)
         }
         updateGrenades(dt)
+        updateClassGadgets(dt)
         updateDecoys(dt)
         updateSmoke(dt)
         guard state == .active else { return }
@@ -1592,7 +1599,7 @@ extension CombatSimulation {
         } else { action = device.gateProgress >= 1 ? .closeGate : .openGate }
         return DeviceInteractionStatus(id: device.id, kind: device.kind, action: action, enabled: device.enabled,
             powered: device.powered, manual: manual, position: nearest.point, distance: nearest.distance,
-            progress: device.interactionProgress, requiredProgress: manual ? 2 : 1, gateProgress: device.gateProgress,
+            progress: device.interactionProgress, requiredProgress: Float(loadout.deviceInteractionTicks(manual: manual))/120, gateProgress: device.gateProgress,
             isMoving: device.isMoving, blockedByActor: device.blockedByActor, destroyed: device.destroyed,
             interactionAvailable: reason == nil || reason == .interactionReleased, interruption: reason)
     }
@@ -1649,7 +1656,7 @@ extension CombatSimulation {
             if activeDeviceID != status.id { resetDeviceInteraction(); activeDeviceID = status.id }
             deviceInteractionTicks += 1
             devices[index].interactionProgress = Float(deviceInteractionTicks) / 120
-            if deviceInteractionTicks >= Int(status.requiredProgress * 120) {
+            if deviceInteractionTicks >= loadout.deviceInteractionTicks(manual: status.manual) {
                 deviceInteractionLatch = true
                 if devices[index].kind == .generator {
                     devices[index].enabled.toggle(); devices[index].powered = devices[index].enabled
@@ -2000,5 +2007,103 @@ extension CombatSimulation {
 
     private func refreshSmokeClips() {
         for index in smokeVolumes.indices { smokeVolumes[index].constrain(to: obstacles,terrain: terrain) }
+    }
+}
+
+
+extension CombatSimulation {
+    /// Render historical points only while the player can still see that point.
+    /// Never query the target's current pose, health, awareness or position here.
+    public var visibleReconMarks: [ReconMark] {
+        reconMarks.filter { elapsed < $0.expiresAt && sightLine(eyePosition,$0.position) &&
+            !smokeVisibility(from: eyePosition,to: $0.position).opaque }
+    }
+
+    @discardableResult public func useClassGadget() -> Bool {
+        guard state == .active, climbing == nil, !isSprinting else { return false }
+        switch loadout.operatorClass {
+        case .assault: return throwSmokeGrenade()
+        case .recon: return observeContact()
+        case .engineer: return placeBreachCharge()
+        }
+    }
+
+    private func observeContact() -> Bool {
+        guard isAiming, elapsed+1e-9 >= reconReadyAt else { return false }
+        let origin = eyePosition, direction = viewDirection(yaw: player.yaw,pitch: player.pitch)
+        var closest = wallHit(origin: origin,direction: direction,maximumDistance: 70,purpose: .sight).distance
+        var targetID: Int?
+        for enemy in enemies where enemy.health > 0 {
+            let pose = EnemyPose(enemy)
+            for (height,radius) in [(pose.headHeight,Float(0.25)),(pose.bodyHeight,0.43-enemy.crouchAmount*0.07),(pose.hipHeight,Float(0.34))] {
+                let distance = raySphere(origin: origin,direction: direction,center: enemy.position+SIMD3(0,height,0),radius: radius)
+                if distance < closest { closest = distance; targetID = enemy.id }
+            }
+        }
+        guard let targetID else { return false }
+        let point = origin+direction*closest
+        guard !smokeVisibility(from: origin,to: point).opaque else { return false }
+        let mark = ReconMark(id: allocateID(),targetID: targetID,position: point,createdAt: elapsed)
+        reconMarks.removeAll { $0.targetID == targetID || elapsed >= $0.expiresAt }
+        if reconMarks.count >= ReconMark.maximumCount { reconMarks.removeFirst() }
+        reconMarks.append(mark); reconReadyAt = elapsed+0.75
+        emit(GameEvent(kind: .reconMarked,position: point,id: mark.id,mark: mark))
+        return true
+    }
+
+    private func placeBreachCharge() -> Bool {
+        guard player.grounded, breachChargeCount > 0, breachCharges.count < BreachChargeState.maximumCount else { return false }
+        let direction = viewDirection(yaw: player.yaw,pitch: player.pitch)
+        let hit = wallHit(origin: eyePosition,direction: direction,maximumDistance: 2.001)
+        guard hit.distance <= 2, abs(hit.normal.y) < 0.1, let index = hit.obstacleIndex,
+              map.breaches.contains(where: { $0.ownerObstacleID == obstacles[index].id }),
+              !obstacles[index].destroyed else { return false }
+        let surface = eyePosition+direction*hit.distance, owner = obstacles[index]
+        let horizontal = abs(hit.normal.x) > 0.5 ? surface.z : surface.x
+        let low = abs(hit.normal.x) > 0.5 ? owner.minimum.z : owner.minimum.x
+        let high = abs(hit.normal.x) > 0.5 ? owner.maximum.z : owner.maximum.x
+        guard horizontal >= low+0.07, horizontal <= high-0.07,
+              surface.y >= owner.minimum.y+0.05, surface.y <= owner.maximum.y-0.05 else { return false }
+        let point = surface+hit.normal*0.05
+        let charge = BreachChargeState(id: allocateID(),ownerObstacleID: obstacles[index].id,
+            position: point,normal: hit.normal,createdAt: elapsed)
+        breachCharges.append(charge); breachChargeCount -= 1
+        emit(GameEvent(kind: .breachChargePlaced,position: point,id: charge.id,charge: charge))
+        return true
+    }
+
+    private func updateClassGadgets(_ dt: Float) {
+        reconMarks.removeAll { elapsed+1e-9 >= $0.expiresAt }
+        var index = 0
+        while index < breachCharges.count {
+            var charge = breachCharges[index]
+            if charge.attached && !obstacles.contains(where: { $0.id == charge.ownerObstacleID && !$0.destroyed }) {
+                charge.attached = false
+            }
+            if !charge.attached {
+                // Preserve the same physical centre during detachment. The
+                // swept flight is conservative; the final thin housing rests
+                // 1mm above its actual support, including elevated roofs.
+                if charge.resting {
+                    let support = wallHit(origin: charge.position,direction: SIMD3(0,-1,0),maximumDistance: 0.2)
+                    if !(support.hitGround || support.obstacleIndex != nil) || support.distance*support.normal.y > 0.033 { charge.resting = false }
+                }
+                if !charge.resting {
+                    advanceThrowable(position: &charge.position,velocity: &charge.velocity,dt: dt)
+                    let support = wallHit(origin: charge.position,direction: SIMD3(0,-1,0),maximumDistance: 0.12)
+                    if support.distance < 0.11 && abs(charge.velocity.y) < 0.55 && simd_length(charge.velocity) < 0.8 {
+                        let contact = charge.position-SIMD3(0,support.distance,0)
+                        charge.normal = support.normal; charge.position = contact+support.normal*0.031
+                        charge.velocity = .zero; charge.resting = true
+                    }
+                }
+            }
+            charge.remainingTicks -= 1
+            if charge.remainingTicks <= 0 {
+                breachCharges.remove(at: index)
+                emit(GameEvent(kind: .breachChargeDetonated,position: charge.position,id: charge.id,charge: charge))
+                explode(at: charge.position)
+            } else { breachCharges[index] = charge; index += 1 }
+        }
     }
 }

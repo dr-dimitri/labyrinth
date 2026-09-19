@@ -23,6 +23,9 @@ enum NativeSoundCheck {
         guard ["sound-machine", "sound-decoy"].contains(scene) else {
             throw CheckFailure(message: "Sound scenes: sound-machine or sound-decoy, optionally --machine-off.")
         }
+        guard scene != "sound-decoy" || loadout.operatorClass == .recon else {
+            throw CheckFailure(message: "sound-decoy requires --class recon; the selected kit is preserved.")
+        }
         let map = MapDefinition.blacksite
         guard let authored = map.environment.noiseEmitters.first(where: { $0.id == 7001 }),
               let ownerID = authored.ownerObstacleID,
@@ -82,7 +85,8 @@ enum NativeSoundCheck {
             throw CheckFailure(message: "The machine's acoustic gain does not match its simulation state.")
         }
         var metadata: [String: Any] = [
-            "scene": scene, "machineID": machine.id, "machineOwnerID": machine.ownerObstacleID!,
+            "scene": scene, "operatorClass": loadout.operatorClass.rawValue,
+            "machineID": machine.id, "machineOwnerID": machine.ownerObstacleID!,
             "machineEnabled": machine.enabled, "machineGainAtPlayer": machineGain,
             "machinePosition": [machine.position.x, machine.position.y, machine.position.z],
             "machineStateEvents": emitterChanges, "decoyThrows": thrown, "decoyPulses": pulses,

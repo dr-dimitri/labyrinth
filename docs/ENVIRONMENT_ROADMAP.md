@@ -21,9 +21,9 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #23 | Lokale Kontaktmeldungen | Umgesetzt, unabhängige Reviews, Tests und Bilder bestanden |
 | #26 | Umgebung und Extraktionsentscheidung | Umgesetzt, Reviews, Tests, Build, Bilder und native Bedienprüfung bestanden |
 | #25 | Briefing und Tarnungsfeedback | Umgesetzt, Review, gezielte Tests, AppKit-Bild und native Bedienprüfung bestanden |
-| #21 | Rauch, Dampf und Gischt | Offen |
-| #22 | Durchbrechbare Zugänge | Offen |
-| #24 | Drei Solo-Klassen | Offen |
+| #21 | Rauch, Dampf und Gischt | Umgesetzt, Reviews, Tests, GPU-Abgleich, Bilder und native Eingaben bestanden |
+| #22 | Durchbrechbare Zugänge | Umgesetzt, Reviews, Tests, reale Routen, Audio und Bilder bestanden |
+| #24 | Drei Solo-Klassen | Umgesetzt, Reviews, Tests, drei reale Operationswege und Bilder bestanden; native Eingaben vorgemerkt |
 | #27 | Nebelwacht | Offen |
 | #28 | Sundkai | Offen |
 | #29 | Kessel-9 | Offen |
@@ -321,3 +321,26 @@ Blacksite-Körpern. Das ist keine Spiel-FPS-Messung. Der optimierte Appbuild mit
 Signatur und Smokecheck bestand; die abschließenden Glassicherheitsmarkierungen
 wurden anschließend auf beiden Stufen durch Metal geprüft.
 [Prüfdaten](native-environment/issue22.json).
+
+### #24 – Drei feste Klassen mit Umweltwerkzeugen
+
+Aufklärer speichern beim tatsächlichen Zielen höchstens drei selbst sichtbare
+Kontaktpunkte für zwölf Sekunden und tragen einen Geräuschköder. Die Punkte
+bleiben fest und verschwinden hinter Deckung oder dichtem Rauch. Pioniere
+platzieren eine reale Durchbruchladung bis zwei Meter Entfernung mit drei
+Sekunden Zünder und Selbstschaden; ausgewiesene Geräte bedienen sie in 35 %
+weniger Zeit. Sturm besitzt zwei Rauchgranaten und mehr AR-Reserve. Alle haben
+beide Waffen und dieselbe Gesundheit; Tarnung kostet klassenunabhängig eine
+Splittergranate. Die neue Aktion ist frei belegbar, bestehende Würfe behalten
+ihre Tasten. Briefing, HUD, Einstellungen und Retry verwenden dasselbe Kit.
+
+191 Core- und 174 Mac-Tests bestanden vollständig; neun abschließende Tests
+decken die vergrößerten Marker und das Briefing ab (insgesamt 175 Mac-Tests).
+Die unabhängigen Reviews korrigierten die Auflage gefallener Ladungen auf
+Hängen. Fünf Metal-Szenen und drei AppKit-Briefings bestanden die Bildprüfung.
+Drei vollständige Blacksite-Operationen mit tatsächlichem Werkzeugverbrauch
+und verschiedenen Ausgängen bestanden bei ausdrücklich isoliertem Kampf.
+Sie belegen Wege und Zustände, nicht eine abgeschlossene menschliche
+Balancingprüfung. Der optimierte Appbuild mit Signatur und Smokecheck bestand.
+Die native Bedienprüfung ist wegen erneut gesperrtem Mac für den Abschluss
+vorgemerkt; die App selbst startet. [Prüfdaten](native-environment/issue24.json).

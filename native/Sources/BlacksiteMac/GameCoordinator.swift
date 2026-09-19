@@ -108,7 +108,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard ready, window.attachedSheet == nil else { return }
         let configuration = ActiveRunConfiguration(map: selectedMap, seed: UInt64.random(in: 1...UInt64.max),
             mission: settings.selectedMission, difficulty: settings.difficulty,
-            loadout: LoadoutDefinition(camouflage: settings.selectedCamouflage))
+            loadout: LoadoutDefinition(operatorClass: settings.selectedClass, camouflage: settings.selectedCamouflage))
         beginRun(configuration)
     }
 
@@ -236,6 +236,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                     toast("\(exit.title) · \(String(format: "%.1f", exit.requiredProgress)) s am Boden im Ring bleiben", duration: 3)
                 }
             case .supply: toast("NACHSCHUB  +45 Sturmgewehr · +5 Scharfschützengewehr")
+            case .reconMarked: toast("KONTAKTPUNKT GEMERKT · 12 s · Position bleibt fest", duration: 2)
+            case .breachChargePlaced: toast("LADUNG GESETZT · 3 s · ZURÜCKZIEHEN", duration: 3)
             case .coverDestroyed: toast("DECKUNG ZERSTÖRT  +25 XP", duration: 1.7)
             case .win, .lose: setMode(.result)
             default: break
@@ -300,6 +302,10 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .grenade: simulation.throwGrenade()
             case .decoy: simulation.throwNoiseDecoy()
             case .smoke: simulation.throwSmokeGrenade()
+            case .classGadget:
+                if !simulation.useClassGadget() {
+                    toast(simulation.loadout.operatorClass == .recon ? "Beim Zielen einen sichtbaren Kontakt anvisieren." : simulation.loadout.operatorClass == .engineer ? "Ladung: freier Vorrat und erreichbares Paneel bis 2 m erforderlich." : "Kein Rauchwurf möglich — Vorrat und Bereitschaft prüfen.")
+                }
             case .reload: simulation.reload()
             case .rifle: simulation.selectWeapon(.rifle)
             case .sniper: simulation.selectWeapon(.sniper)
@@ -389,8 +395,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         guard mode == .menu, ready, window.attachedSheet == nil else { return }
         clearInput()
         let panel = NativeBriefingPanel(draft: NativeBriefingDraft(map: selectedMap,
-            mission: settings.selectedMission, difficulty: settings.difficulty, camouflage: settings.selectedCamouflage),
-            interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings))
+            mission: settings.selectedMission, difficulty: settings.difficulty, camouflage: settings.selectedCamouflage, operatorClass: settings.selectedClass),
+            interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings),
+            gadgetLabel: NativeControlLabels.label(for: .classGadget, bindings: settings.bindings))
         var preparedRun: (configuration: ActiveRunConfiguration, simulation: CombatSimulation)?
         panel.briefingView.onCancel = { [weak self, weak panel] in
             guard let self, let panel else { return }
@@ -411,7 +418,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             guard self.prepareMap(draft.map, alertParent: panel) else { preparedRun = nil; return }
             self.selectedMap = draft.map
             self.settings.selectedMapID = draft.map.id; self.settings.selectedMission = draft.mission
-            self.settings.difficulty = draft.difficulty; self.settings.selectedCamouflage = draft.camouflage
+            self.settings.difficulty = draft.difficulty; self.settings.selectedCamouflage = draft.camouflage; self.settings.selectedClass = draft.operatorClass
             self.settings.save()
             self.simulation = CombatSimulation(map: draft.map)
             self.renderer?.reset(); self.combatFeedback.reset(); self.noisePresentation.clear(); self.alarmPresentation.clear(); self.audio.reset()
