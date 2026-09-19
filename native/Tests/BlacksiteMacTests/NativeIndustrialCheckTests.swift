@@ -4,6 +4,24 @@ import BlacksiteCore
 
 @MainActor
 struct NativeIndustrialCheckTests {
+    @Test func siroccoGrenadeViewUsesOrdinaryThrowsFromAValidDistance() throws {
+        let result = try NativeIndustrialCheck.makeScenario(scene: "sirocco-aftermath")
+        #expect(result.simulation.state == .active)
+        #expect(result.metadata["explosions"] as? Int == 3)
+        #expect(result.simulation.grenadeCount == result.simulation.loadout.fragmentationGrenades-3)
+    }
+
+    @Test func siroccoShotViewsDistinguishDamagedAndOpenGlassWithoutLosingPermanentFrames() throws {
+        let damaged = try NativeIndustrialCheck.makeScenario(scene: "sirocco-damaged").simulation
+        let opened = try NativeIndustrialCheck.makeScenario(scene: "sirocco-opened").simulation
+        #expect(damaged.obstacles.first { $0.id == 3006 }?.damageStage == .damaged)
+        #expect(opened.obstacles.first { $0.id == 3006 }?.destroyed == true)
+        #expect(opened.breaches.filter(\.isOpen).count == 1)
+        let frames = Set(opened.map.breaches.flatMap(\.frameObstacleIDs))
+        #expect(opened.obstacles.filter { frames.contains($0.id) }.allSatisfy { !$0.destroyed })
+        #expect(damaged.weapons[.rifle]!.ammo-opened.weapons[.rifle]!.ammo == 1)
+    }
+
     @Test func switchViewUsesHeldInputAndActualOpposedGatePositions() throws {
         let closed = try NativeIndustrialCheck.makeScenario(scene: "kessel-gates")
         let opened = try NativeIndustrialCheck.makeScenario(scene: "kessel-switched")

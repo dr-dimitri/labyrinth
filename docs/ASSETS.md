@@ -106,3 +106,7 @@ Die folgenden Dateien enthalten genaue Download-URLs, Dateigrößen, SHA-256-Pr�
 ## Kessel-9: vorhandene fotografische Materialien
 
 Kessel-9 verwendet die unveränderten Beton- und Felskarten aus dem oben dokumentierten Nebelwacht-Satz sowie den vorhandenen Blacksite-Himmel und Metall-/Figurenressourcen. Neue Bilddateien oder Lizenzen kommen nicht hinzu. Betonrippen, Wartungsschotts, Kabelrampe und Staumauerkulisse sind eigene Spielgeometrie. Beton verwendet 1,55 m, Fels 2 m Materialmaßstab; die Auswahl wird wie bei den übrigen Karten ausschließlich für die aktive Karte auf die GPU geladen.
+
+## Sirocco: wiederverwendete Fotografien und Salzglas
+
+Sirocco verwendet vorhandene fotografische Beton- und Felsmaterialien sowie denselben lokalen Himmel und dieselben Figuren-/Waffenressourcen. Eine zurückhaltende warme Tönung kennzeichnet den trockenen Salzgrund. Salzablagerungen, Glasrisse und das Gebäudelayout entstehen im Spielcode; es gibt keine neuen Bildquellen oder zusätzlichen Lizenzen. Durchsicht, Paneelschatten und Bruchzustand verwenden die bereits dokumentierten Glasmaterialien.

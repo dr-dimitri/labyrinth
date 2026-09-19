@@ -45,7 +45,7 @@ enum NativeMapCheck {
         guard index+1<arguments.count,let cycles=Int(arguments[index+1]),(1...10).contains(cycles) else {
             throw CheckFailure(message:"--map-cycles accepts 1 to 10 complete map round trips.")
         }
-        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,["map-test", "fjord-overview", "sundkai-overview", "kessel-overview"].contains(arguments[scene+1]) else {
+        guard let scene=arguments.firstIndex(of:"--scene"),scene+1<arguments.count,["map-test", "fjord-overview", "sundkai-overview", "kessel-overview", "sirocco-overview"].contains(arguments[scene+1]) else {
             throw CheckFailure(message:"--map-cycles requires --scene map-test, fjord-overview or sundkai-overview; map changes deliberately clear other fixture effects.")
         }
         let initial=simulation.map

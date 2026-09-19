@@ -109,6 +109,7 @@ final class NativeBriefingView: NSView {
     static func terrainHint(_ map: MapDefinition) -> String {
         var facts: [String] = []
         if !map.environment.shallowWaterZones.isEmpty { facts.append("Waten bremst; Schritte und Landungen sind hörbar. Trockene Wege bleiben frei.") }
+        if map.id == "sirocco" { facts.append("Verkrustetes Glas versperrt die Sicht. Durchbrüche öffnen Querwege und Sichtlinien. Außenwege bleiben frei.") }
         if map.id == "kessel9" { facts.append("Ein Schalter tauscht die offenen Wartungsschotts. Die Kabelrampe im Osten bleibt immer frei.") }
         if map.id == "nebelwacht" { facts.append("Wind und gelbe Leuchten kündigen Gischt an: kurzzeitig schlechtere Sicht, kein Schutz vor Kugeln.") }
         if !map.environment.vegetationZones.isEmpty { facts.append("Bewachsene Zonen dämpfen Sicht, halten keine Kugeln auf.") }

@@ -610,6 +610,8 @@ public struct MapDefinition: Sendable {
 
     public static let kessel9: MapDefinition = try! Kessel9Definition.make()
 
+    public static let sirocco: MapDefinition = try! SiroccoDefinition.make()
+
     public static let sundkai: MapDefinition = try! SundkaiDefinition.make()
 
     public static let nebelwacht: MapDefinition = try! NebelwachtDefinition.make()

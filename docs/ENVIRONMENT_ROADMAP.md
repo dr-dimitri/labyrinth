@@ -27,7 +27,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #27 | Nebelwacht | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik- und Speicherprüfung bestanden; native Eingaben vorgemerkt |
 | #28 | Sundkai | Umgesetzt, Reviews, Tests, sechs Operationswege, Grafik-/Speicherprüfung und native Start-/Eingabeprüfung bestanden |
 | #29 | Kessel-9 | Umgesetzt, Review, Tests, Release, Grafik-/Speicherprüfung und native Bedienprüfung bestanden |
-| #30 | Sirocco | Offen |
+| #30 | Sirocco | Umgesetzt, Review, Tests, Release, Grafik-/Speicherprüfung und native Bedienprüfung bestanden |
 | #31 | Varianten und Einsatzbericht | Offen |
 
 ## Ausgangsprüfung
@@ -461,3 +461,25 @@ dem Westpaneel stehenblieb. Der direkte Anlauf auf Ziele unter 2,6 m prüft jetz
 den vorhandenen Körper-Sweep; bei blockiertem Weg bleibt der berechnete Umweg.
 Zwei Regressionen verwenden echte Bewegung am intakten und geöffneten Paneel.
 Issue separat angelegt und Fix unabhängig geprüft; Commit `f6c2490`.
+
+### #30 – Sirocco
+
+Drei Wege durch das Gewächshaus und zwei Rückwege bleiben auch mit intakten
+Scheiben erreichbar. Zwölf Scheiben besitzen echte Kollisions-/Sichtzustände;
+Rahmen bleiben nach dem Bruch stehen. Der Funkpunkt liegt im Zentralgang. Ein
+gezielter Durchbruch verkürzt den Rückzug messbar. Angehobene Fundamentränder
+an den östlichen Scheiben wurden im Review behoben.
+
+227 Core- und 210 Mac-Tests bestanden; vier abschließende Diagnosetests prüfen
+zusätzlich reale Schüsse und Granaten. Alle Klassen erreichen beide Ausgänge
+mit tatsächlicher Bewegung und Interaktion bei isoliertem Kampf. Unabhängiges
+Code-/Bildreview, optimierter Release-Build und Signaturprüfung bestanden.
+Native Kartenauswahl, Start, Granate und Pause/Fortsetzen wurden bedient; dies
+ist kein vollständiger menschlicher Kampfdurchlauf. Auch die finalen Kessel-9
+Briefingkorrekturen sind in diesem Release enthalten und bildlich geprüft.
+
+Core-Median: 9.89 µs/Schritt mit neun Startgegnern und echten Kampfereignissen.
+GPU-P95 bei 2560×1600: 10,29 ms Hoch / 9,53 ms Ausgewogen; offene Scheiben
+9,69 ms Ausgewogen. Allokationen: 737,23 / 214,13 MiB. Zwei Kartenrundwechsel
+halten die Allokationen konstant. Alle Werte unterschreiten die vorher
+gesetzten Budgets; keine Gesamtbildraten-Aussage. [Prüfdaten](native-environment/issue30.json).

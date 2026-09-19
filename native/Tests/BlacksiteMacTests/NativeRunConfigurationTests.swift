@@ -10,7 +10,7 @@ struct NativeRunConfigurationTests {
         let name = "Blacksite.RunConfigurationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id, MapDefinition.nebelwacht.id, MapDefinition.sundkai.id, MapDefinition.kessel9.id])
+        #expect(PublishedMapRegistry.maps.map(\.id) == [MapDefinition.blacksite.id, MapDefinition.nebelwacht.id, MapDefinition.sundkai.id, MapDefinition.kessel9.id, MapDefinition.sirocco.id])
         #expect(PublishedMapRegistry.map(id: MapDefinition.testRange.id) == nil)
         for storedID in ["missing-map", "", MapDefinition.testRange.id, MapDefinition.blacksite.id] {
             defaults.set(storedID, forKey: "native.mapID")

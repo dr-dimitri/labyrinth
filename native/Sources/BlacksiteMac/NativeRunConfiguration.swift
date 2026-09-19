@@ -4,7 +4,7 @@ import BlacksiteCore
 /// Only released, playable maps appear in native menus. Diagnostic maps remain
 /// available to their explicit CLI/test callers, never through saved settings.
 enum PublishedMapRegistry {
-    static let maps: [MapDefinition] = [.blacksite, .nebelwacht, .sundkai, .kessel9]
+    static let maps: [MapDefinition] = [.blacksite, .nebelwacht, .sundkai, .kessel9, .sirocco]
     static let defaultMapID = MapDefinition.blacksite.id
 
     static func map(id: String) -> MapDefinition? { maps.first { $0.id == id } }

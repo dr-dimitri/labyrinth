@@ -7,7 +7,7 @@ BENCHMARK_DIR="$NATIVE_DIR/.build/core-benchmark"
 BENCHMARK_SOURCE="$SCRIPT_DIR/benchmark-core.swift"
 BENCHMARK_ARGS=()
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    printf 'Usage: native/scripts/benchmark-core.sh [--environment | --map <blacksite|nebelwacht|sundkai|kessel9> [--spray on|off] [--water on|off] [--enemies 9] [--seed 1745] [--seconds 60] [--samples 5] [--grenades]]\n'
+    printf 'Usage: native/scripts/benchmark-core.sh [--environment | --map <blacksite|nebelwacht|sundkai|kessel9|sirocco> [--spray on|off] [--water on|off] [--enemies 9] [--seed 1745] [--seconds 60] [--samples 5] [--grenades]]\n'
     exit 0
 fi
 if [[ "${1:-}" == --environment ]]; then

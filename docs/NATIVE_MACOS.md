@@ -260,3 +260,9 @@ Die mitgelieferten Poly-Haven-Texturen stehen unter CC0; Quellcode und eigene Ge
 Im Einsatzbriefing steht die Gebirgssperre Kessel-9 bereit: Leitstanddaten sichern, den unteren Funkverteiler aktivieren und acht Sekunden halten, anschließend einen von zwei Ausgängen erreichen. Am Wartungsschalter tauscht gehaltenes **E** die offenen Kanalspuren. Steht eine Figur im Bewegungsbereich, warten beide Schotts. Zerstörung des Schalters stoppt die Schotts in ihrer tatsächlichen Stellung. Westlicher Betriebsweg und östliche Kabelrampe bleiben benutzbar; die östlichen Deckungsbuchten bieten einen geschützten Rückweg.
 
 Grafikprüfungen: `--scene kessel-overview`, `kessel-gates`, `kessel-switched` und `kessel-aftermath`. Die Umschaltansicht verwendet echte gehaltene Eingabe; die Nachkampfaufnahme normale Granaten. Diese kurzen Szenen ersetzen keinen vollständigen menschlichen Kampfdurchlauf. Der Core-Benchmark unterstützt `--map kessel9 --grenades`.
+
+### Sirocco
+
+Sirocco ist eine Salzgewächshaus-Anlage mit offener Betriebsgasse, mittlerem Gewächshausgang und erhöhter östlicher Salzrampe. Verkrustete Scheiben nehmen die Sicht; klare Scheiben lassen sie durch. Zwei Gewehrtreffer öffnen einen Glasdurchgang, entfernen aber auch dessen Sichtschutz. Die tragenden Pfosten und oberen Rahmen bleiben stehen. Alle Pflichtziele sind auch ohne Glasbruch erreichbar.
+
+Die Feldoperation verlangt Messdaten, anschließend Aktivierung und Halten der Funkstation, danach eine von zwei Extraktionen. Die Prüfszenen heißen `sirocco-overview`, `sirocco-glass`, `sirocco-clear`, `sirocco-damaged`, `sirocco-opened`, `sirocco-aftermath` und `sirocco-ruins`. Die Ruinenansicht ist ausdrücklich ein vollständig zerstörter Anfangssnapshot; die Schadensansichten verwenden echte Gewehrschüsse.
