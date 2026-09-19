@@ -37,12 +37,13 @@ public final class CombatSimulation {
     public private(set) var isMoving = false
     public private(set) var intermission: Float = 1.4
     public private(set) var extractionProgress: Float = 0
+    public private(set) var selectedExtractionID: String?
     public private(set) var pendingReinforcements = 0
     public var remainingEnemies: Int { aliveCount + pendingReinforcements }
     public var extractionReady: Bool {
         switch missionKind {
         case .waves: return wave == 3 && remainingEnemies == 0
-        case .recoverData: return missionPhase == .extract || missionPhase == .completed
+        case .recoverData, .operation: return missionPhase == .extract || missionPhase == .completed
         case .secureRadio: return false
         }
     }
@@ -69,7 +70,10 @@ public final class CombatSimulation {
     }
     public var mantleAvailable: Bool { state == .active && climbing == nil && player.grounded && mantleTarget() != nil }
     public var climbProgress: Float? { climbing.map { $0.progress / 0.75 } }
-    public var extractionPosition: SIMD3<Float> { groundedPoint(map.extraction) }
+    public var extractionPosition: SIMD3<Float> {
+        if let exit = presentedOperationExtraction { return map.grounded(exit.position) }
+        return groundedPoint(map.extraction)
+    }
     private var insideExtraction: Bool {
         horizontalDistance(player.position, extractionPosition) < map.extractionRadius && player.grounded &&
             abs(player.position.y - extractionPosition.y) < 0.2
@@ -81,9 +85,9 @@ public final class CombatSimulation {
         player.grounded && climbing == nil && abs(player.position.y - groundedPoint(map.radioSite).y) <= 2.5
     }
     public var missionInteractionAvailable: Bool {
-        guard state == .active, missionPhase == .collectData || missionPhase == .activateRadio,
+        guard state == .active, missionPhase == .prepareOperation || missionPhase == .collectData || missionPhase == .activateRadio,
               player.grounded, climbing == nil else { return false }
-        let target = groundedPoint(missionPhase == .collectData ? map.dataSite : map.radioSite)
+        let target = groundedPoint(missionPhase == .activateRadio ? map.radioSite : map.dataSite)
         return simd_distance(player.position, target) <= 1.6
     }
     public var missionStatus: MissionStatus {
@@ -93,16 +97,22 @@ public final class CombatSimulation {
         switch phase {
         case .waves:
             target = nil; radius = 0; progress = Float(kills); required = 21
-        case .collectData, .activateRadio:
-            target = groundedPoint(phase == .collectData ? map.dataSite : map.radioSite)
-            radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .collectData ? 0.8 : 1
+        case .prepareOperation, .collectData, .activateRadio:
+            target = groundedPoint(phase == .activateRadio ? map.radioSite : map.dataSite)
+            radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .activateRadio ? 1 : 0.8
             if !player.grounded || climbing != nil { interruption = .notGrounded }
             else if !missionInteractionAvailable { interruption = .outOfRange }
             else if !interactionHeld { interruption = .interactionReleased }
         case .extract:
-            target = extractionPosition; radius = map.extractionRadius; progress = extractionProgress; required = 3
-            if !player.grounded || climbing != nil { interruption = .notGrounded }
-            else if !insideExtraction { interruption = .outOfRange }
+            if let exit = presentedOperationExtraction {
+                let snapshot = extractionSnapshot(exit)
+                target = snapshot.position; radius = snapshot.radius; progress = snapshot.progress
+                required = snapshot.requiredProgress; interruption = snapshot.interruption
+            } else {
+                target = extractionPosition; radius = map.extractionRadius; progress = extractionProgress; required = 3
+                if !player.grounded || climbing != nil { interruption = .notGrounded }
+                else if !insideExtraction { interruption = .outOfRange }
+            }
         case .holdRadio:
             target = groundedPoint(map.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
             if !groundedAtRadio { interruption = .notGrounded }
@@ -115,7 +125,8 @@ public final class CombatSimulation {
         return MissionStatus(kind: missionKind, phase: phase, objectivePosition: target, objectiveRadius: radius,
                              distance: target.map { phase == .holdRadio ? horizontalDistance(player.position, $0) : simd_distance(player.position, $0) },
                              progress: progress, requiredProgress: required, interruption: interruption,
-                             interactionAvailable: missionInteractionAvailable)
+                             interactionAvailable: missionInteractionAvailable,
+                             extractionID: missionKind == .operation ? (phase == .completed ? selectedExtractionID : phase == .extract ? presentedOperationExtraction?.id : nil) : nil)
     }
 
     let difficulty: Difficulty
@@ -187,9 +198,13 @@ public final class CombatSimulation {
         let selected = map ?? MapDefinition.blacksite.withoutVegetation()
         let terrain = terrain ?? (map == nil ? .flat : selected.terrain)
         self.map = selected.withTerrain(terrain)
+        // Preserve the nonthrowing legacy initializer. Frontends can reject an
+        // unsupported selection using supportsMission; direct callers get the
+        // documented data-recovery fallback and an honest effective missionKind.
+        let mission = selected.supportsMission(mission) ? mission : .recoverData
         self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
         self.loadout = loadout; grenadeCount = loadout.fragmentationGrenades; noiseDecoyCount = loadout.noiseDecoys
-        missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
+        missionPhase = mission == .waves ? .waves : mission == .secureRadio ? .activateRadio : mission == .operation ? .prepareOperation : .collectData
         navWidth = Int(floor((selected.maximum.x - selected.minimum.x) / navSpacing)) + 1
         navDepth = Int(floor((selected.maximum.z - selected.minimum.z) / navSpacing)) + 1
         let cells = navWidth * navDepth
@@ -756,9 +771,14 @@ public final class CombatSimulation {
             missionStarted = true
             emit(GameEvent(kind: .missionPhaseChanged, position: missionStatus.objectivePosition ?? player.position,
                            missionPhase: missionPhase))
-            queueMissionReinforcements(missionKind == .recoverData ? 4 : 3)
+            queueMissionReinforcements(missionKind == .secureRadio ? 3 : 4)
         }
         switch missionPhase {
+        case .prepareOperation:
+            if missionInteractionAvailable && input.interact {
+                changeMissionPhase(to: .collectData)
+                missionProgressTicks = 1
+            }
         case .collectData, .activateRadio:
             missionProgressTicks = missionInteractionAvailable && input.interact ? missionProgressTicks + 1 : 0
             let required = missionPhase == .collectData ? 96 : 120
@@ -772,6 +792,7 @@ public final class CombatSimulation {
                 }
             }
         case .extract:
+            if missionKind == .operation { updateOperationExtraction(); return }
             missionProgressTicks = insideExtraction ? min(360, missionProgressTicks + 1) : 0
             extractionProgress = Float(missionProgressTicks)/120
             if missionProgressTicks == 360 { finishObjectiveMission() }
@@ -850,7 +871,7 @@ public final class CombatSimulation {
             } else {
                 // Authored objectives are public tactical destinations. Arrivals
                 // do not acquire knowledge of an unseen player's live position.
-                let anchor = missionKind == .secureRadio ? map.radioSite : missionPhase == .collectData ? map.dataSite : map.extraction
+                let anchor = missionKind == .secureRadio ? map.radioSite : (missionPhase == .prepareOperation || missionPhase == .collectData) ? map.dataSite : map.extraction
                 let angle = Float(offset) * 2.39996
                 let candidate = groundedPoint(anchor + SIMD3(sin(angle)*1.8,0,cos(angle)*1.8))
                 staging = !blocked(candidate, height: 1.96, radius: 0.4) ? candidate : groundedPoint(anchor)
@@ -1815,5 +1836,63 @@ extension CombatSimulation {
         emit(GameEvent(kind: .alarmEscalated, position: source, id: report.enemyID, hearing: hearing, contactReport: report,
                        alarmReportID: report.id))
         queueMissionReinforcements(alarm.reinforcementCount)
+    }
+}
+
+extension CombatSimulation {
+    public var operationStatus: OperationStatus? {
+        guard missionKind == .operation, let operation = map.operation else { return nil }
+        let preparations = operation.preparations.map { definition -> OperationPreparationStatus in
+            guard let device = devices.first(where: { $0.id == definition.deviceID }) else {
+                return OperationPreparationStatus(kind: definition.kind, deviceID: definition.deviceID, completed: false, unavailable: true)
+            }
+            let completed = definition.kind == .disableRadio ? (!device.enabled || device.destroyed) : (device.gateProgress >= 1 || device.destroyed)
+            return OperationPreparationStatus(kind: definition.kind, deviceID: definition.deviceID, completed: completed, unavailable: device.destroyed && !completed)
+        }
+        return OperationStatus(preparations: preparations, extractions: operation.extractions.map(extractionSnapshot),
+                               selectedExtractionID: selectedExtractionID)
+    }
+
+    private var presentedOperationExtraction: ExtractionDefinition? {
+        guard missionKind == .operation, let exits = map.operation?.extractions else { return nil }
+        if extractionReady, let active = exits.first(where: { operationExitInterruption($0) == nil }) { return active }
+        if let selected = exits.first(where: { $0.id == selectedExtractionID }), !operationExitBlocked(selected) { return selected }
+        let available = exits.filter { !operationExitBlocked($0) }
+        return (available.isEmpty ? exits : available).min {
+            horizontalDistance(player.position, $0.position) < horizontalDistance(player.position, $1.position)
+        }
+    }
+    private func operationExitBlocked(_ exit: ExtractionDefinition) -> Bool {
+        blocked(map.grounded(exit.position), height: 1.72, radius: 0.32)
+    }
+    private func operationExitInterruption(_ exit: ExtractionDefinition) -> MissionInterruption? {
+        if operationExitBlocked(exit) { return .blocked }
+        if !player.grounded || climbing != nil || abs(player.position.y - terrain.height(x: player.position.x, z: player.position.z)) >= 0.2 {
+            return .notGrounded
+        }
+        if horizontalDistance(player.position, exit.position) >= exit.radius { return .outOfRange }
+        return nil
+    }
+    private func extractionSnapshot(_ exit: ExtractionDefinition) -> ExtractionSnapshot {
+        let position = map.grounded(exit.position), reason = operationExitInterruption(exit)
+        return ExtractionSnapshot(id: exit.id, title: exit.title, detail: exit.detail, position: position, radius: exit.radius,
+            requiredProgress: exit.holdDuration, progress: selectedExtractionID == exit.id ? extractionProgress : 0,
+            distance: simd_distance(player.position, position), routeKind: exit.routeKind,
+            unlocked: extractionReady, blocked: reason == .blocked,
+            active: state == .active && missionPhase == .extract && reason == nil, interruption: reason)
+    }
+    private func updateOperationExtraction() {
+        guard let exits = map.operation?.extractions,
+              let exit = exits.first(where: { operationExitInterruption($0) == nil }) else {
+            missionProgressTicks = 0; extractionProgress = 0; return
+        }
+        if selectedExtractionID != exit.id {
+            selectedExtractionID = exit.id; missionProgressTicks = 0; extractionProgress = 0
+            emit(GameEvent(kind: .extractionSelected, position: map.grounded(exit.position), extractionID: exit.id))
+        }
+        let requiredTicks = Int((exit.holdDuration * 120).rounded(.up))
+        missionProgressTicks = min(requiredTicks, missionProgressTicks + 1)
+        extractionProgress = min(exit.holdDuration, Float(missionProgressTicks) / 120)
+        if missionProgressTicks == requiredTicks { finishObjectiveMission() }
     }
 }

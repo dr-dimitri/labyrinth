@@ -19,7 +19,7 @@ Veröffentlichung und Schließen der Issues erfolgen nach Abschluss und Prüfung
 | #19 | Geräusche und Ablenkung | Umgesetzt, Review/Tests, nativer Audiomix und Bilder bestanden |
 | #20 | Strom, Licht und Servicetore | Umgesetzt, Review/Tests, Release-Build und Bilder bestanden |
 | #23 | Lokale Kontaktmeldungen | Umgesetzt, unabhängige Reviews, Tests und Bilder bestanden |
-| #26 | Umgebung und Extraktionsentscheidung | Offen |
+| #26 | Umgebung und Extraktionsentscheidung | Umgesetzt, Reviews, Tests, Build und Bilder bestanden; native Bedienprüfung vorgemerkt |
 | #25 | Briefing und Tarnungsfeedback | Offen |
 | #21 | Rauch, Dampf und Gischt | Offen |
 | #22 | Durchbrechbare Zugänge | Offen |
@@ -229,3 +229,22 @@ Der optimierte Core-Test benötigt 14.52 µs je Schritt. Er enthält jetzt
 die tatsächliche Alarmantwort (zwölf Startgegner, bis zu 14 aktive Gegner).
 Die Arbeitslast unterscheidet sich daher von früheren Messungen; die neue
 Ausgabe weist beide Populationsgrenzen aus. [Prüfdaten](native-environment/issue23.json).
+
+### #26 – Feldoperation und Evakuierungsentscheidung
+
+Die Feldoperation verbindet optionale Funk-/Torvorbereitung mit der tatsächlichen
+Datenaufnahme und zwei unabhängig definierten Ausgängen. Das Nordtor ist kürzer
+und offen; der längere Wartungsweg nutzt die östliche Senke und Schutz durch den
+festen Bunker gegenüber der Straße. Der aktive Core-Ausgang bestimmt HUD,
+Fortschritt und Abschluss; ein blockierter Ausgang lässt die Alternative offen.
+Verlassen, Sprung und Wechsel setzen den Timer zurück, tödlicher Schaden kann
+keinen gleichzeitigen Sieg erzeugen. Vorbereitung und Alarm bleiben erhalten.
+
+Unabhängige Core-, UI- und Grafikreviews abgeschlossen. 155 bestehende Coretests
+und 140 gemeldete Mac-Tests bestanden im vollständigen Lauf; alle sieben neuen
+Operationstests bestanden nach Korrektur einer zu großzügigen Spawn-Erwartung
+der Diagnosekarte. Drei vollständige physische Blacksite-Routen wurden mit
+isoliertem Kampf geprüft. Releasebuild, Signatur und vier Metal-Szenen bestanden.
+Die nachgebesserten Diagnosekameras zeigen bodengebundene Evakuierungsringe
+und physische Lampen. Native Bedienprüfung ist wegen gesperrtem Mac noch für
+den Abschlusslauf vorgemerkt. [Prüfdaten](native-environment/issue26.json).

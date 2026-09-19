@@ -12,7 +12,7 @@ struct NativeMissionPresentation {
     let interactionTitle: String?
     let interactionDetail: String
 
-    init(_ status: MissionStatus, interactionLabel: String = "E") {
+    init(_ status: MissionStatus, interactionLabel: String = "E", operation: OperationStatus? = nil) {
         let binding = Self.boundInteractionLabel(interactionLabel)
         interactionDetail = binding == nil ? "Interagieren in den Einstellungen belegen" :
             "Loslassen oder Verlassen setzt den Fortschritt zurück"
@@ -24,13 +24,25 @@ struct NativeMissionPresentation {
         case .waves:
             title = "Überstehe die Angriffswellen"; detail = "Danach: Evakuierung am Nordtor"
             interactionTitle = nil
+        case .prepareOperation:
+            title = "Vorbereiten oder direkt Daten bergen"
+            detail = ["PFLICHT: DATENSTATION", distance, "Vorbereitung optional"].compactMap { $0 }.joined(separator: " · ")
+            interactionTitle = status.interactionAvailable ? binding.map { "\($0) HALTEN  ·  DATEN SICHERN" } ?? "INTERAGIEREN NICHT BELEGT" : nil
         case .collectData:
             title = status.interactionAvailable ? "Daten sichern" : "Datenstation erreichen"
-            detail = ["CONTAINERHOF", distance, "danach evakuieren"].compactMap { $0 }.joined(separator: " · ")
+            detail = [status.kind == .operation ? "DATENSTATION" : "CONTAINERHOF", distance,
+                      status.kind == .operation ? "danach Ausgang wählen" : "danach evakuieren"].compactMap { $0 }.joined(separator: " · ")
             interactionTitle = status.interactionAvailable ? binding.map { "\($0) HALTEN  ·  DATEN SICHERN" } ?? "INTERAGIEREN NICHT BELEGT" : nil
         case .extract:
-            title = "Evakuierung am Nordtor erreichen"
-            detail = ["NORDTOR", distance, "im Ring bleiben"].compactMap { $0 }.joined(separator: " · ")
+            if status.kind == .operation {
+                let exit = operation?.extractions.first { $0.id == status.extractionID }
+                title = exit.map { "Evakuierung: " + $0.title } ?? "Einen Ausgang erreichen"
+                let route = exit.map { $0.routeKind == .exposed ? "Kurzer offener Weg" : "Längerer Weg mit Deckung" }
+                detail = [route ?? "Zwei Ausgänge zur Wahl", distance, "im Ring bleiben"].compactMap { $0 }.joined(separator: " · ")
+            } else {
+                title = "Evakuierung am Nordtor erreichen"
+                detail = ["NORDTOR", distance, "im Ring bleiben"].compactMap { $0 }.joined(separator: " · ")
+            }
             interactionTitle = nil
         case .activateRadio:
             title = status.interactionAvailable ? "Funkstation aktivieren" : "Funkstation erreichen"
@@ -44,7 +56,7 @@ struct NativeMissionPresentation {
             title = status.kind == .secureRadio ? "Funkstation gesichert" : "Evakuierung abgeschlossen"
             detail = "Auftrag abgeschlossen"; interactionTitle = nil
         }
-        if binding == nil && (status.phase == .collectData || status.phase == .activateRadio) {
+        if binding == nil && (status.phase == .prepareOperation || status.phase == .collectData || status.phase == .activateRadio) {
             reason = "INTERAGIEREN NICHT BELEGT · In Einstellungen zuweisen"
         } else { switch status.interruption {
         case .outOfRange:
@@ -57,9 +69,11 @@ struct NativeMissionPresentation {
             reason = "\(binding ?? interactionLabel) halten · Loslassen setzt Laden zurück"
         case .contested:
             reason = "PAUSIERT · Feinde aus dem Funkbereich verdrängen"
+        case .blocked:
+            reason = "ZUGANG BLOCKIERT · Anderen Ausgang nutzen"
         case nil:
             switch status.phase {
-            case .collectData, .activateRadio: reason = "\(binding ?? interactionLabel) weiter halten · Laden läuft"
+            case .prepareOperation, .collectData, .activateRadio: reason = "\(binding ?? interactionLabel) weiter halten · Laden läuft"
             case .extract: reason = "Im Ring bleiben · Evakuierung läuft"
             case .holdRadio: reason = "Bereich frei · Kontrolle läuft"
             default: reason = ""
@@ -76,6 +90,7 @@ struct NativeMissionPresentation {
         case .waves: return "WELLEN"
         case .recoverData: return "DATEN BERGEN"
         case .secureRadio: return "FUNK SICHERN"
+        case .operation: return "FELDOPERATION"
         }
     }
 
@@ -85,14 +100,20 @@ struct NativeMissionPresentation {
         case .waves: return "Drei Angriffswellen abwehren, dann am Nordtor 3 s evakuieren.\nIm Evakuierungsring bleiben; Verlassen setzt den Timer zurück."
         case .recoverData: return "\(action): Daten sichern, danach am Nordtor 3 s evakuieren.\nLoslassen oder Verlassen setzt die Bergung zurück."
         case .secureRadio: return "\(action): Funk aktivieren, danach Bereich 45 s sichern.\nAußerhalb oder umkämpft: Pause; Fortschritt bleibt erhalten."
+        case .operation: return "Optional Funk abschalten / Tor öffnen. \(action): Daten bergen.\nDanach Ausgang wählen: kurz und offen oder länger und teilweise gedeckt."
         }
     }
 
-    static func banner(for phase: MissionPhase, interactionLabel: String = "E") -> (label: String, title: String, detail: String)? {
+    static func banner(for phase: MissionPhase, interactionLabel: String = "E", operation: OperationStatus? = nil) -> (label: String, title: String, detail: String)? {
         let action = boundInteractionLabel(interactionLabel).map { "An der Station \($0) halten" } ?? "Interagieren in Einstellungen belegen"
         switch phase {
-        case .collectData: return ("AUFTRAG · DATENBERGUNG", "DATEN SICHERN", "Containerhof erreichen · \(action)")
-        case .extract: return ("DATEN GESICHERT", "ZUR EVAKUIERUNG", "Nordtor erreichen · Im grünen Ring bleiben")
+        case .prepareOperation: return ("FELDOPERATION", "BEOBACHTEN. VORBEREITEN.", "Daten sind Pflicht · Funk und Tor optional · \(action)")
+        case .collectData: return ("AUFTRAG · DATENBERGUNG", "DATEN SICHERN", (operation == nil ? "Containerhof erreichen" : "Datenstation erreichen") + " · \(action)")
+        case .extract:
+            if let operation {
+                return ("DATEN GESICHERT", "WÄHLE DEINEN RÜCKWEG", operation.extractions.map(\.title).joined(separator: " oder ") + " · Im Ring bleiben")
+            }
+            return ("DATEN GESICHERT", "ZUR EVAKUIERUNG", "Nordtor erreichen · Im grünen Ring bleiben")
         case .activateRadio: return ("AUFTRAG · FUNKSICHERUNG", "FUNK AKTIVIEREN", "Wartungszone erreichen · \(action)")
         case .holdRadio: return ("FUNK AKTIV", "BEREICH SICHERN", "Feinde verdrängen · Bei Unterbrechung bleibt Fortschritt erhalten")
         case .waves, .completed: return nil

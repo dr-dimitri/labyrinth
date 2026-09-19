@@ -133,6 +133,7 @@ public struct MapDefinition: Sendable {
     public let scenery: MapSceneryDefinition
     public let environment: MapEnvironmentDefinition
     public let resources: MapResourceReferences
+    public let operation: MapOperationDefinition?
 
     public init(id: String, version: Int = 1, displayName: String,
                 minimum: SIMD3<Float>, maximum: SIMD3<Float>, terrain: TerrainProfile,
@@ -141,7 +142,8 @@ public struct MapDefinition: Sendable {
                 extraction: SIMD3<Float>, extractionRadius: Float = 3.5, dataSite: SIMD3<Float>, radioSite: SIMD3<Float>,
                 serviceApproach: SIMD3<Float>? = nil, roads: [MapSurfaceRegion] = [], supportSurfaces: [Obstacle] = [],
                 levelProps: [Int: LevelProp] = [:], scenery: MapSceneryDefinition? = nil,
-                environment: MapEnvironmentDefinition? = nil, resources: MapResourceReferences = MapResourceReferences()) throws {
+                environment: MapEnvironmentDefinition? = nil, resources: MapResourceReferences = MapResourceReferences(),
+                operation: MapOperationDefinition? = nil) throws {
         self.id = id; self.version = version; self.displayName = displayName
         self.minimum = minimum; self.maximum = maximum; self.terrain = terrain; self.obstacles = obstacles
         self.playerStart = playerStart; self.spawns = spawns; self.reinforcementEntries = reinforcementEntries
@@ -164,28 +166,30 @@ public struct MapDefinition: Sendable {
         var plainEnvironment = MapEnvironmentDefinition()
         plainEnvironment.shadowTarget = SIMD3(center.x, floor, center.z)
         plainEnvironment.shadowExtent = max(maximum.x - minimum.x, maximum.z - minimum.z) * 0.8
-        self.environment = environment ?? plainEnvironment; self.resources = resources
+        self.environment = environment ?? plainEnvironment; self.resources = resources; self.operation = operation
         try validateStructure()
     }
 
     /// Preserve all authored metadata while explicitly overriding a test profile.
     public func withTerrain(_ value: TerrainProfile) -> MapDefinition {
-        copying(terrain: value, environment: environment)
+        copying(terrain: value, environment: environment, operation: operation)
     }
     /// Isolated legacy worlds have no authored vegetation unless a map was selected.
     func withoutVegetation() -> MapDefinition {
         var environment = environment; environment.vegetationZones = []; environment.noiseEmitters = []; environment.devices = []; environment.spotlights = []; environment.alarm = nil
-        return copying(terrain: terrain, environment: environment)
+        return copying(terrain: terrain, environment: environment, operation: nil)
     }
-    private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition) -> MapDefinition {
+    private func copying(terrain value: TerrainProfile, environment: MapEnvironmentDefinition, operation: MapOperationDefinition?) -> MapDefinition {
         // These operations preserve validated dimensions, identifiers and geometry.
         try! MapDefinition(id: id, version: version, displayName: displayName, minimum: minimum, maximum: maximum,
                            terrain: value, obstacles: obstacles, playerStart: playerStart, spawns: spawns,
                            reinforcementEntries: reinforcementEntries, waveStaging: waveStaging,
                            extraction: extraction, extractionRadius: extractionRadius, dataSite: dataSite, radioSite: radioSite,
                            serviceApproach: serviceApproach, roads: roads, supportSurfaces: supportSurfaces,
-                           levelProps: levelProps, scenery: scenery, environment: environment, resources: resources)
+                           levelProps: levelProps, scenery: scenery, environment: environment, resources: resources, operation: operation)
     }
+    public func supportsMission(_ kind: MissionKind) -> Bool { kind != .operation || operation != nil }
+
     public func grounded(_ point: SIMD3<Float>) -> SIMD3<Float> {
         point + SIMD3(0, terrain.height(x: point.x, z: point.z), 0)
     }
@@ -219,6 +223,11 @@ public struct MapDefinition: Sendable {
             guard abs(target.y - terrain.height(x: target.x, z: target.z)) <= 0.05,
                   simulation.hasReachableRoute(from: start, to: target) else {
                 throw MapValidationError("Karte \(id): \(name) ist vom Spielerstart nicht am Boden erreichbar.")
+            }
+        }
+        for exit in operation?.extractions ?? [] {
+            guard simulation.hasReachableRoute(from: grounded(dataSite), to: grounded(exit.position)) else {
+                throw MapValidationError("Karte \(id): Operationsausgang \(exit.title) ist vom Pflichtziel nicht am Boden erreichbar.")
             }
         }
         let permanent = obstacles.filter { !$0.health.isFinite }
@@ -328,6 +337,34 @@ public struct MapDefinition: Sendable {
                   alarm.returnGuardPosts.count <= 2, alarm.returnGuardPosts.allSatisfy(inside),
                   (0...2).contains(alarm.reinforcementCount) else {
                 throw MapValidationError("Karte \(id): Alarm benötigt einen vorhandenen Generator als Funkversorgung, 10–80 m Reichweite und höchstens zwei Wachposten/Verstärkungen.")
+            }
+        }
+        if let operation {
+            var exitIDs = Set<String>(), preparationIDs = Set<Int>()
+            guard operation.extractions.count == 2, operation.preparations.count <= 2 else {
+                throw MapValidationError("Karte \(id): Eine Feldoperation benötigt zwei Ausgänge und höchstens zwei optionale Vorbereitungen.")
+            }
+            for exit in operation.extractions {
+                guard !exit.id.isEmpty, exitIDs.insert(exit.id).inserted, !exit.title.isEmpty, !exit.detail.isEmpty,
+                      inside(exit.position), abs(exit.position.y) <= 0.05,
+                      exit.radius.isFinite, (1...5).contains(exit.radius),
+                      exit.holdDuration.isFinite, (1...10).contains(exit.holdDuration),
+                      exit.position.x - exit.radius >= minimum.x, exit.position.x + exit.radius <= maximum.x,
+                      exit.position.z - exit.radius >= minimum.z, exit.position.z + exit.radius <= maximum.z else {
+                    throw MapValidationError("Karte \(id): Operationsausgang besitzt ungültige Kennung, Maße oder Aufenthaltsdauer.")
+                }
+            }
+            let exits = operation.extractions
+            guard horizontalDistance(exits[0].position, exits[1].position) > exits[0].radius + exits[1].radius + 0.5 else {
+                throw MapValidationError("Karte \(id): Operationsausgänge dürfen sich nicht überschneiden.")
+            }
+            for preparation in operation.preparations {
+                guard preparationIDs.insert(preparation.deviceID).inserted,
+                      let device = environment.devices.first(where: { $0.id == preparation.deviceID }),
+                      device.kind == (preparation.kind == .disableRadio ? .generator : .serviceGate),
+                      preparation.kind != .disableRadio || environment.alarm?.radioDeviceID == preparation.deviceID else {
+                    throw MapValidationError("Karte \(id): Optionale Vorbereitung benötigt ein passendes vorhandenes Gerät; Funkabschaltung muss die tatsächliche Funkversorgung betreffen.")
+                }
             }
         }
         var volumeIDs = Set<String>()
@@ -443,7 +480,7 @@ public struct MapDefinition: Sendable {
             environment.spotlights = BlacksiteDevices.lights
             environment.alarm = BlacksiteAlarm.definition
             return environment
-        }(), resources: .blacksite)
+        }(), resources: .blacksite, operation: BlacksiteOperation.definition)
 
     /// A small elevated, translated fixture catches accidental Blacksite bounds,
     /// zero-height starts, roads and the former 12m terrain-ray ceiling.

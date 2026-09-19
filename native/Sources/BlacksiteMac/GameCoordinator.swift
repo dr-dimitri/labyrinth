@@ -116,7 +116,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     }
 
     func selectMission(_ mission: MissionKind) {
-        guard mode == .menu, window.attachedSheet == nil else { return }
+        guard mode == .menu, window.attachedSheet == nil, selectedMap.supportsMission(mission) else { return }
         settings.selectedMission = mission; settings.save(); hud.refresh()
     }
 
@@ -125,6 +125,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func selectMap(_ map: MapDefinition) {
         guard ready, mode == .menu, window.attachedSheet == nil, prepareMap(map) else { return }
         selectedMap = map
+        if !map.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData; settings.save() }
         simulation = CombatSimulation(map: map)
         renderer?.reset(); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); audio.reset()
         bannerUntil = 0; toastUntil = 0
@@ -195,8 +196,13 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             case .extractionUnlocked:
                 banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6)
             case .missionPhaseChanged:
-                if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase, interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings)) {
+                if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase,
+                    interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings), operation: simulation.operationStatus) {
                     banner(notice.label, notice.title, notice.detail, duration: 4)
+                }
+            case .extractionSelected:
+                if let exit = simulation.operationStatus?.extractions.first(where: { $0.id == event.extractionID }) {
+                    toast("\(exit.title) · \(String(format: "%.1f", exit.requiredProgress)) s am Boden im Ring bleiben", duration: 3)
                 }
             case .supply: toast("NACHSCHUB  +45 Sturmgewehr · +5 Scharfschützengewehr")
             case .coverDestroyed: toast("DECKUNG ZERSTÖRT  +25 XP", duration: 1.7)

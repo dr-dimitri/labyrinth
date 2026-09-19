@@ -69,6 +69,15 @@ private struct MissionVisual {
     let props: [RenderItem]
     let ring: [RenderItem]
 }
+private struct OperationExitVisual {
+    let id: String
+    let position: SIMD3<Float>
+    let radius: Float
+    let routeKind: OperationRouteKind
+    let terrain: TerrainProfile
+    let props: [RenderItem]
+    let ring: [RenderItem]
+}
 private struct ForestTree {
     var center: SIMD3<Float>
     var radius: Float
@@ -143,6 +152,8 @@ final class NativeRenderer {
     private var staticLevelDetailCount = 0
     private var activeLevelItemCount = 0
     private var missionVisual: MissionVisual?
+    private var operationExitVisuals: [OperationExitVisual] = []
+    private var operationMarkerIDs: [String] = []
     private var missionPropCount = 0
     private var missionRingCount = 0
     private var missionPropShadowCount = 0
@@ -211,6 +222,8 @@ final class NativeRenderer {
         diagnostics["levelDetailInstanceBudget"]=96
         diagnostics["missionPropInstances"]=missionPropCount
         diagnostics["missionRingSegments"]=missionRingCount
+        diagnostics["operationExitMarkers"]=operationMarkerIDs.count
+        diagnostics["operationMarkerIDs"]=operationMarkerIDs
         diagnostics["missionPropShadowCasters"]=missionPropShadowCount
         return diagnostics
     }
@@ -400,7 +413,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
+    func reset() { alarmReporterVisualCount=0;alarmPropInstances=0;spotShadowInstanceCounts=[];spotLightPowers=[];decoyPulseTimes.removeAll(keepingCapacity:true); noiseEmitterVisualCount=0; noiseDecoyVisualCount=0; noisePropInstances=0; displayedCamouflagePattern = .none; camouflageClothingInstances = 0; combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); shellCollisionCache.removeAll(keepingCapacity:false); skinnedSoldiers?.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;operationExitVisuals.removeAll(keepingCapacity:false);operationMarkerIDs.removeAll(keepingCapacity:false);missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         for event in events where event.kind == .decoyPulse && simulation.decoys.contains(where:{ $0.id==event.id }) {
@@ -693,7 +706,7 @@ final class NativeRenderer {
             appendTransformed(to: &all, mesh: 2, transform: pose * Self.translation(SIMD3(0,-length*0.503,0)) * Self.scale(SIMD3(radius*0.4,0.0006,radius*0.4)), color: SIMD3(0.42,0.36,0.22), material: SIMD4(0.4,0.85,0,13), shadow: false)
         }
         for tracer in tracers { appendBeam(to: &all, from: tracer.start, to: tracer.end, width: tracer.hostile ? 0.013 : 0.008, color: tracer.hostile ? SIMD3(1, 0.23, 0.045) : SIMD3(1, 0.77, 0.3), emissive: 5) }
-        appendMissionVisuals(to: &all, status: simulation.missionStatus, terrain: simulation.terrain)
+        appendMissionVisuals(to: &all, status: simulation.missionStatus, operation: simulation.operationStatus, terrain: simulation.terrain)
         var worldByMesh = [[GPUInstance]](repeating: [], count: meshes.count), shadowByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var nearByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var spotsByMesh=[[[GPUInstance]]](repeating:[[GPUInstance]](repeating:[],count:meshes.count),count:spotlights.count)
@@ -1583,8 +1596,15 @@ final class NativeRenderer {
         for i in tracers.indices { tracers[i].life -= deltaTime }; tracers.removeAll { $0.life <= 0 }
     }
 
-    private func appendMissionVisuals(to items: inout [RenderItem], status: MissionStatus, terrain: TerrainProfile) {
+    private func appendMissionVisuals(to items: inout [RenderItem], status: MissionStatus, operation: OperationStatus?, terrain: TerrainProfile) {
         missionPropCount=0; missionRingCount=0; missionPropShadowCount=0
+        operationMarkerIDs.removeAll(keepingCapacity:true)
+        if status.kind == .operation, status.phase == .extract, let operation {
+            missionVisual=nil
+            appendOperationExits(to:&items,status:operation,terrain:terrain)
+            return
+        }
+        operationExitVisuals.removeAll(keepingCapacity:true)
         guard let position=status.objectivePosition, status.objectiveRadius>0,
               status.phase != .waves, status.phase != .completed else {
             missionVisual=nil
@@ -1594,8 +1614,8 @@ final class NativeRenderer {
             missionVisual?.position != position || missionVisual?.radius != status.objectiveRadius ||
             missionVisual?.terrain != terrain {
             var props:[RenderItem]=[], ring:[RenderItem]=[]
-            if status.phase == .collectData || status.phase == .activateRadio || status.phase == .holdRadio {
-                let local=missionProp(dataCase:status.phase == .collectData)
+            if status.phase == .collectData || status.phase == .prepareOperation || status.phase == .activateRadio || status.phase == .holdRadio {
+                let local=missionProp(dataCase:status.phase == .collectData || status.phase == .prepareOperation)
                 let normal=terrain.normal(x:position.x,z:position.z)
                 var support=missionSurfacePoint(position,terrain:terrain)
                 // Keep the authoritative objective height when a mission is
@@ -1647,6 +1667,47 @@ final class NativeRenderer {
             items.append(item)
         }
         missionRingCount=visual.ring.count
+    }
+
+    private func appendOperationExits(to items: inout [RenderItem], status: OperationStatus, terrain: TerrainProfile) {
+        assert(status.extractions.count<=NativeOperationVisual.maximumExits,"Operation exit count exceeded its authored limit.")
+        let exits=status.extractions.filter(\.unlocked)
+        let sameGeometry=operationExitVisuals.count==exits.count && zip(operationExitVisuals,exits).allSatisfy { cached,exit in
+            cached.id==exit.id && cached.position==exit.position && cached.radius==exit.radius &&
+                cached.routeKind==exit.routeKind && cached.terrain==terrain
+        }
+        if !sameGeometry {
+            operationExitVisuals=exits.map { exit in
+                let geometry=NativeOperationVisual.geometry(position:exit.position,radius:exit.radius,
+                    routeKind:exit.routeKind,terrain:terrain,supportSurfaces:shellGroundColliders)
+                @MainActor func convert(_ parts:[SoldierPart])->[RenderItem] {
+                    var result:[RenderItem]=[];result.reserveCapacity(parts.count)
+                    for part in parts {
+                        appendTransformed(to:&result,mesh:part.mesh,transform:part.transform,
+                            color:part.color,material:part.material,shadow:part.castsShadow)
+                    }
+                    return result
+                }
+                return OperationExitVisual(id:exit.id,position:exit.position,radius:exit.radius,routeKind:exit.routeKind,
+                    terrain:terrain,props:convert(geometry.props),ring:convert(geometry.ring))
+            }
+        }
+        for (visual,exit) in zip(operationExitVisuals,exits) {
+            items.append(contentsOf:visual.props)
+            missionPropCount+=visual.props.count
+            missionPropShadowCount+=visual.props.filter(\.shadow).count
+            for (index,var item) in visual.ring.enumerated() {
+                let appearance=NativeOperationVisual.ringAppearance(exit:exit,segment:index)
+                item.instance.tint=SIMD4(appearance.color,1)
+                item.instance.material.z=appearance.emission
+                items.append(item)
+            }
+            missionRingCount+=visual.ring.count
+            operationMarkerIDs.append(exit.id)
+        }
+        assert(missionPropCount<=NativeOperationVisual.maximumExits*NativeOperationVisual.propPartsPerExit &&
+               missionRingCount<=NativeOperationVisual.maximumExits*NativeOperationVisual.segmentsPerExit,
+               "Operation marker geometry exceeded its fixed instance budget.")
     }
 
     private func missionSurfacePoint(_ point:SIMD3<Float>,terrain:TerrainProfile)->SIMD3<Float> {

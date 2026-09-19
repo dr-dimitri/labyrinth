@@ -1,0 +1,147 @@
+{
+  "issue": 26,
+  "tests": {
+    "existingCore": 155,
+    "newOperation": 7,
+    "mac": 140,
+    "result": "Existing Core and Mac suites passed in full run; all seven OperationTests passed after correcting the diagnostic safe-entry fixture to expect staged batches."
+  },
+  "review": {
+    "core": "independently reviewed",
+    "UI": "independently reviewed",
+    "graphics": "grounded boundaries, finite physical marker geometry, no through-wall rendering; fixed actor-isolation helper",
+    "fixtureCorrections": [
+      "Camera orientation changed through ordinary input to expose rings",
+      "Two actual safe entry points permit two arrivals per retry batch, not seven at once"
+    ]
+  },
+  "validation": {
+    "releaseBuild": "passed, ad-hoc signature and Metal smoke test",
+    "metalScenes": [
+      "operation-preparation",
+      "operation-exits",
+      "operation-route",
+      "operation-route --blocked-service"
+    ],
+    "completeBlacksiteCoreRoutes": [
+      "optional preparations then data and service exit",
+      "real radio escalation then data and north exit",
+      "aborted preparation and physically blocked alternative then fallback exit"
+    ],
+    "exitGeometry": "North path shorter; permanent bunker blocks both authored guard-post sightlines to eastern service exit, including after destructible cover loss. No all-direction cover promise.",
+    "nativeUI": "Deferred: Mac locked during native UI attempt; not claimed as a human combat playthrough."
+  },
+  "budgets": {
+    "ringSegments": 64,
+    "physicalMarkerParts": 12,
+    "markerShadowCasters": 8
+  },
+  "operation-route": {
+    "activeExtractionID": "service",
+    "blockedService": false,
+    "firstExitProgress": 0.6583333611488342,
+    "operationExitMarkers": 2,
+    "operationExtractions": [
+      {
+        "active": false,
+        "blocked": false,
+        "id": "north",
+        "interruption": "outOfRange",
+        "position": [
+          -4,
+          0,
+          -4
+        ],
+        "progressSeconds": 0,
+        "radius": 1.25,
+        "requiredSeconds": 3,
+        "routeKind": "exposed",
+        "title": "Prüfausgang Nord",
+        "unlocked": true
+      },
+      {
+        "active": true,
+        "blocked": false,
+        "id": "service",
+        "interruption": "none",
+        "position": [
+          4,
+          0,
+          -4
+        ],
+        "progressSeconds": 0.46666666865348816,
+        "radius": 1.25,
+        "requiredSeconds": 3,
+        "routeKind": "exposed",
+        "title": "Zweiter Prüfausgang",
+        "unlocked": true
+      }
+    ],
+    "operationMarkerIDs": [
+      "north",
+      "service"
+    ],
+    "playerFeet": [
+      3.9687552452087402,
+      0,
+      -3.961418628692627
+    ],
+    "progressAfterLeaving": 0,
+    "selectedExtractionID": "service",
+    "walkedDistance": 18.995868682861328
+  },
+  "operation-route-blocked": {
+    "activeExtractionID": "north",
+    "blockedService": true,
+    "firstExitProgress": 0.6583333611488342,
+    "operationExitMarkers": 2,
+    "operationExtractions": [
+      {
+        "active": true,
+        "blocked": false,
+        "id": "north",
+        "interruption": "none",
+        "position": [
+          -4,
+          0,
+          -4
+        ],
+        "progressSeconds": 0.46666666865348816,
+        "radius": 1.25,
+        "requiredSeconds": 3,
+        "routeKind": "exposed",
+        "title": "Prüfausgang Nord",
+        "unlocked": true
+      },
+      {
+        "active": false,
+        "blocked": true,
+        "id": "service",
+        "interruption": "blocked",
+        "position": [
+          4,
+          0,
+          -4
+        ],
+        "progressSeconds": 0,
+        "radius": 1.25,
+        "requiredSeconds": 3,
+        "routeKind": "exposed",
+        "title": "Zweiter Prüfausgang",
+        "unlocked": true
+      }
+    ],
+    "operationMarkerIDs": [
+      "north",
+      "service"
+    ],
+    "playerFeet": [
+      -3.9636905193328857,
+      0,
+      -3.954613447189331
+    ],
+    "progressAfterLeaving": 0,
+    "selectedExtractionID": "north",
+    "walkedDistance": 18.956701278686523
+  }
+}
