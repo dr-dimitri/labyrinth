@@ -119,6 +119,8 @@ final class NativeAudio {
             case .reload: play("reload")
             case .land: play("step")
             case .waveStarted, .waveCleared, .extractionUnlocked, .supply: play("notice")
+            case .missionPhaseChanged:
+                if let phase = event.missionPhase, phase != .completed { play("notice") }
             default: break
             }
         }

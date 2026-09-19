@@ -59,6 +59,15 @@ private struct CachedCoverFragments {
     let createdAt: Double
     let fragments: [CoverFragment]
 }
+private struct MissionVisual {
+    let kind: MissionKind
+    let phase: MissionPhase
+    let position: SIMD3<Float>
+    let radius: Float
+    let terrain: TerrainProfile
+    let props: [RenderItem]
+    let ring: [RenderItem]
+}
 private struct ForestTree {
     var center: SIMD3<Float>
     var radius: Float
@@ -120,6 +129,10 @@ final class NativeRenderer {
     private var decorativeDebrisCount = 0
     private var staticLevelDetailCount = 0
     private var activeLevelItemCount = 0
+    private var missionVisual: MissionVisual?
+    private var missionPropCount = 0
+    private var missionRingCount = 0
+    private var missionPropShadowCount = 0
     private var tracers: [Tracer] = []
     private var recoil: Float = 0
     private var shake: Float = 0
@@ -152,6 +165,9 @@ final class NativeRenderer {
         diagnostics["debrisCacheEntries"]=debrisCache.count
         diagnostics["levelDetailInstances"]=activeLevelItemCount
         diagnostics["levelDetailInstanceBudget"]=96
+        diagnostics["missionPropInstances"]=missionPropCount
+        diagnostics["missionRingSegments"]=missionRingCount
+        diagnostics["missionPropShadowCasters"]=missionPropShadowCount
         return diagnostics
     }
     // These shallow surfaces only affect visual shell physics. Append them
@@ -259,7 +275,7 @@ final class NativeRenderer {
         metalView?.sampleCount = high && pipelines[4] != nil ? 4 : 1
         lastSize = .zero;renderTargetBytes=0
     }
-    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0 }
+    func reset() { combatEffects.reset(); tracers.removeAll(keepingCapacity: true); recoil = 0; shake = 0; flash = 0; smoothFOV = 76; weaponAimBlend = 0; weaponWallBlend = 0; shells.reset(); skinnedSoldiers.reset(); shellImpacts.removeAll(keepingCapacity: true); shotAge = 10; coverCache.removeAll(keepingCapacity:true);debrisCache.removeAll(keepingCapacity:true);damagedCoverCount=0;solidDebrisCount=0;decorativeDebrisCount=0;missionVisual=nil;missionPropCount=0;missionRingCount=0;missionPropShadowCount=0 }
 
     func handle(events: [GameEvent], simulation: CombatSimulation) {
         // Only hit owners need surface extraction. These are the exact cached
@@ -537,13 +553,7 @@ final class NativeRenderer {
             appendTransformed(to: &all, mesh: 2, transform: pose * Self.translation(SIMD3(0,-length*0.503,0)) * Self.scale(SIMD3(radius*0.4,0.0006,radius*0.4)), color: SIMD3(0.42,0.36,0.22), material: SIMD4(0.4,0.85,0,13), shadow: false)
         }
         for tracer in tracers { appendBeam(to: &all, from: tracer.start, to: tracer.end, width: tracer.hostile ? 0.013 : 0.008, color: tracer.hostile ? SIMD3(1, 0.23, 0.045) : SIMD3(1, 0.77, 0.3), emissive: 5) }
-        if simulation.extractionReady {
-            for i in 0..<64 {
-                let angle = Float(i) / 64 * 2 * .pi; let next = Float(i + 1) / 64 * 2 * .pi
-                let center = simulation.extractionPosition + SIMD3<Float>(0, 0.035, 0)
-                appendBeam(to: &all, from: center + SIMD3(sin(angle) * GameMap.extractionRadius, 0, cos(angle) * GameMap.extractionRadius), to: center + SIMD3(sin(next) * GameMap.extractionRadius, 0, cos(next) * GameMap.extractionRadius), width: 0.035, color: SIMD3(0.12, 0.95, 0.56), emissive: 1.5)
-            }
-        }
+        appendMissionVisuals(to: &all, status: simulation.missionStatus, terrain: simulation.terrain)
         var worldByMesh = [[GPUInstance]](repeating: [], count: meshes.count), shadowByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         var nearByMesh = [[GPUInstance]](repeating: [], count: meshes.count)
         // Conservative sphere frustum checks keep tall trees and nearby cover
@@ -1329,6 +1339,124 @@ final class NativeRenderer {
     private func updateEffects(deltaTime: Float, terrain: TerrainProfile) {
         visualTime += deltaTime; recoil *= exp(-deltaTime * 12); shake *= exp(-deltaTime * 7); flash = max(0, flash - deltaTime)
         for i in tracers.indices { tracers[i].life -= deltaTime }; tracers.removeAll { $0.life <= 0 }
+    }
+
+    private func appendMissionVisuals(to items: inout [RenderItem], status: MissionStatus, terrain: TerrainProfile) {
+        missionPropCount=0; missionRingCount=0; missionPropShadowCount=0
+        guard let position=status.objectivePosition, status.objectiveRadius>0,
+              status.phase != .waves, status.phase != .completed else {
+            missionVisual=nil
+            return
+        }
+        if missionVisual?.kind != status.kind || missionVisual?.phase != status.phase ||
+            missionVisual?.position != position || missionVisual?.radius != status.objectiveRadius ||
+            missionVisual?.terrain != terrain {
+            var props:[RenderItem]=[], ring:[RenderItem]=[]
+            if status.phase == .collectData || status.phase == .activateRadio || status.phase == .holdRadio {
+                let local=missionProp(dataCase:status.phase == .collectData)
+                let normal=terrain.normal(x:position.x,z:position.z)
+                var support=missionSurfacePoint(position,terrain:terrain)
+                // Keep the authoritative objective height when a mission is
+                // deliberately placed above the terrain by a future scenario.
+                support.y=max(position.y,support.y)+0.003
+                let base=Self.translation(support)*simd_float4x4(simd_quatf(from:SIMD3<Float>(0,1,0),to:normal))
+                for item in local {
+                    appendTransformed(to:&props,mesh:item.mesh,transform:base*item.instance.model,
+                        color:SIMD3(item.instance.tint.x,item.instance.tint.y,item.instance.tint.z),
+                        material:item.instance.material,shadow:item.shadow)
+                }
+            }
+            // Thin ground strips replace the old level horizontal extraction
+            // beam. Every endpoint samples the actual terrain/road support;
+            // these projected cues never enter either directional shadow pass.
+            ring.reserveCapacity(64)
+            for i in 0..<64 {
+                let angle=Float(i)/64*2*Float.pi, next=Float(i+1)/64*2*Float.pi
+                let a=missionSurfacePoint(position+SIMD3(sin(angle)*status.objectiveRadius,0,cos(angle)*status.objectiveRadius),terrain:terrain)
+                let b=missionSurfacePoint(position+SIMD3(sin(next)*status.objectiveRadius,0,cos(next)*status.objectiveRadius),terrain:terrain)
+                let delta=b-a, length=simd_length(delta), along=delta/max(length,0.0001)
+                let middle=(a+b)*0.5
+                let up=terrain.normal(x:middle.x,z:middle.z)
+                let right=simd_normalize(simd_cross(up,along)), normal=simd_normalize(simd_cross(along,right))
+                // At triangle boundaries, lift by the tiny interpolation
+                // difference rather than burying half a strip in the ground.
+                let surface=missionSurfacePoint(middle,terrain:terrain)
+                let center=SIMD3(middle.x,max(middle.y,surface.y)+0.016,middle.z)
+                let transform=simd_float4x4(columns:(SIMD4(right*0.048,0),SIMD4(normal*0.003,0),SIMD4(along*length,0),SIMD4(center,1)))
+                appendTransformed(to:&ring,mesh:0,transform:transform,color:SIMD3(repeating:1),material:SIMD4(1,0,0.45,0),shadow:false)
+            }
+            assert(props.count<=24 && ring.count<=64,"Mission geometry exceeded its fixed instance budget.")
+            missionVisual=MissionVisual(kind:status.kind,phase:status.phase,position:position,radius:status.objectiveRadius,terrain:terrain,props:props,ring:ring)
+        }
+        guard let visual=missionVisual else { return }
+        items.append(contentsOf:visual.props)
+        missionPropCount=visual.props.count
+        missionPropShadowCount=visual.props.filter(\.shadow).count
+        let color:SIMD3<Float>
+        if status.interruption == .contested { color=SIMD3(0.95,0.35,0.10) }
+        else if status.phase == .extract { color=SIMD3(0.20,0.72,0.42) }
+        else if status.phase == .holdRadio { color=SIMD3(0.18,0.61,0.75) }
+        else { color=SIMD3(0.83,0.61,0.23) }
+        let progress=max(0,min(1,status.progress/max(status.requiredProgress,0.001)))
+        for (index,var item) in visual.ring.enumerated() {
+            let complete=Float(index)<progress*Float(visual.ring.count)
+            item.instance.tint=SIMD4(color*(complete ? 1:0.58),1)
+            item.instance.material.z=complete ? 0.75:0.32
+            items.append(item)
+        }
+        missionRingCount=visual.ring.count
+    }
+
+    private func missionSurfacePoint(_ point:SIMD3<Float>,terrain:TerrainProfile)->SIMD3<Float> {
+        var height=terrain.height(x:point.x,z:point.z)
+        // Same visible support boxes as shells and sole contacts, without any
+        // new gameplay collision or an absolute-height assumption on hills.
+        for surface in shellGroundColliders where abs(point.x-surface.position.x)<=surface.size.x*0.5 && abs(point.z-surface.position.z)<=surface.size.z*0.5 {
+            height=max(height,surface.position.y+surface.size.y)
+        }
+        return SIMD3(point.x,height,point.z)
+    }
+
+    private func missionProp(dataCase:Bool)->[RenderItem] {
+        var parts:[RenderItem]=[]
+        parts.reserveCapacity(24)
+        let polymer=SIMD4<Float>(0.84,0,0,10), metal=SIMD4<Float>(0.48,0.65,0,9)
+        let olive=SIMD3<Float>(0.23,0.27,0.16), dark=SIMD3<Float>(0.055,0.064,0.055), steel=SIMD3<Float>(0.28,0.30,0.28)
+        func part(_ p:SIMD3<Float>,_ size:SIMD3<Float>,_ color:SIMD3<Float>,mesh:Int=0,material:SIMD4<Float>?=nil,shadow:Bool=true) {
+            appendItem(to:&parts,mesh:mesh,position:p,scale:size,color:color,material:material ?? polymer,shadow:shadow)
+        }
+        if dataCase {
+            part(SIMD3(0,0.116,0),SIMD3(0.59,0.20,0.40),olive,mesh:9)
+            part(SIMD3(0,0.218,0),SIMD3(0.601,0.009,0.411),dark)
+            part(SIMD3(0,0.244,0),SIMD3(0.60,0.045,0.41),olive,mesh:9)
+            for x:Float in [-0.255,0.255] { for z:Float in [-0.165,0.165] {
+                part(SIMD3(x,0.043,z),SIMD3(0.075,0.08,0.075),dark,mesh:9)
+            } }
+            for x:Float in [-0.20,0.20] {
+                part(SIMD3(x,0.219,0.21),SIMD3(0.05,0.065,0.018),steel,mesh:9,material:metal)
+                part(SIMD3(x,0.217,-0.207),SIMD3(0.065,0.035,0.025),dark,mesh:9)
+            }
+            for x:Float in [-0.075,0.075] { part(SIMD3(x,0.167,0.244),SIMD3(0.024,0.060,0.032),dark,mesh:9) }
+            part(SIMD3(0,0.197,0.244),SIMD3(0.171,0.023,0.032),dark,mesh:9)
+            part(SIMD3(0,0.268,0),SIMD3(0.205,0.005,0.105),SIMD3(0.44,0.47,0.36),material:metal)
+            part(SIMD3(0.20,0.270,0.07),SIMD3(0.021,0.006,0.012),SIMD3(0.95,0.61,0.18),material:SIMD4(0.4,0,0.7,0),shadow:false)
+        } else {
+            part(SIMD3(0,0.020,0),SIMD3(0.44,0.034,0.32),dark,mesh:9)
+            part(SIMD3(0,0.149,0),SIMD3(0.40,0.23,0.28),olive,mesh:9)
+            part(SIMD3(0,0.120,-0.173),SIMD3(0.31,0.18,0.07),dark,mesh:9)
+            part(SIMD3(0,0.268,0),SIMD3(0.337,0.009,0.22),dark,mesh:9)
+            part(SIMD3(-0.05,0.274,0.033),SIMD3(0.17,0.005,0.072),SIMD3(0.025,0.16,0.12),material:SIMD4(0.18,0,0.35,12),shadow:false)
+            for x:Float in [-0.08,0.025] { part(SIMD3(x,0.286,-0.072),SIMD3(0.021,0.025,0.021),steel,mesh:2,material:metal) }
+            for x:Float in [-0.226,0.226] {
+                for z:Float in [-0.075,0.075] { part(SIMD3(x,0.186,z),SIMD3(0.021,0.035,0.024),dark,mesh:9) }
+                part(SIMD3(x,0.203,0),SIMD3(0.021,0.020,0.174),dark,mesh:9)
+            }
+            for y:Float in [0.115,0.14,0.165] { part(SIMD3(0,y,0.142),SIMD3(0.19,0.008,0.005),dark,shadow:false) }
+            part(SIMD3(0.145,0.285,-0.095),SIMD3(0.020,0.052,0.020),steel,mesh:2,material:metal)
+            part(SIMD3(0.145,0.714,-0.095),SIMD3(0.0045,0.81,0.0045),dark,mesh:2,material:metal)
+            part(SIMD3(0.145,1.124,-0.095),SIMD3(repeating:0.007),dark,mesh:1)
+        }
+        return parts
     }
 
     private func appendItem(to items: inout [RenderItem], mesh: Int = 0, position: SIMD3<Float>, scale: SIMD3<Float>, color: SIMD3<Float>, material: SIMD4<Float> = SIMD4(0.7, 0.4, 0, 0), yaw: Float = 0, shadow: Bool = true) {

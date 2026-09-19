@@ -5,6 +5,7 @@ import simd
 /// Call exclusively on the game thread; wall-clock deltas are integrated at 120 Hz.
 public final class CombatSimulation {
     public let terrain: TerrainProfile
+    public let missionKind: MissionKind
     public private(set) var player: PlayerState
     public private(set) var enemies: [EnemyState]
     public private(set) var obstacles: [Obstacle]
@@ -28,7 +29,13 @@ public final class CombatSimulation {
     public private(set) var extractionProgress: Float = 0
     public private(set) var pendingReinforcements = 0
     public var remainingEnemies: Int { aliveCount + pendingReinforcements }
-    public var extractionReady: Bool { wave == 3 && remainingEnemies == 0 }
+    public var extractionReady: Bool {
+        switch missionKind {
+        case .waves: return wave == 3 && remainingEnemies == 0
+        case .recoverData: return missionPhase == .extract || missionPhase == .completed
+        case .secureRadio: return false
+        }
+    }
     public var aliveCount: Int { enemies.reduce(0) { $0 + ($1.health > 0 ? 1 : 0) } }
     public var eyePosition: SIMD3<Float> { player.position + SIMD3(0, player.height - 0.1, 0) }
     public var isHidden: Bool {
@@ -37,6 +44,53 @@ public final class CombatSimulation {
     public var mantleAvailable: Bool { state == .active && climbing == nil && player.grounded && mantleTarget() != nil }
     public var climbProgress: Float? { climbing.map { $0.progress / 0.75 } }
     public var extractionPosition: SIMD3<Float> { groundedPoint(GameMap.extraction) }
+    private var insideExtraction: Bool {
+        horizontalDistance(player.position, extractionPosition) < GameMap.extractionRadius && player.grounded &&
+            abs(player.position.y - extractionPosition.y) < 0.2
+    }
+    private var radioContested: Bool {
+        enemies.contains { $0.health > 0 && horizontalDistance($0.position, GameMap.radioSite) <= 5 }
+    }
+    private var groundedAtRadio: Bool {
+        player.grounded && climbing == nil && abs(player.position.y - groundedPoint(GameMap.radioSite).y) <= 2.5
+    }
+    public var missionInteractionAvailable: Bool {
+        guard state == .active, missionPhase == .collectData || missionPhase == .activateRadio,
+              player.grounded, climbing == nil else { return false }
+        let target = groundedPoint(missionPhase == .collectData ? GameMap.dataSite : GameMap.radioSite)
+        return simd_distance(player.position, target) <= 1.6
+    }
+    public var missionStatus: MissionStatus {
+        let phase: MissionPhase = state == .won ? .completed : missionKind == .waves ? (extractionReady ? .extract : .waves) : missionPhase
+        let target: SIMD3<Float>?, radius: Float, progress: Float, required: Float
+        var interruption: MissionInterruption?
+        switch phase {
+        case .waves:
+            target = nil; radius = 0; progress = Float(kills); required = 21
+        case .collectData, .activateRadio:
+            target = groundedPoint(phase == .collectData ? GameMap.dataSite : GameMap.radioSite)
+            radius = 1.6; progress = Float(missionProgressTicks)/120; required = phase == .collectData ? 0.8 : 1
+            if !player.grounded || climbing != nil { interruption = .notGrounded }
+            else if !missionInteractionAvailable { interruption = .outOfRange }
+            else if !interactionHeld { interruption = .interactionReleased }
+        case .extract:
+            target = extractionPosition; radius = GameMap.extractionRadius; progress = extractionProgress; required = 3
+            if !player.grounded || climbing != nil { interruption = .notGrounded }
+            else if !insideExtraction { interruption = .outOfRange }
+        case .holdRadio:
+            target = groundedPoint(GameMap.radioSite); radius = 5; progress = Float(missionProgressTicks)/120; required = 45
+            if !groundedAtRadio { interruption = .notGrounded }
+            else if horizontalDistance(player.position, GameMap.radioSite) > radius { interruption = .outOfRange }
+            else if radioContested { interruption = .contested }
+        case .completed:
+            target = nil; radius = 0; progress = 1; required = 1
+        }
+        if state != .active { interruption = nil }
+        return MissionStatus(kind: missionKind, phase: phase, objectivePosition: target, objectiveRadius: radius,
+                             distance: target.map { phase == .holdRadio ? horizontalDistance(player.position, $0) : simd_distance(player.position, $0) },
+                             progress: progress, requiredProgress: required, interruption: interruption,
+                             interactionAvailable: missionInteractionAvailable)
+    }
 
     let difficulty: Difficulty
     private var seed: UInt64
@@ -45,6 +99,10 @@ public final class CombatSimulation {
     private var grenadeCooldown: Float = 0
     private var lastShot: Double = -20
     private var extractionAnnounced = false
+    private var missionPhase: MissionPhase
+    private var missionStarted = false
+    private var missionProgressTicks = 0
+    private var interactionHeld = false
     private var reinforcementTimer: Float = 0
     private var reinforcementCursor = 0
     private var deployedThisWave = 0
@@ -64,9 +122,10 @@ public final class CombatSimulation {
     private var searchGeneration: UInt32 = 0
     private var searchQueue = [Int]()
 
-    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile = .battlefield) {
+    public convenience init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, terrain: TerrainProfile = .battlefield,
+                            mission: MissionKind = .waves) {
         self.init(difficulty: difficulty, seed: seed, world: GameMap.obstacles,
-                  startingPlayer: PlayerState(), startingEnemies: [], startingWave: 0, terrain: terrain)
+                  startingPlayer: PlayerState(), startingEnemies: [], startingWave: 0, terrain: terrain, mission: mission)
     }
 
     /// A complete scenario also permits isolated rule tests and visual previews.
@@ -74,15 +133,16 @@ public final class CombatSimulation {
     /// initialized at y=0 settle onto it; explicit nonzero actor heights remain absolute.
     public init(difficulty: Difficulty = .normal, seed: UInt64 = 1745, world: [Obstacle],
                 startingPlayer: PlayerState = PlayerState(), startingEnemies: [EnemyState] = [], startingWave: Int = 0,
-                terrain: TerrainProfile = .flat) {
-        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain
+                terrain: TerrainProfile = .flat, mission: MissionKind = .waves) {
+        self.difficulty = difficulty; self.seed = seed & 0xffff_ffff; self.terrain = terrain; missionKind = mission
+        missionPhase = mission == .waves ? .waves : mission == .recoverData ? .collectData : .activateRadio
         obstacles = world.map { box in
             var grounded = Obstacle(id: box.id, kind: box.kind,
                                     position: box.position + SIMD3(0, terrain.height(x: box.position.x, z: box.position.z), 0), size: box.size)
             grounded.health = box.health; grounded.destroyed = box.destroyed
             return grounded
         }
-        player = startingPlayer; enemies = startingEnemies; wave = startingWave
+        player = startingPlayer; enemies = startingEnemies; wave = mission == .waves ? startingWave : 0
         if player.grounded && abs(player.position.y) < 0.001 { player.position.y = terrain.height(x: player.position.x, z: player.position.z) }
         for index in enemies.indices where enemies[index].grounded && abs(enemies[index].position.y) < 0.001 {
             enemies[index].position.y = terrain.height(x: enemies[index].position.x, z: enemies[index].position.z)
@@ -458,7 +518,9 @@ public final class CombatSimulation {
         updateEnemies(dt)
         guard state == .active else { return }
         collectSupplies()
-        updateWaves(dt)
+        updateReinforcementRetries(dt)
+        if missionKind == .waves { updateWaves(dt) }
+        else { updateMission(input: input) }
     }
 
     private func updatePlayer(_ dt: Float, input: GameInput) {
@@ -560,11 +622,14 @@ public final class CombatSimulation {
         }
     }
 
-    private func updateWaves(_ dt: Float) {
+    private func updateReinforcementRetries(_ dt: Float) {
         if pendingReinforcements > 0 {
             reinforcementTimer -= dt
             if reinforcementTimer <= 0 { deployReinforcements(); reinforcementTimer = 0.5 }
         }
+    }
+
+    private func updateWaves(_ dt: Float) {
         guard remainingEnemies == 0 else { return }
         if wave < 3 {
             if intermission <= 0 {
@@ -581,8 +646,7 @@ public final class CombatSimulation {
                 extractionAnnounced = true
                 emit(GameEvent(kind: .extractionUnlocked, position: extractionPosition, count: wave))
             }
-            extractionProgress = horizontalDistance(player.position, extractionPosition) < GameMap.extractionRadius && player.grounded &&
-                abs(player.position.y - extractionPosition.y) < 0.2 ? min(3, extractionProgress + dt) : 0
+            extractionProgress = insideExtraction ? min(3, extractionProgress + dt) : 0
             if extractionProgress >= 3 {
                 state = .won; score += 500; isSprinting = false
                 emit(GameEvent(kind: .win, position: player.position, amount: 500))
@@ -590,8 +654,66 @@ public final class CombatSimulation {
         }
     }
 
+    /// Invoked after all damage for the fixed step, so dying on the final
+    /// objective tick cannot overwrite the loss with a win.
+    private func updateMission(input: GameInput) {
+        guard state == .active else { return }
+        interactionHeld = input.interact
+        if !missionStarted {
+            missionStarted = true
+            emit(GameEvent(kind: .missionPhaseChanged, position: missionStatus.objectivePosition ?? player.position,
+                           missionPhase: missionPhase))
+            queueMissionReinforcements(missionKind == .recoverData ? 4 : 3)
+        }
+        switch missionPhase {
+        case .collectData, .activateRadio:
+            missionProgressTicks = missionInteractionAvailable && input.interact ? missionProgressTicks + 1 : 0
+            let required = missionPhase == .collectData ? 96 : 120
+            if missionProgressTicks >= required {
+                if missionPhase == .collectData {
+                    changeMissionPhase(to: .extract)
+                    queueMissionReinforcements(3)
+                } else {
+                    changeMissionPhase(to: .holdRadio)
+                    queueMissionReinforcements(2)
+                }
+            }
+        case .extract:
+            missionProgressTicks = insideExtraction ? min(360, missionProgressTicks + 1) : 0
+            extractionProgress = Float(missionProgressTicks)/120
+            if missionProgressTicks == 360 { finishObjectiveMission() }
+        case .holdRadio:
+            guard groundedAtRadio, horizontalDistance(player.position, GameMap.radioSite) <= 5, !radioContested else { return }
+            missionProgressTicks = min(5400, missionProgressTicks + 1)
+            if missionProgressTicks == 1800 || missionProgressTicks == 3600 { queueMissionReinforcements(2) }
+            if missionProgressTicks == 5400 { finishObjectiveMission() }
+        case .waves, .completed:
+            break
+        }
+    }
+
+    private func changeMissionPhase(to next: MissionPhase) {
+        guard missionPhase != next else { return }
+        missionPhase = next; missionProgressTicks = 0
+        emit(GameEvent(kind: .missionPhaseChanged, position: missionStatus.objectivePosition ?? player.position,
+                       missionPhase: next))
+    }
+
+    private func finishObjectiveMission() {
+        guard state == .active else { return }
+        state = .won; score += 500; isSprinting = false
+        changeMissionPhase(to: .completed)
+        emit(GameEvent(kind: .win, position: player.position, amount: 500))
+    }
+
+    private func queueMissionReinforcements(_ count: Int) {
+        pendingReinforcements += count
+        reinforcementTimer = 0.5
+        deployReinforcements()
+    }
+
     func spawnWave() {
-        guard wave < 3, state == .active, remainingEnemies == 0 else { return }
+        guard missionKind == .waves, wave < 3, state == .active, remainingEnemies == 0 else { return }
         wave += 1; intermission = 0
         enemies.removeAll { $0.health <= 0 && elapsed - ($0.deathTime ?? 0) >= 5 }
         let liveIDs = Set(enemies.map(\.id)); brains = brains.filter { liveIDs.contains($0.key) }
@@ -624,8 +746,18 @@ public final class CombatSimulation {
                   let cell = navigationCell(at: position), navigationComponents[cell] == component,
                   reinforcementIsHidden(at: position) else { continue }
             let offset = deployedThisWave
-            var enemy = EnemyState(id: allocateID(), position: position, health: Float(90 + wave * 10))
-            let staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+            var enemy = EnemyState(id: allocateID(), position: position, health: missionKind == .waves ? Float(90 + wave * 10) : 100)
+            let staging: SIMD3<Float>
+            if missionKind == .waves {
+                staging = groundedPoint(SIMD3<Float>(offset.isMultiple(of: 2) ? -6 : 6, 0, 10))
+            } else {
+                // Authored objectives are public tactical destinations. Arrivals
+                // do not acquire knowledge of an unseen player's live position.
+                let anchor = missionKind == .secureRadio ? GameMap.radioSite : missionPhase == .collectData ? GameMap.dataSite : GameMap.extraction
+                let angle = Float(offset) * 2.39996
+                let candidate = groundedPoint(anchor + SIMD3(sin(angle)*1.8,0,cos(angle)*1.8))
+                staging = !blocked(candidate, height: 1.96, radius: 0.4) ? candidate : groundedPoint(anchor)
+            }
             enemy.yaw = atan2(staging.x - position.x, staging.z - position.z)
             enemies.append(enemy)
             // Reinforcements approach a fixed staging area, not an unseen player.

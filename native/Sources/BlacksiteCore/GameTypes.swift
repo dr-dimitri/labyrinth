@@ -23,6 +23,7 @@ public struct GameInput: Sendable {
     public var sprint = false
     public var fire = false
     public var aim = false
+    public var interact = false
     public init() {}
 }
 
@@ -166,7 +167,7 @@ public struct SupplyState: Sendable {
 public struct GameEvent: Sendable {
     public enum Kind: String, Sendable {
         case shot, enemyShot, enemyAlert, explosion, damage, kill, coverDestroyed
-        case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, supply, win, lose, reload, jump, land, climb, throwGrenade
+        case waveStarted, waveCleared, extractionUnlocked, reinforcementsArrived, missionPhaseChanged, supply, win, lose, reload, jump, land, climb, throwGrenade
     }
     public let kind: Kind
     public var position: SIMD3<Float>
@@ -177,13 +178,15 @@ public struct GameEvent: Sendable {
     public var id: Int
     public var count: Int
     public var surfaceImpact: SurfaceImpact?
+    public let missionPhase: MissionPhase?
     public init(kind: Kind, position: SIMD3<Float> = .zero, endPosition: SIMD3<Float> = .zero,
                 amount: Float = 0, headshot: Bool = false, weapon: WeaponKind? = nil,
-                id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil) {
+                id: Int = 0, count: Int = 0, surfaceImpact: SurfaceImpact? = nil, missionPhase: MissionPhase? = nil) {
         self.kind = kind; self.position = position; self.endPosition = endPosition
         self.amount = amount; self.headshot = headshot; self.weapon = weapon
         self.id = id; self.count = count
         self.surfaceImpact = surfaceImpact
+        self.missionPhase = missionPhase
     }
 }
 

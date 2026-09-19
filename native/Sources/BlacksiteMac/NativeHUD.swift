@@ -16,6 +16,7 @@ private let accent = NSColor(hex: 0xf58046)
 
 final class NativeButton: NSButton {
     var primary = false
+    var selectionStyle = false
     var actionHandler: (() -> Void)?
     init(_ title: String, primary: Bool = false, action: @escaping () -> Void) {
         super.init(frame: .zero)
@@ -26,14 +27,15 @@ final class NativeButton: NSButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     @objc private func invoke() { actionHandler?() }
     override func draw(_ dirtyRect: NSRect) {
-        let fill = primary ? accent : NSColor(hex: 0x14231c, alpha: 0.82)
+        let selected = selectionStyle && state == .on
+        let fill = primary || selected ? accent : NSColor(hex: 0x14231c, alpha: 0.82)
         fill.withAlphaComponent(isHighlighted ? 0.65 : 1).setFill()
         NSBezierPath(rect: bounds).fill()
         if !primary { NSColor(hex: 0x85977b, alpha: 0.35).setStroke(); NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5)).stroke() }
-        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
-        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: primary ? NSColor(hex: 0x122018) : ink, .kern: 1.1]
+        let font = NSFont.monospacedSystemFont(ofSize: selectionStyle ? 10 : 11, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: primary || selected ? NSColor(hex: 0x122018) : ink, .kern: selectionStyle ? 0.6 : 1.1]
         let size = (title as NSString).size(withAttributes: attributes)
-        (title as NSString).draw(at: NSPoint(x: 18, y: (bounds.height - size.height) / 2), withAttributes: attributes)
+        (title as NSString).draw(at: NSPoint(x: selectionStyle ? (bounds.width - size.width) / 2 : 18, y: (bounds.height - size.height) / 2), withAttributes: attributes)
         if primary { ("↗" as NSString).draw(at: NSPoint(x: bounds.width - 35, y: (bounds.height - 26) / 2), withAttributes: [.font: NSFont.systemFont(ofSize: 24), .foregroundColor: NSColor(hex: 0x122018)]) }
         if window?.firstResponder === self {
             ink.withAlphaComponent(0.8).setStroke(); let outline = NSBezierPath(rect: bounds.insetBy(dx: 3, dy: 3)); outline.lineWidth = 1; outline.stroke()
@@ -50,6 +52,7 @@ final class GameHUDView: NSView {
     private var leaveButton: NativeButton!
     private var retryButton: NativeButton!
     private var pauseButton: NativeButton!
+    private var missionButtons: [(MissionKind, NativeButton)] = []
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
 
@@ -64,6 +67,13 @@ final class GameHUDView: NSView {
         retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
         pauseButton = NativeButton("Ⅱ  ESC") { [weak self] in self?.coordinator?.pause() }
         for button in [startButton, settingsButton, helpButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
+        for mission in MissionKind.allCases {
+            let button = NativeButton(NativeMissionPresentation.name(mission)) { [weak self] in self?.coordinator?.selectMission(mission) }
+            button.selectionStyle = true; button.setButtonType(.radio)
+            button.setAccessibilityHelp(NativeMissionPresentation.rules(mission))
+            missionButtons.append((mission, button)); addSubview(button)
+        }
+        updateMissionSelection(.waves)
         setAccessibilityElement(true); setAccessibilityRole(.group); setAccessibilityLabel("Blacksite Spieloberfläche")
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -72,6 +82,11 @@ final class GameHUDView: NSView {
         needsLayout = true; needsDisplay = true
         if let c = coordinator {
             let s = c.simulation
+            updateMissionSelection(c.settings.selectedMission)
+            if c.mode == .menu {
+                setAccessibilityValue("Hauptmenü. Auftrag: \(NativeMissionPresentation.name(c.settings.selectedMission)). \(NativeMissionPresentation.rules(c.settings.selectedMission))")
+                return
+            }
             let phase = c.mode == .menu ? "Hauptmenü" : c.mode == .paused ? "Pausiert" : c.mode == .result ? (s.state == .won ? "Mission erfüllt" : "Einsatz gescheitert") : "Einsatz läuft"
             let damage = c.combatFeedback.activeDamage(at: s.elapsed).map {
                 "Beschuss \(ThreatBearing(source: $0.position, listener: s.eyePosition, yaw: s.player.yaw).label)"
@@ -79,7 +94,20 @@ final class GameHUDView: NSView {
             let grenades = CombatFeedback.nearbyGrenades(s).map {
                 "Granate \(ThreatBearing(source: $0.position, listener: s.eyePosition, yaw: s.player.yaw).label), \(String(format: "%.1f", $0.fuse)) Sekunden"
             }
-            setAccessibilityValue("\(phase). Gesundheit \(Int(s.player.health)). Welle \(s.wave). \(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))")
+            let presentation = NativeMissionPresentation(s.missionStatus)
+            let objective: String
+            if c.mode == .result { objective = s.state == .won ? presentation.title : "Auftrag nicht abgeschlossen" }
+            else if c.mode == .paused { objective = [presentation.title, presentation.progressText].filter { !$0.isEmpty }.joined(separator: ". ") }
+            else { objective = presentation.accessibilityText }
+            let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
+            setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.aliveCount) Gegner im Gebiet, \(s.pendingReinforcements) Verstärkungen im Anmarsch. \(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))")
+        }
+    }
+
+    func updateMissionSelection(_ selected: MissionKind) {
+        for (mission, button) in missionButtons {
+            let state: NSControl.StateValue = mission == selected ? .on : .off
+            if button.state != state { button.state = state; button.needsDisplay = true }
         }
     }
 
@@ -110,6 +138,10 @@ final class GameHUDView: NSView {
                frame: NSRect(x: x, y: h * 0.70, width: 325, height: 54))
         update(helpButton, visible: mode == .menu,
                frame: NSRect(x: x, y: h * 0.70 + 68, width: 325, height: 40))
+        for (index, choice) in missionButtons.enumerated() {
+            update(choice.1, visible: mode == .menu,
+                   frame: NSRect(x: x + CGFloat(index) * 145, y: h * 0.55, width: 137, height: 32))
+        }
         update(pauseButton, visible: mode == .playing,
                frame: NSRect(x: w - 116, y: 144, width: 82, height: 31))
         update(resumeButton, visible: mode == .paused,
@@ -151,8 +183,8 @@ final class GameHUDView: NSView {
         text("BLACK", x: x - 4, y: heroY + 20, size: titleSize, font: font)
         text("SITE", x: x - 4, y: heroY + 20 + titleSize * 0.84, size: titleSize, font: font)
         fill(NSRect(x: x + titleSize * 1.75, y: heroY + titleSize * 1.69, width: titleSize * 0.13, height: titleSize * 0.13), accent)
-        text("Kein Kontakt. Keine Verstärkung.\nNur du und dein Auftrag.", x: x, y: h * 0.505, size: 16, width: 400)
-        text("Infiltriere den Außenposten. Überstehe drei Angriffswellen\nund erreiche die Evakuierung am Nordtor.", x: x, y: h * 0.603, size: 12, color: muted, width: 425)
+        text("Dein Auftrag. Deine Vorgehensweise.", x: x, y: h * 0.505, size: 16, width: 425)
+        text(NativeMissionPresentation.rules(c.settings.selectedMission), x: x, y: h * 0.62, size: 11, color: muted, width: 445)
         if w >= 1050 {
             let rect = NSRect(x: w - 336, y: h - 315, width: 276, height: 208)
             fill(rect, NSColor(hex: 0x101f18, alpha: 0.83)); stroke(rect, NSColor(hex: 0xc5d0b4, alpha: 0.25))
@@ -186,22 +218,29 @@ final class GameHUDView: NSView {
 
     private func drawHUD(_ c: GameCoordinator) {
         let s = c.simulation, p = s.player, w = bounds.width, h = bounds.height, now = CACurrentMediaTime()
+        let objective = NativeMissionPresentation(s.missionStatus)
         let scoped = c.isAimPresented && s.activeWeapon == .sniper && c.mode == .playing
         if scoped { drawScope() }
         NSGradient(starting: NSColor.black.withAlphaComponent(0.65), ending: .clear)?.draw(in: NSRect(x: 0, y: 0, width: w, height: 160), angle: 90)
         let shadow: [NSColor] = [NSColor.black.withAlphaComponent(0), NSColor.black.withAlphaComponent(0.58)]
         NSGradient(colors: shadow)?.draw(in: NSRect(x: 0, y: h - 195, width: w, height: 195), angle: 90)
-        text("OPERATION BLACKSITE", x: 32, y: 42, size: 9, color: accent, tracking: 1.8, mono: true)
-        text(s.extractionReady ? "Erreiche die Evakuierung am Nordtor" : "Überstehe die Angriffswellen", x: 32, y: 64, size: 14, weight: .medium)
+        text("OPERATION BLACKSITE · " + NativeMissionPresentation.name(s.missionKind), x: 32, y: 42, size: 9, color: accent, tracking: 1, width: 380, mono: true)
+        text(objective.title, x: 32, y: 64, size: 14, weight: .medium, width: 370)
         let detail: String
-        if s.extractionReady {
-            detail = s.extractionProgress > 0 ? String(format: "Evakuierung in %.1f s", 3 - s.extractionProgress) : "\(Int(simd_distance(p.position, GameMap.extraction))) m bis zum Evakuierungspunkt"
+        if s.missionStatus.phase != .waves {
+            detail = objective.detail
         } else if s.pendingReinforcements > 0 {
             detail = "\(s.pendingReinforcements) Verstärkungen im Anmarsch"
         } else { detail = s.intermission > 0 ? "Verstärkung in \(Int(ceil(s.intermission))) s" : "\(s.kills) Abschüsse  ·  \(timeString(s.elapsed))" }
-        text("●  " + detail, x: 32, y: 90, size: 10, color: muted, mono: true)
-        text("ANGRIFFSWELLE", x: w - 210, y: 42, size: 8, color: muted, tracking: 2, width: 175, alignment: .right, mono: true)
-        text(String(format: "%02d", max(1, s.wave)) + " / 03", x: w - 200, y: 61, size: 30, width: 165, alignment: .right, mono: true)
+        text("●  " + detail, x: 32, y: 90, size: 10, color: muted, width: 410, mono: true)
+        if objective.showsProgress {
+            text(objective.reason, x: 32, y: 112, size: 9, color: s.missionStatus.interruption == nil ? muted : accent, width: 415)
+            fill(NSRect(x: 32, y: 136, width: 290, height: 3), muted.withAlphaComponent(0.25))
+            fill(NSRect(x: 32, y: 136, width: 290 * CGFloat(objective.fraction), height: 3), accent)
+            text(objective.progressText, x: 32, y: 147, size: 9, color: muted, width: 290, alignment: .right, mono: true)
+        }
+        text(s.missionKind == .waves ? "ANGRIFFSWELLE" : "AUFTRAG", x: w - 210, y: 42, size: 8, color: muted, tracking: 2, width: 175, alignment: .right, mono: true)
+        text(s.missionKind == .waves ? String(format: "%02d", max(1, s.wave)) + " / 03" : NativeMissionPresentation.name(s.missionKind), x: w - 245, y: 61, size: s.missionKind == .waves ? 30 : 18, width: 210, alignment: .right, mono: true)
         text("\(s.remainingEnemies) FEINDE  ·  \(s.score) XP", x: w - 225, y: 109, size: 10, width: 190, alignment: .right, mono: true)
         if !scoped {
             let heading = Int(((-p.yaw * 180 / .pi).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360))
@@ -243,7 +282,10 @@ final class GameHUDView: NSView {
             text("NACHLADEN", x: ax, y: hy - 40, size: 9, color: accent, width: aw, alignment: .right, mono: true)
             fill(NSRect(x: ax, y: hy - 23, width: aw * CGFloat(1 - weapon.reloadRemaining / s.activeWeapon.reloadDuration), height: 2), accent)
         }
-        if s.mantleAvailable && s.climbProgress == nil && !scoped {
+        if let action = objective.interactionTitle, s.climbProgress == nil && !scoped {
+            panelText(action, detail: "Loslassen oder Verlassen setzt den Fortschritt zurück", y: h * 0.65)
+            fill(NSRect(x: w / 2 - 125, y: h * 0.65 + 47, width: 250 * CGFloat(objective.fraction), height: 2), accent)
+        } else if s.mantleAvailable && s.climbProgress == nil && !scoped {
             panelText("E  HOCHKLETTERN", detail: "Kante greifen · Position wechseln", y: h * 0.65)
         } else if let progress = s.climbProgress {
             panelText("KANTE GREIFEN", detail: "", y: h * 0.65)
@@ -341,14 +383,15 @@ final class GameHUDView: NSView {
     private func drawOverlay(_ c: GameCoordinator) {
         fill(bounds, NSColor(hex: 0x0b1912, alpha: 0.88))
         let x = bounds.midX - 175, y = bounds.midY - 190, won = c.simulation.state == .won
-        text(c.mode == .paused ? "VERBINDUNG GEHALTEN" : won ? "EXTRAKTION ERFOLGREICH" : "SIGNAL VERLOREN", x: x, y: y, size: 10, color: accent, tracking: 2, mono: true)
+        text(c.mode == .paused ? "VERBINDUNG GEHALTEN" : won ? (c.simulation.missionKind == .secureRadio ? "FUNKSTATION GESICHERT" : "EXTRAKTION ERFOLGREICH") : "SIGNAL VERLOREN", x: x, y: y, size: 10, color: accent, tracking: 2, mono: true)
         text(c.mode == .paused ? "EINSATZ\nPAUSIERT." : won ? "MISSION\nERFÜLLT." : "EINSATZ\nGESCHEITERT.", x: x, y: y + 31, size: 44, weight: .heavy, width: 440)
         if c.mode == .paused {
             text("Ein Moment Ruhe. Dann geht es weiter.", x: x, y: y + 163, size: 13, color: muted)
         } else {
             let s = c.simulation
             text("\(s.kills) ABSCHÜSSE     \(s.score) XP     \(timeString(s.elapsed))", x: x, y: y + 164, size: 12, mono: true)
-            text(won ? "Außenposten gesichert. Willkommen zurück." : "Nutze Deckung, Containerdächer und Granaten.", x: x, y: y + 207, size: 12, color: muted, width: 400)
+            let result = won ? s.missionKind == .secureRadio ? "Funkverbindung steht. Bereich unter Kontrolle." : s.missionKind == .recoverData ? "Daten geborgen. Evakuierung abgeschlossen." : "Außenposten gesichert. Willkommen zurück." : "Nutze Deckung, Containerdächer und Granaten."
+            text(result, x: x, y: y + 207, size: 12, color: muted, width: 400)
         }
     }
 

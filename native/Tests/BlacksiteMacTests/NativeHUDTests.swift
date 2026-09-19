@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import BlacksiteCore
 @testable import BlacksiteMac
 
 /// Real AppKit views only: no window, coordinator, renderer or event synthesis.
@@ -7,7 +8,7 @@ import Testing
 @Suite(.serialized)
 struct NativeHUDTests {
     private let modes: [(NativeRenderMode, Set<String>)] = [
-        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL"]),
+        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "WELLEN", "DATEN BERGEN", "FUNK SICHERN"]),
         (.playing, ["Ⅱ  ESC"]),
         (.paused, ["FORTSETZEN", "EINSTELLUNGEN", "ZURÜCK ZUM HAUPTMENÜ"]),
         (.result, ["ERNEUT ANTRETEN", "ZURÜCK ZUM HAUPTMENÜ"]),
@@ -29,6 +30,8 @@ struct NativeHUDTests {
                 let buttons = hud.subviews.compactMap { $0 as? NativeButton }.filter { !$0.isHidden }
                 #expect(Set(buttons.map(\.title)) == titles)
                 for button in buttons {
+                    #expect(hud.bounds.contains(button.frame))
+                    for other in buttons where other !== button { #expect(!button.frame.intersects(other.frame)) }
                     // The HUD is flipped but its parent is not. Calculate the
                     // displayed centre independently of HUD.hitTest's conversion.
                     let point = NSPoint(x: hud.frame.minX + button.frame.midX,
@@ -38,6 +41,26 @@ struct NativeHUDTests {
                 }
             }
         }
+    }
+
+    @Test func missionChoicesHaveOnePersistentSelectionAndFitBeforeRulesAtMinimumSize() throws {
+        let (parent, hud) = fixture(size: NSSize(width: 960, height: 640))
+        hud.layoutButtons(mode: .menu, ready: true)
+        let choices = hud.subviews.compactMap { $0 as? NativeButton }.filter(\.selectionStyle)
+        #expect(choices.count == MissionKind.allCases.count)
+        let start = try #require(hud.subviews.compactMap { $0 as? NativeButton }.first { $0.title == "EINSATZ STARTEN" })
+        for mission in MissionKind.allCases {
+            hud.updateMissionSelection(mission)
+            #expect(choices.filter { $0.state == .on }.map(\.title) == [NativeMissionPresentation.name(mission)])
+            for _ in 0..<30 { hud.layoutButtons(mode: .menu, ready: true); hud.updateMissionSelection(mission) }
+            #expect(choices.filter { $0.state == .on }.count == 1)
+            for choice in choices {
+                #expect(choice.frame.maxY < hud.bounds.height * 0.62)
+                #expect(choice.frame.maxY < start.frame.minY)
+                #expect(!(choice.accessibilityHelp() ?? "").isEmpty)
+            }
+        }
+        withExtendedLifetime(parent) {}
     }
 
     @Test func repeatedRefreshLayoutDoesNotMutateButtonVisibilityOrFrames() throws {

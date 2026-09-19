@@ -24,7 +24,7 @@ Browser-/Electron-Arbeiten sind nicht Teil dieser nativen Umsetzung.
 | 8 | #5 Texturbudget | Umgesetzt und geprüft |
 | 9 | #4 Schadensstufen und Trümmer | Umgesetzt und geprüft |
 | 10 | #6 Schauplätze und alternative Wege | Umgesetzt und geprüft |
-| 11 | #9 Missionsvarianten | Offen |
+| 11 | #9 Missionsvarianten | Umgesetzt und geprüft |
 | 12 | #11 Steuerung und Zielkomfort | Offen |
 
 ## Prüfprotokoll
@@ -364,3 +364,40 @@ abgeleitet. GPU-Allokation unverändert bei 1204,39/332,02 MiB.
 Sichtbare Instanzen steigen jeweils um 21, Zeichenaufrufe von 55 auf 58;
 die zusätzliche Geometrie verwendet vorhandene Pipelines und Instanzpuffer.
 [Messdaten](native-roadmap/level-performance.json).
+
+### #9 – Datenbergung und Funksicherung
+
+Das Hauptmenü bietet neben den drei Angriffswellen zwei gespeicherte Aufträge.
+Datenbergung verlangt 0,8 Sekunden gehaltene Interaktion am Koffer und danach
+drei Sekunden Evakuierung am Nordtor. Funksicherung aktiviert die Station in
+einer Sekunde und hält den Bereich 45 Sekunden frei. Verlassen, fehlender
+Bodenkontakt oder anwesende Feinde pausieren die Funkkontrolle, ohne ihren
+Fortschritt zu löschen. Datenladen und Evakuierung werden beim Abbruch
+zurückgesetzt. Verstärkungen verwenden dieselben sicheren Eintrittspunkte;
+der Auftragsabschluss verlangt außerhalb des Wellenmodus keine vollständige
+Vernichtung aller Gegner. Tod kann im selben Simulationsschritt keinen Sieg
+auslösen. HUD, Feldhandbuch und Accessibility erklären die tatsächlichen Regeln.
+
+Koffer und Funkgerät folgen der Geländeoberfläche und werfen normale Schatten.
+Die maximal 64 Segmente der Bodenmarkierung passen sich an Gelände, Asphalt und
+Bordstein an und werfen selbst keine Schatten. Ein aktives Ziel verwendet höchstens
+19 zusätzliche Geräteteile; Aufnahme entfernt den Koffer sofort.
+
+Validierung: 155 reguläre Tests bestanden, darunter neun neue Kernprüfungen für
+exakte Zeitgrenzen, Unterbrechungen, sichere Verstärkungen, Tod und Neustart sowie
+fünf zusätzliche Darstellungs-/HUD-Tests. Unabhängiges Code- und Bildreview ohne
+offenen Befund. Sechs Metal-validierte Ansichten zeigen Aufnahme, aktive und
+umkämpfte Station sowie Balanced. Native Bedienprüfung: alle drei Aufträge
+auswählen und starten, Pause, Hauptmenü, missionsbezogene Hilfe und Neustart.
+
+Zusätzliche Simulationen auf dem echten Gelände: Ein passiver Spieler auf Normal
+erlebt innerhalb von 31 Sekunden zwei Eintritte in den Funkbereich und insgesamt
+3,97 Sekunden Unterbrechung. Ein idealisierter stationärer Sichtlinien-/Schießtreiber
+gewinnt Funk auf allen drei Schwierigkeitsstufen in 46 Sekunden; ein Wegpunkt-
+und Schießtreiber schafft Datenbergung über die Westroute auf Normal in 29,39 Sekunden.
+Dies sind technische Ablaufprüfungen, keine menschlichen Spieltests.
+[Prüfdaten](native-roadmap/mission-checks.json),
+[Datenkoffer](native-roadmap/mission-data.png),
+[Funkstation](native-roadmap/mission-radio.png).
+Die Ansichten sind über `--smoke-test --scene mission-data`, `mission-data-carried`,
+`mission-radio`, `mission-radio-active` und `mission-radio-contested` reproduzierbar.

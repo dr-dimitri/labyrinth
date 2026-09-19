@@ -77,6 +77,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             input.moveRight = Float((keys.contains(2) ? 1 : 0) - (keys.contains(0) ? 1 : 0))
             input.sprint = shiftDown; input.fire = pendingFire || mouseButtons.contains(0) || keys.contains(12)
             input.aim = mouseButtons.contains(1) || keys.contains(6)
+            input.interact = keys.contains(14)
             let previousTime = simulation.elapsed
             simulation.step(deltaTime: delta, input: input)
             if simulation.elapsed > previousTime { pendingFire = false }
@@ -98,11 +99,19 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
 
     func startMatch() {
         guard ready, window.attachedSheet == nil else { return }
-        simulation = CombatSimulation(difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000))
+        simulation = CombatSimulation(difficulty: settings.difficulty, seed: UInt64(Date().timeIntervalSince1970 * 1000), mission: settings.selectedMission)
         yaw = 0; pitch = 0; renderer?.reset(); combatFeedback.reset()
-        banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
+        bannerUntil = 0
+        if settings.selectedMission == .waves {
+            banner("VIPER 01 · VERBINDUNG STEHT", "EINSATZ BEGINNT", "Drei Wellen. Ein Ausgang. Bleib in Bewegung.", duration: 4)
+        }
         toastUntil = 0; hitUntil = 0; killUntil = 0; damageUntil = 0
         setMode(.playing)
+    }
+
+    func selectMission(_ mission: MissionKind) {
+        guard mode == .menu, window.attachedSheet == nil else { return }
+        settings.selectedMission = mission; settings.save(); hud.refresh()
     }
 
     func pause() { if mode == .playing { setMode(.paused) } }
@@ -151,6 +160,10 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
                 banner("SEKTOR VORERST GESICHERT", "DURCHATMEN.", "Nachschub erhalten · Nächste Welle in 7 Sekunden", duration: 4)
             case .extractionUnlocked:
                 banner("ALLE KONTAKTE NEUTRALISIERT", "ZUR EVAKUIERUNG", "Erreiche den grünen Ring am Nordtor.", duration: 6)
+            case .missionPhaseChanged:
+                if let phase = event.missionPhase, let notice = NativeMissionPresentation.banner(for: phase) {
+                    banner(notice.label, notice.title, notice.detail, duration: 4)
+                }
             case .supply: toast("NACHSCHUB  +45 Sturmgewehr · +5 Scharfschützengewehr")
             case .coverDestroyed: toast("DECKUNG ZERSTÖRT  +25 XP", duration: 1.7)
             case .win, .lose: setMode(.result)
@@ -183,7 +196,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         case 12: pendingFire = true
         case 49: simulation.jump()
         case 8: simulation.toggleProne()
-        case 14: simulation.mantle()
+        case 14: if !simulation.missionInteractionAvailable { simulation.mantle() }
         case 5: simulation.throwGrenade()
         case 15: simulation.reload()
         case 18: simulation.selectWeapon(.rifle)
@@ -247,8 +260,9 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func showHelp() {
         guard window.attachedSheet == nil else { return }
         pause()
+        let mission = mode == .menu ? settings.selectedMission : simulation.missionKind
         let alert = NSAlert(); alert.messageText = "Dein Feldhandbuch"
-        alert.informativeText = "W A S D – Bewegen     Maus – Umsehen\nShift – Sprinten     Leertaste – Springen\nC / Strg – Hinlegen oder aufstehen\nE – An einer Kante hochklettern\nLinksklick / Q – Schießen\nRechtsklick / Z halten – Zielen / 6× Zielfernrohr\n1 / 2 / Mausrad – Waffe wechseln\nR – Nachladen     G – Granate (2,8 s)\nEsc – Pause     F5 – Leistungsanzeige\n\nAR-4: 30 Schuss, automatisches Feuer.\nM82: 5 Schuss, sechsfaches Zielfernrohr.\nKopftreffer verursachen zusätzlichen Schaden.\n\nDeckung unterbricht die Sicht der Gegner. Kisten, Barrieren und Container sind zerstörbar; Fässer explodieren. Mit E erreichst du Containerdächer. Intakte Deckung schützt auch vor Granaten.\n\nGesundheit regeneriert nach 5,5 Sekunden ohne Treffer. Nach der dritten Welle: Den grünen Evakuierungsring am Nordtor drei Sekunden halten."
+        alert.informativeText = "W A S D – Bewegen     Maus – Umsehen\nShift – Sprinten     Leertaste – Springen\nC / Strg – Hinlegen oder aufstehen\nE halten – Daten bergen oder Funk aktivieren\nE – An einer Kante hochklettern (ohne Stationsaktion)\nLinksklick / Q – Schießen\nRechtsklick / Z halten – Zielen / 6× Zielfernrohr\n1 / 2 / Mausrad – Waffe wechseln\nR – Nachladen     G – Granate (2,8 s)\nEsc – Pause     F5 – Leistungsanzeige\n\nAR-4: 30 Schuss, automatisches Feuer.\nM82: 5 Schuss, sechsfaches Zielfernrohr.\nKopftreffer verursachen zusätzlichen Schaden.\n\nDeckung unterbricht die Sicht der Gegner. Kisten, Barrieren und Container sind zerstörbar; Fässer explodieren. Mit E erreichst du Containerdächer. Intakte Deckung schützt auch vor Granaten.\n\nGesundheit regeneriert nach 5,5 Sekunden ohne Treffer.\n\nAuftrag: \(NativeMissionPresentation.name(mission))\n\(NativeMissionPresentation.rules(mission))\nDie Zielanzeige nennt Entfernung, benötigte Zeit und Unterbrechungen. Während des Ladens am Boden bleiben; beim Funkhalten pausiert fehlender Bodenkontakt ebenfalls den Fortschritt."
         alert.addButton(withTitle: "Verstanden"); alert.beginSheetModal(for: window)
     }
 
