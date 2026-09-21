@@ -14,7 +14,7 @@ usage() {
     cat <<'EOF'
 Usage: native/scripts/build-app.sh [--debug] [--no-sign] [--smoke-test]
 
-Builds release/Blacksite.app with Swift and Metal, without Node or Electron.
+Builds release/Blacksite.app with Swift and Metal.
   --debug       Build with Swift debug checks instead of release optimizations.
   --no-sign     Skip sealing the application bundle with an ad-hoc signature.
   --smoke-test  Run the application's Metal smoke test and save its screenshot
@@ -41,6 +41,12 @@ if ! command -v swift >/dev/null 2>&1; then
     printf 'Swift is missing. Install the Xcode Command Line Tools first: xcode-select --install\n' >&2
     exit 1
 fi
+
+ICON_SOURCE="$NATIVE_DIR/AppIcon/Blacksite.icns"
+[[ -s "$ICON_SOURCE" ]] || {
+    printf 'Missing app icon: %s. Restore the tracked native/AppIcon/Blacksite.icns.\n' "$ICON_SOURCE" >&2
+    exit 1
+}
 
 SOLDIER_DIR="$NATIVE_DIR/Assets/characters/soldier"
 for resource in soldier.glb SOURCE.json CREDITS.txt body-color.png body-normal.png head-color.png head-normal.png head-materials.json; do
@@ -184,11 +190,7 @@ normal and roughness are linear data. Powered by Poly Haven.
 Sources, dimensions, upstream MD5 and SHA-256: native-weapon-material-sources.json.
 EOF
 
-if [[ -f "$REPO_DIR/build/icons/nachtgang.icns" ]]; then
-    cp "$REPO_DIR/build/icons/nachtgang.icns" "$RESOURCES/Blacksite.icns"
-else
-    /usr/libexec/PlistBuddy -c 'Delete :CFBundleIconFile' "$CONTENTS/Info.plist"
-fi
+cp "$ICON_SOURCE" "$RESOURCES/Blacksite.icns"
 
 plutil -lint "$CONTENTS/Info.plist"
 [[ -s "$RESOURCES/Shaders.metal" && -x "$CONTENTS/MacOS/BlacksiteMac" ]]

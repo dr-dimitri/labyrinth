@@ -1,15 +1,17 @@
-"""Generate desktop icons from public/favicon.svg (requires Pillow and macOS iconutil)."""
+"""Regenerate native/AppIcon/Blacksite.icns (requires Pillow and macOS iconutil)."""
 
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 
 from PIL import Image, ImageDraw
 
 
 HERE = Path(__file__).resolve().parent
-SOURCE = HERE.parents[1] / "public" / "favicon.svg"
+ICON_DIR = HERE.parent / "AppIcon"
+SOURCE = ICON_DIR / "Blacksite.svg"
 OUTPUT_SIZE = 1024
 SUPERSAMPLE = 4
 SCALE = OUTPUT_SIZE * SUPERSAMPLE / 64
@@ -74,20 +76,24 @@ def render_mark():
     return canvas.resize((OUTPUT_SIZE, OUTPUT_SIZE), Image.Resampling.LANCZOS)
 
 
-icon = render_mark()
-icon.save(HERE / "nachtgang.png")
-icon.save(HERE / "nachtgang.ico", sizes=[(size, size) for size in (16, 24, 32, 48, 64, 128, 256)])
-iconset = HERE / "nachtgang.iconset"
-iconset.mkdir(exist_ok=True)
-for size in (16, 32, 128, 256, 512):
-    for multiplier in (1, 2):
-        pixels = size * multiplier
-        suffix = "@2x" if multiplier == 2 else ""
-        icon.resize((pixels, pixels), Image.Resampling.LANCZOS).save(
-            iconset / f"icon_{size}x{size}{suffix}.png"
-        )
-subprocess.run(
-    ["iconutil", "-c", "icns", str(iconset), "-o", str(HERE / "nachtgang.icns")],
-    check=True,
-)
-print(f"Generated PNG, ICO and ICNS icons from {SOURCE}")
+def main():
+    icon = render_mark()
+    # Keep intermediate PNGs out of the checkout; only the app's ICNS is needed.
+    with tempfile.TemporaryDirectory(prefix="blacksite-icon-") as directory:
+        iconset = Path(directory) / "Blacksite.iconset"
+        iconset.mkdir()
+        for size in (16, 32, 128, 256, 512):
+            for multiplier in (1, 2):
+                pixels = size * multiplier
+                suffix = "@2x" if multiplier == 2 else ""
+                icon.resize((pixels, pixels), Image.Resampling.LANCZOS).save(
+                    iconset / f"icon_{size}x{size}{suffix}.png"
+                )
+        output = Path(directory) / "Blacksite.icns"
+        subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(output)], check=True)
+        (ICON_DIR / "Blacksite.icns").write_bytes(output.read_bytes())
+    print(f"Generated Blacksite.icns from {SOURCE}")
+
+
+if __name__ == "__main__":
+    main()

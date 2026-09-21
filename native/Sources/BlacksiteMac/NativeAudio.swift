@@ -299,12 +299,13 @@ final class NativeAudio {
 
     private func sound(duration: Double, low: Double, gain: Double, decay: Double) -> AVAudioPCMBuffer {
         var random: UInt32 = 7127; var filtered = 0.0
-        return pcm(duration: duration) { t, _ in
+        return pcm(duration: duration) { (t: Double, _: Int) -> Float in
             random = random &* 1_664_525 &+ 1_013_904_223
             let noise = Double(random) / Double(UInt32.max) * 2 - 1
             filtered += (noise - filtered) * 0.22
             let envelope = min(1, t * 1400) * exp(-t * decay)
-            let body = sin(2 * Double.pi * (low * t - low * 0.2 * t * t))
+            let phase: Double = low * t - low * 0.2 * t * t
+            let body = sin(2 * Double.pi * phase)
             return Float((filtered * 0.75 + body * 0.25) * envelope * gain)
         }
     }
@@ -317,19 +318,25 @@ final class NativeAudio {
         // Eight original bars, with sample-aligned looping and quiet headroom.
         let beat = 60.0 / 144, duration = beat * 32
         var seed: UInt32 = 9234; var filtered = 0.0
-        return pcm(duration: duration) { t, _ in
+        return pcm(duration: duration) { (t: Double, _: Int) -> Float in
             let fade = min(1, t * 4, (duration - t) * 4)
             if !combat {
-                return Float((sin(t * 55 * 2 * .pi) * 0.025 + sin(t * 82.5 * 2 * .pi) * 0.017 + sin(t * 110 * 2 * .pi) * 0.01) * (0.8 + sin(t * 0.45) * 0.2) * fade)
+                let fundamental: Double = sin(t * 55 * 2 * Double.pi) * 0.025
+                let fifth: Double = sin(t * 82.5 * 2 * Double.pi) * 0.017
+                let octave: Double = sin(t * 110 * 2 * Double.pi) * 0.01
+                let modulation: Double = 0.8 + sin(t * 0.45) * 0.2
+                return Float((fundamental + fifth + octave) * modulation * fade)
             }
             seed = seed &* 1_664_525 &+ 1_013_904_223
             filtered += (Double(seed) / Double(UInt32.max) * 2 - 1 - filtered) * 0.35
             let b = t.truncatingRemainder(dividingBy: beat)
-            let kick = sin(2 * .pi * (55 * b + 7 * (1 - exp(-b * 35)))) * exp(-b * 22) * 0.16
+            let kickPhase: Double = 55 * b + 7 * (1 - exp(-b * 35))
+            let kick: Double = sin(2 * Double.pi * kickPhase) * exp(-b * 22) * 0.16
             let snare = Int(t / beat) % 2 == 1 ? filtered * exp(-b * 24) * 0.09 : 0
             let hat = filtered * exp(-t.truncatingRemainder(dividingBy: beat * 0.5) * 85) * 0.025
             let notes = [55.0, 55, 65.406, 49.0]
-            let bass = tanh(sin(t * notes[Int(t / (beat * 8)) % 4] * 2 * .pi) * 2) * 0.032 * exp(-b * 5)
+            let note: Double = notes[Int(t / (beat * 8)) % 4]
+            let bass: Double = tanh(sin(t * note * 2 * Double.pi) * 2) * 0.032 * exp(-b * 5)
             return Float((kick + snare + hat + bass) * fade)
         }
     }

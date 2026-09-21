@@ -128,7 +128,15 @@ struct BlacksiteMain {
                 let environmentCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil ? try NativeEnvironmentCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
                 let missionCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil ? try NativeMissionCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
                 let sceneCheck = industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && missionCheck == nil ? try NativeBattlefieldCheck.prepare(arguments: args, renderer: renderer, loadout: loadout) : nil
-                var simulation = industrialCheck?.simulation ?? sundkaiCheck?.simulation ?? fjordCheck?.simulation ?? classCheck?.simulation ?? breachCheck?.simulation ?? smokeCheck?.simulation ?? mapCheck?.simulation ?? operationCheck?.simulation ?? alarmCheck?.simulation ?? deviceCheck?.simulation ?? soundCheck?.simulation ?? environmentCheck?.simulation ?? missionCheck?.simulation ?? sceneCheck?.simulation ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
+                let candidates: [CombatSimulation?] = [
+                    industrialCheck?.simulation, sundkaiCheck?.simulation, fjordCheck?.simulation,
+                    classCheck?.simulation, breachCheck?.simulation, smokeCheck?.simulation,
+                    mapCheck?.simulation, operationCheck?.simulation, alarmCheck?.simulation,
+                    deviceCheck?.simulation, soundCheck?.simulation, environmentCheck?.simulation,
+                    missionCheck?.simulation, sceneCheck?.simulation
+                ]
+                var simulation = candidates.compactMap { $0 }.first
+                    ?? CombatSimulation(difficulty: .easy, seed: 1745, loadout: loadout)
                 if industrialCheck == nil && sundkaiCheck == nil && fjordCheck == nil && classCheck == nil && breachCheck == nil && smokeCheck == nil && mapCheck == nil && operationCheck == nil && alarmCheck == nil && deviceCheck == nil && soundCheck == nil && environmentCheck == nil && sceneCheck == nil && missionCheck == nil {
                     for _ in 0..<240 { simulation.step(deltaTime: 1.0 / 120, input: GameInput()) }
                 }
