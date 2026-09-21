@@ -72,7 +72,7 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
         let pause = game.addItem(withTitle: "Pause / Fortsetzen", action: #selector(GameCoordinator.pauseMenu(_:)), keyEquivalent: "p"); pause.target = coordinator
         let editItem = NSMenuItem(); main.addItem(editItem)
         let editMenu = NSMenu(title: "Bearbeiten"); editItem.submenu = editMenu
-        for (title, action, key) in [("Rückgängig", "undo:", "z"), ("Wiederholen", "redo:", "Z"), ("Ausschneiden", "cut:", "x"), ("Kopieren", "copy:", "c"), ("Einfügen", "paste:", "v"), ("Alles auswählen", "selectAll:", "a"), ("Level speichern", "saveDocument:", "s")] {
+        for (title, action, key) in [("Rückgängig", "undo:", "z"), ("Wiederholen", "redo:", "Z"), ("Ausschneiden", "cut:", "x"), ("Kopieren", "copy:", "c"), ("Einfügen", "paste:", "v"), ("Alles auswählen", "selectAll:", "a"), ("Level speichern", "saveDocument:", "s"), ("Objekt duplizieren", "duplicate:", "d")] {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
         let windowItem = NSMenuItem(); main.addItem(windowItem)

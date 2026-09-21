@@ -1,3 +1,4 @@
+import Foundation
 import simd
 
 public struct LevelPlacementWarning: Equatable, Sendable {
@@ -24,6 +25,27 @@ extension LevelDocument {
             let cornerHeights = [-1 as Float,1].flatMap { xx in [-1 as Float,1].map { zz in terrain.height(x: x+xx*size.x/2,z: z+zz*size.z/2) } }
             if cornerHeights.contains(where: { abs($0-centerHeight)>0.5 }) { messages.append("steht auf stark unebenem Gelände; Fundament prüfen") }
             for message in messages { result.append(LevelPlacementWarning(id: object.id,message: item.name + " " + message,position: object.position)) }
+        }
+        // Broad-phase cells keep overlap feedback bounded for large scenes.
+        var cells: [SIMD2<Int>:[LevelPlacedPart]] = [:]
+        var reported = Set<String>()
+        for object in objects {
+            for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) where part.solid {
+                let lo = part.center-part.size/2, hi = part.center+part.size/2
+                for z in Int(floor(lo.z/8))...Int(floor(hi.z/8)) { for x in Int(floor(lo.x/8))...Int(floor(hi.x/8)) {
+                    let key = SIMD2(x,z)
+                    for other in cells[key] ?? [] where other.objectID != object.id {
+                        let overlap = simd_min(hi,other.center+other.size/2)-simd_max(lo,other.center-other.size/2)
+                        if overlap.x > 0.02 && overlap.y > 0.02 && overlap.z > 0.02 {
+                            let pair = [object.id,other.objectID].sorted().joined(separator: "|")
+                            if reported.insert(pair).inserted {
+                                result.append(LevelPlacementWarning(id: object.id,message: "Feste Körper überlappen; Platzierung/Zugänge prüfen",position: object.position))
+                            }
+                        }
+                    }
+                    cells[key,default: []].append(part)
+                } }
+            }
         }
         return result
     }

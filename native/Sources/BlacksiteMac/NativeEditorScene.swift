@@ -10,6 +10,8 @@ final class NativeEditorScene: SCNView {
     let world = SCNNode(), cameraNode = SCNNode()
     var target = SIMD3<Float>(0, 0, 0), distance: Float = 45, yaw: Float = 0.6, pitch: Float = 0.8
     var topDown = false { didSet { updateCamera() } }
+    var hovered: ((SIMD3<Float>)->Void)?
+    private var tracking: NSTrackingArea?
     var picked: ((String?, SIMD3<Float>?, NSEvent) -> Void)?
     var dragged: ((SIMD3<Float>, NSEvent) -> Void)?
     var released: (() -> Void)?
@@ -118,8 +120,30 @@ final class NativeEditorScene: SCNView {
             var p = center; p.y = terrain.height(x: p.x,z: p.z)
             let node = box(size, center: p, color: .systemYellow); node.categoryBitMask = 8; world.addChildNode(node)
         }
+        let selected = document.objects.filter { selection.contains($0.id) && !$0.locked && !$0.hidden }
+        if !selected.isEmpty {
+            var center = selected.reduce(SIMD3<Float>.zero) { $0+$1.position.value } / Float(selected.count)
+            center.y = terrain.height(x: center.x,z: center.z)+0.5
+            for (name,offset,color) in [("move.x",SIMD3<Float>(2,0,0),NSColor.systemRed),("move.z",SIMD3<Float>(0,0,2),NSColor.systemBlue),("scale",SIMD3<Float>(2,0,2),NSColor.systemYellow),("rotate",SIMD3<Float>(-2,0,2),NSColor.systemCyan)] {
+                let node = box(SIMD3(repeating: 0.55),center: center+offset,color: color); node.name = "handle:"+name; node.categoryBitMask = 16; world.addChildNode(node)
+            }
+        }
         needsDisplay = true
     }
+    func clearGhost() { scene?.rootNode.childNode(withName: "placement",recursively: false)?.removeFromParentNode() }
+    func showGhost(_ object: LevelObject) {
+        clearGhost(); let root = SCNNode(); root.name = "placement"
+        for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) {
+            let node = box(part.size,center: part.center,color: .systemCyan); node.opacity = 0.4; node.categoryBitMask = 32; root.addChildNode(node)
+        }
+        scene?.rootNode.addChildNode(root); needsDisplay = true
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas(); if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: .zero,options: [.mouseMoved,.activeInKeyWindow,.inVisibleRect],owner: self,userInfo: nil)
+        addTrackingArea(area); tracking = area
+    }
+    override func mouseMoved(with event: NSEvent) { if let p = groundPoint(event) { hovered?(p) } }
     func material(_ color: NSColor) -> SCNMaterial {
         let material = SCNMaterial(); material.diffuse.contents = color; material.roughness.contents = 0.9
         return material
@@ -134,7 +158,8 @@ final class NativeEditorScene: SCNView {
     }
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
-        let hit = hitTest(convert(event.locationInWindow, from: nil), options: [.categoryBitMask: 6]).first
+        let screen = convert(event.locationInWindow, from: nil)
+        let hit = hitTest(screen,options: [.categoryBitMask: 16]).first ?? hitTest(screen, options: [.categoryBitMask: 6]).first
         picked?(hit?.node.name, groundPoint(event), event)
     }
     override func mouseDragged(with event: NSEvent) { if let point = groundPoint(event) { dragged?(point, event) } }

@@ -44,6 +44,8 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     var refreshing = false
     var placement: String?
     var inspectorSection = 0
+    var gridSnap = true, groundSnap = true, angleStep = 1, placementTurns = 0
+    var dragOrigin: SIMD3<Float>?, dragOriginals: [LevelObject] = [], dragHandle = "move"
     var terrainTool: EditorTerrainTool = .select
     var brushRadius: Float = 3, brushStrength: Float = 0.3, brushHeight: Float = 0
     var paintID = "", paintStart: SIMD2<Float>?
@@ -56,6 +58,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 1260,height: 820), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         super.init(window: window); window.delegate = self; window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 1100,height: 720); window.title = "Leveleditor"; window.center()
+        window.acceptsMouseMovedEvents = true
         buildUI(); configureCanvas(); refresh()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:)") }
@@ -107,6 +110,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         list.widthAnchor.constraint(equalToConstant: 240).isActive = true; list.heightAnchor.constraint(equalToConstant: 235).isActive = true
         catalogPanel.addArrangedSubview(list)
         button("Auswahl löschen", in: catalogPanel) { [weak self] in self?.perform { try self?.session.deleteSelection() } }
+        buildObjectTools()
         label("ZULETZT GEÖFFNET", in: catalogPanel); catalogPanel.addArrangedSubview(recent)
         button("Zuletzt bearbeitetes öffnen", in: catalogPanel) { [weak self] in
             guard let self, let path = self.recent.selectedItem?.representedObject as? String else { return }
@@ -127,23 +131,39 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     func configureCanvas() {
         canvas.picked = { [weak self] id, point, event in
             guard let self else { return }
+            if self.placement == nil, self.terrainTool == .select, let id, id.hasPrefix("handle:"),let point { self.beginObjectDrag(point,handle: String(id.dropFirst(7))); return }
             if self.terrainTool != .select, let point { self.beginTerrain(at: point); return }
             if let template = self.placement, let point {
-                let object = LevelObject(catalogID: template,position: LevelVector(point.x.rounded(),0,point.z.rounded()))
+                var object = LevelObject(catalogID: template,position: LevelVector(self.gridSnap ? point.x.rounded() : point.x,self.groundSnap ? 0 : point.y,self.gridSnap ? point.z.rounded() : point.z))
+                object.quarterTurns = self.placementTurns; object.heightMode = self.groundSnap ? .ground : .absolute
                 self.perform { try self.session.edit("Platzieren") { $0.objects.append(object) }; self.session.selection = [object.id] }
-                self.placement = nil
+                self.placement = nil; self.canvas.clearGhost()
             } else {
-                if event.modifierFlags.contains(.shift), let id { if !self.session.selection.insert(id).inserted { self.session.selection.remove(id) } }
-                else { self.session.selection = id.map { [$0] } ?? [] }
+                self.session.selectObject(id,extending: event.modifierFlags.contains(.shift))
                 self.refresh()
+                if id != nil,let point { self.beginObjectDrag(point) }
             }
         }
-        canvas.dragged = { [weak self] p,_ in self?.applyTerrain(at: p) }
-        canvas.released = { [weak self] in self?.session.endGesture(); self?.refresh(); self?.changed?() }
-        canvas.cancelled = { [weak self] in self?.placement = nil; self?.session.endGesture(cancel: true); self?.refresh() }
+        canvas.hovered = { [weak self] point in
+            guard let self,let id = self.placement else { return }
+            var object = LevelObject(id: "preview",catalogID: id,position: .init(self.gridSnap ? point.x.rounded() : point.x,0,self.gridSnap ? point.z.rounded() : point.z))
+            object.quarterTurns = self.placementTurns
+            if !self.groundSnap { object.heightMode = .absolute; object.position.y = point.y }
+            self.canvas.showGhost(object)
+        }
+        canvas.dragged = { [weak self] p,_ in
+            guard let self else { return }
+            if self.terrainTool != .select { self.applyTerrain(at: p) } else { self.dragObjects(to: p) }
+        }
+        canvas.released = { [weak self] in self?.session.endGesture(); self?.dragOrigin = nil; self?.refresh(); self?.changed?() }
+        canvas.cancelled = { [weak self] in self?.placement = nil; self?.canvas.clearGhost(); self?.dragOrigin = nil; self?.session.endGesture(cancel: true); self?.refresh() }
         canvas.keyAction = { [weak self] code in
             if code == 51 || code == 117 { self?.perform { try self?.session.deleteSelection() } }
             if code == 3 { self?.focusSelection() }
+            if code == 15, let self {
+                if self.placement != nil { self.placementTurns = (self.placementTurns+self.angleStep)%4 }
+                else { self.perform { try self.session.transformSelection(quarterTurns: self.angleStep) } }
+            }
         }
     }
     func perform(_ operation: () throws -> Void) {
@@ -162,7 +182,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         inspector.arrangedSubviews.forEach { inspector.removeArrangedSubview($0); $0.removeFromSuperview() }
         field("Levelname", value: session.document.name, in: inspector) { [weak self] value in self?.perform { try self?.session.edit("Name") { $0.name = value } } }
         label("\(session.document.bounds.width) × \(session.document.bounds.depth) m · \(session.document.objects.count)/1000 Objekte\nGelände: 1-m-Raster · 40 Undo-Schritte", in: inspector)
-        inspector.addArrangedSubview(EditorPopup(["Objekte", "Landschaft"],selected: inspectorSection,label: "Eigenschaftenbereich") { [weak self] index in self?.inspectorSection = index; self?.refresh() })
+        inspector.addArrangedSubview(EditorPopup(["Objekte", "Landschaft"],selected: inspectorSection,label: "Eigenschaftenbereich") { [weak self] index in self?.inspectorSection = index; if index == 0 { self?.terrainTool = .select }; self?.refresh() })
         if inspectorSection == 1 { buildTerrainInspector() }
         if inspectorSection == 0, let id = session.selection.first, session.selection.count == 1, let object = session.document.objects.first(where: { $0.id == id }) {
             label(LevelObjectCatalog.item(id: object.catalogID)?.name ?? object.catalogID, in: inspector)
@@ -178,6 +198,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
                 }
             }
         }
+        if inspectorSection == 0 { buildObjectInspector() }
         extraInspector?(inspector)
         do { try canvas.rebuild(session.document, selection: session.selection); status.stringValue = session.isDirty ? "Ungesicherte Änderungen. ⌘S speichert. Entwürfe benötigen noch keine Spielmarker." : "Gespeichert." }
         catch { status.stringValue = "Vorschau: " + error.localizedDescription }

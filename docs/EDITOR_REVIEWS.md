@@ -51,3 +51,17 @@ Durchgänge. Ein Namensraumfehler bei Bauteil-IDs wurde behoben: Instanznamen k�
 nicht mehr dieselbe Eingabe wie abgeleitete Bauteil-IDs erzeugen. Der Hashbereich
 wurde für große Szenen erweitert. Vier Katalogtests und die vorhandenen Dokument-/
 Terraintests bestanden. Kein offener Review-Befund für #40.
+
+## #41 — Platzieren und Transformieren
+
+Platzierungsgeist, 90°/180°-Winkelschritte, Raster/Bodenbezug, Ziehen und farbige
+Transformationsgriffe sowie numerische Transformationen implementiert. Gruppen,
+Duplikate, Sperren/Ausblenden und Warnungen für feste Überlappungen sind integriert.
+
+Review: Gruppenkopien erhalten neue Instanz- und Gruppen-IDs; lange Gruppennamen
+werden für Kopien innerhalb der Formatgrenze gehalten. Gesperrte Objekte bleiben
+bei Transformation, Ausblenden und Löschen unverändert. Gesten rechnen immer vom
+Startzustand, dadurch entsteht kein kumulierender Versatz. Griffnamen benutzen
+einen getrennten Namensraum, damit zulässige Objekt-IDs nicht als Griff gelten.
+Elf Objekt-/Katalog-/Sessiontests bestanden, nach den Review-Korrekturen zusätzlich
+alle vier Objekttests. Kein offener Review-Befund für #41.
