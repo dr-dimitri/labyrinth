@@ -96,10 +96,13 @@ struct NativeWorldSmokeTests {
         let input=try #require(rays.withUnsafeBytes { device.makeBuffer(bytes:$0.baseAddress!,length:$0.count,options:.storageModeShared) })
         let output=try #require(device.makeBuffer(length:rays.count*MemoryLayout<SIMD2<Float>>.stride,options:.storageModeShared))
         for age:Float in [0,0.35,2,8.4,10] { for count in [0,1,4] {
-            let candidates=(0..<4).map { index in
-                SmokeVolumeState(id:index,position:index==3 ? SIMD3(110,22,210):SIMD3(Float(index)*1.7,2,0),age:age,
-                    clipMinimum:index==3 ? nil:SIMD3(Float(index)*1.7-3,0,-3),
-                    clipMaximum:index==3 ? nil:SIMD3(Float(index)*1.7+1.4,4,3))
+            let candidates: [SmokeVolumeState] = (0..<4).map { index in
+                let x = Float(index) * 1.7
+                let position: SIMD3<Float> = index == 3 ? SIMD3(110, 22, 210) : SIMD3(x, 2, 0)
+                let minimum: SIMD3<Float>? = index == 3 ? nil : SIMD3(x - 3, 0, -3)
+                let maximum: SIMD3<Float>? = index == 3 ? nil : SIMD3(x + 1.4, 4, 3)
+                return SmokeVolumeState(id: index, position: position, age: age,
+                                        clipMinimum: minimum, clipMaximum: maximum)
             }
             let volumes=Array(candidates.prefix(count));var uniform=GPUWorldSmoke(volumes:volumes,lighting:[])
             let command=try #require(queue.makeCommandBuffer()),encoder=try #require(command.makeComputeCommandEncoder())
@@ -111,10 +114,12 @@ struct NativeWorldSmokeTests {
             if let error=command.error { throw error };#expect(command.status == .completed)
             let values=output.contents().bindMemory(to:SIMD2<Float>.self,capacity:rays.count)
             for (index,ray) in rayPairs.enumerated() {
-                let expected=min(20,volumes.reduce(Float(0)) { $0+$1.opticalDepth(from:ray.0,to:ray.1) })
+                let depth: Float = volumes.reduce(0) { $0 + $1.opticalDepth(from: ray.0, to: ray.1) }
+                let expected: Float = min(20, depth)
                 #expect(values[index].x.isFinite && values[index].y.isFinite)
                 #expect(abs(values[index].x-expected)<0.002,"age=\(age) count=\(count) ray=\(index) gpu=\(values[index].x) core=\(expected)")
-                #expect(abs(values[index].y-exp(-expected))<0.0005)
+                let transmission: Float = exp(-expected)
+                #expect(abs(values[index].y - transmission) < 0.0005)
             }
         } }
     }
