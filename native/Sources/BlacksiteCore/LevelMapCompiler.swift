@@ -7,6 +7,7 @@ extension LevelDocument {
     /// The only document-to-world adapter. Preview may use temporary markers;
     /// neither preview nor combat writes those defaults back to the document.
     public func makeMap(purpose: LevelMapPurpose = .play) throws -> MapDefinition {
+        try Task.checkCancellation()
         try validateDraft()
         let terrain = TerrainProfile.heightField(try TerrainHeightField(
             origin: SIMD2(Float(bounds.x), Float(bounds.z)), width: bounds.width + 1,
@@ -44,7 +45,9 @@ extension LevelDocument {
             return required && values.isEmpty ? [fallback] : values
         }
         var obstacles: [Obstacle] = [], obstacleIDs = Set<Int>()
+        var levelBoxes: [MapVisualBox] = []
         for object in objects {
+            try Task.checkCancellation()
             // validateDraft has already checked all catalog references and transforms.
             guard let item = LevelObjectCatalog.item(id: object.catalogID) else {
                 throw LevelDocumentError("Unbekannte Vorlage „\(object.catalogID)“.")
@@ -59,15 +62,23 @@ extension LevelDocument {
                     throw LevelDocumentError("Objekt „\(object.id)“ ragt über den Kartenrand.")
                 }
             }
-            let runtimeID = Self.obstacleID(object.id)
-            guard obstacleIDs.insert(runtimeID).inserted else {
-                throw LevelDocumentError("Objekt „\(object.id)“ erzeugt eine kollidierende Laufzeit-ID; bitte eine neue Instanz-ID vergeben.")
+            for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) {
+                guard obstacleIDs.insert(part.id).inserted else { throw LevelDocumentError("Kollidierende Laufzeit-ID bei „\(object.id)“; neue Instanz-ID vergeben.") }
+                if part.solid {
+                    var base = part.center-SIMD3(0,part.size.y/2,0)
+                    base.y -= terrain.height(x: base.x,z: base.z)
+                    var obstacle = Obstacle(id: part.id,kind: part.kind,position: base,size: part.size)
+                    if !part.destructible { obstacle.health = .infinity }
+                    obstacles.append(obstacle)
+                }
+                levelBoxes.append(MapVisualBox(position: part.solid ? SIMD3(0,part.size.y/2,0) : part.center,size: part.size,color: part.color,
+                    material: SIMD4(0.9,0,0,0),ownerID: part.solid ? part.id : nil,replacesOwnerBody: part.solid))
             }
-            obstacles.append(Obstacle(id: runtimeID, kind: item.kind, position: position, size: size))
         }
         var player = PlayerState(position: point(.playerStart))
         player.yaw = matching(.playerStart).first?.yaw ?? 0
         var scenery = MapSceneryDefinition()
+        scenery.boxes = levelBoxes
         scenery.center = SIMD2(center.x, center.z)
         scenery.renderMinimum = SIMD2(minimum.x - 8, minimum.z - 8)
         scenery.renderMaximum = SIMD2(maximum.x + 8, maximum.z + 8)
@@ -83,8 +94,53 @@ extension LevelDocument {
         environment.shadowExtent = Float(max(bounds.width, bounds.depth)) * 0.8
         environment.shadowDistance = max(100, terrain.maximumHeight - terrain.minimumHeight + 80)
         environment.shadowDepth = environment.shadowDistance * 2
+        func regionInside(_ x: Float,_ z: Float,_ width: Float,_ depth: Float) -> Bool {
+            x >= minimum.x && z >= minimum.z && x+width <= maximum.x && z+depth <= maximum.z
+        }
+        for (index, water) in self.environment.water.enumerated() {
+            var valid = regionInside(Float(water.x),Float(water.z),Float(water.width),Float(water.depth))
+            var deepest: Float = 0
+            for z in water.z...water.z+water.depth { for x in water.x...water.x+water.width {
+                deepest = max(deepest,water.surfaceHeight-terrain.height(x: Float(x),z: Float(z)))
+            } }
+            valid = valid && deepest >= 0.15 && deepest <= 0.351
+            valid = valid && !self.environment.water.prefix(index).contains { water.x < $0.x+$0.width && water.x+water.width > $0.x && water.z < $0.z+$0.depth && water.z+water.depth > $0.z }
+            if !valid {
+                if purpose == .play { throw LevelDocumentError("Wasserfläche „\(water.id)“: innerhalb der Karte, ohne Überlappung und 15–35 cm tief erforderlich. Gelände gegebenenfalls einebnen.") }
+                continue
+            }
+            environment.shallowWaterZones.append(MapShallowWaterZone(id: index+1,minimum: SIMD2(Float(water.x),Float(water.z)),maximum: SIMD2(Float(water.x+water.width),Float(water.z+water.depth)),surfaceHeight: water.surfaceHeight))
+        }
+        for object in objects where object.catalogID == "device.generator" || object.catalogID == "device.lift-gate" {
+            let gate = object.catalogID == "device.lift-gate"
+            guard let owner = obstacles.first(where: { $0.id == Self.obstacleID(object.id) }) else { continue }
+            let points = [-1 as Float,1].map { owner.position + SIMD3(0,-owner.position.y,$0*(owner.size.z/2+1)) }
+            guard points.allSatisfy(inside),abs(object.position.y) <= 0.05,object.heightMode == .ground else {
+                if purpose == .play { throw LevelDocumentError("Gerät „\(object.id)“ benötigt Bodenkontakt und freie Bedienpunkte innerhalb der Karte.") }
+                continue
+            }
+            environment.devices.append(WorldInteractableDefinition(id: Self.deviceID(object.id),kind: gate ? .serviceGate : .generator,
+                ownerObstacleID: owner.id,interactionPoints: points,generatorID: object.powerSourceID.map(Self.deviceID),
+                openOffset: gate ? SIMD3(0,owner.size.y+0.3,0) : .zero))
+        }
+        // Incomplete previews must not retain references to omitted devices.
+        if purpose == .preview {
+            let generatorIDs = Set(environment.devices.filter { $0.kind == .generator }.map(\.id))
+            environment.devices = environment.devices.filter { $0.generatorID.map { generatorIDs.contains($0) } ?? true }
+        }
+        let density = self.environment.vegetationDensity
+        for index in 0..<Int((density*8).rounded()) {
+            let fx = Float(index%4+1)/5, fz: Float = index < 4 ? 0.25 : 0.75
+            environment.vegetationZones.append(EnvironmentZone(id: "editor.vegetation.\(index)",
+                center: SIMD2(minimum.x+Float(bounds.width)*fx,minimum.z+Float(bounds.depth)*fz),radii: SIMD2(repeating: 1.5),
+                height: 1.0,density: density,kind: .tallGrass))
+        }
         for surface in self.environment.surfaces {
-            let material: SurfaceMaterial = surface.material == .asphalt ? .asphalt : .soil
+            if !regionInside(surface.x,surface.z,surface.width,surface.depth) {
+                if purpose == .play { throw LevelDocumentError("Bodenfläche „\(surface.id)“ liegt außerhalb der Karte.") }
+                continue
+            }
+            let material: SurfaceMaterial = surface.material == .asphalt ? .asphalt : surface.material == .rock ? .concrete : .soil
             let camouflage: CamouflageGround
             switch surface.material {
             case .earth: camouflage = .earth
@@ -93,7 +149,7 @@ extension LevelDocument {
             case .asphalt: camouflage = .none
             }
             environment.groundRegions.append(MapSurfaceRegion(minimum: SIMD2(surface.x, surface.z),
-                maximum: SIMD2(surface.x + surface.width, surface.z + surface.depth), material: material, camouflage: camouflage))
+                maximum: SIMD2(surface.x + surface.width, surface.z + surface.depth), material: material, camouflage: camouflage, soundSurface: surface.material == .rock ? .gravel : nil))
             let tint: SIMD3<Float>
             switch surface.material {
             case .earth: tint = SIMD3(0.50, 0.39, 0.27)
@@ -124,6 +180,6 @@ extension LevelDocument {
     static func obstacleID(_ id: String) -> Int {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in id.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
-        return Int(hash & 0x0fff_ffff) + 1
+        return Int(hash & 0x001f_ffff_ffff_ffff) + 1
     }
 }

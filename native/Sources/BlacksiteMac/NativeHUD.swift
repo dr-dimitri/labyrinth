@@ -76,6 +76,7 @@ final class GameHUDView: NSView {
     private var startButton: NativeButton!
     private var settingsButton: NativeButton!
     private var helpButton: NativeButton!
+    private var editorButton: NativeButton!
     private var loadoutButton: NativeButton!
     private var resumeButton: NativeButton!
     private var leaveButton: NativeButton!
@@ -90,6 +91,7 @@ final class GameHUDView: NSView {
         super.init(frame: frame)
         wantsLayer = true; layer?.backgroundColor = NSColor.clear.cgColor
         startButton = NativeButton("EINSATZ STARTEN", primary: true) { [weak self] in self?.coordinator?.startMatch() }
+        editorButton = NativeButton("LEVELEDITOR") { [weak self] in self?.coordinator?.showEditor() }
         settingsButton = NativeButton("EINSTELLUNGEN") { [weak self] in self?.coordinator?.showSettings() }
         helpButton = NativeButton("STEUERUNG / ARSENAL") { [weak self] in self?.coordinator?.showHelp() }
         loadoutButton = NativeButton("EINSATZBRIEFING") { [weak self] in self?.coordinator?.showLoadout() }
@@ -98,7 +100,7 @@ final class GameHUDView: NSView {
         leaveButton = NativeButton("ZURÜCK ZUM HAUPTMENÜ") { [weak self] in self?.coordinator?.returnToMenu() }
         retryButton = NativeButton("ERNEUT ANTRETEN", primary: true) { [weak self] in self?.coordinator?.retryMatch() }
         pauseButton = NativeButton("Ⅱ  ESC") { [weak self] in self?.coordinator?.pause() }
-        for button in [startButton, settingsButton, helpButton, loadoutButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
+        for button in [startButton, settingsButton, helpButton, editorButton, loadoutButton, resumeButton, leaveButton, retryButton, pauseButton] { addSubview(button!) }
         addSubview(reportView); reportView.isHidden = true
         for mission in MissionKind.allCases {
             let button = NativeButton(NativeMissionPresentation.name(mission)) { [weak self] in self?.coordinator?.selectMission(mission) }
@@ -186,7 +188,7 @@ final class GameHUDView: NSView {
         let w = bounds.width, h = bounds.height, x = w * 0.07
         reportView.isHidden = mode != .result || !ready
         reportView.frame = NSRect(x: w / 2 - 360, y: h / 2 - 248, width: 720, height: 352)
-        let leaveTitle = mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
+        let leaveTitle = coordinator?.isEditorPlaytest == true ? "ZURÜCK ZUM EDITOR" : mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
         if leaveButton.title != leaveTitle {
             leaveButton.title = leaveTitle; leaveButton.setAccessibilityLabel(leaveTitle)
         }
@@ -199,6 +201,7 @@ final class GameHUDView: NSView {
                frame: NSRect(x: x, y: h * 0.70, width: 325, height: 54))
         update(helpButton, visible: mode == .menu,
                frame: NSRect(x: x, y: h * 0.70 + 68, width: 325, height: 40))
+        update(editorButton, visible: mode == .menu, frame: NSRect(x: x + 340, y: h * 0.70 + 68, width: 224, height: 40))
         update(loadoutButton, visible: mode == .menu,
                frame: NSRect(x: x + 340, y: h * 0.70, width: 224, height: 54))
         for (index, choice) in missionButtons.enumerated() {

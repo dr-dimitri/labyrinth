@@ -17,6 +17,7 @@ public struct LevelDocument: Codable, Equatable, Sendable {
     public var objects: [LevelObject] = []
     public var groups: [LevelGroup] = []
     public var markers: [LevelMarker] = []
+    public var mission: LevelMission?
 
     public init(id: String = UUID().uuidString, name: String = "Neues Level", bounds: LevelBounds = .init()) {
         self.id = id; self.name = name; self.bounds = bounds
@@ -93,7 +94,19 @@ public struct LevelEnvironment: Codable, Equatable, Sendable {
     public var sunIntensity: Float = 1
     public var fogColor = LevelVector(0.40, 0.49, 0.54)
     public var surfaces: [LevelSurface] = []
+    public var water: [LevelWater] = []
+    public var vegetationDensity: Float = 0
     public init() {}
+    enum CodingKeys: String, CodingKey { case sunDirection, sunIntensity, fogColor, surfaces, water, vegetationDensity }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sunDirection = try c.decode(LevelVector.self,forKey: .sunDirection)
+        sunIntensity = try c.decode(Float.self,forKey: .sunIntensity)
+        fogColor = try c.decode(LevelVector.self,forKey: .fogColor)
+        surfaces = try c.decode([LevelSurface].self,forKey: .surfaces)
+        water = try c.decodeIfPresent([LevelWater].self,forKey: .water) ?? []
+        vegetationDensity = try c.decodeIfPresent(Float.self,forKey: .vegetationDensity) ?? 0
+    }
 }
 
 public enum LevelGroundMaterial: String, Codable, CaseIterable, Sendable {
@@ -119,6 +132,8 @@ public struct LevelObject: Codable, Equatable, Sendable {
     public var scale = LevelVector(1, 1, 1)
     public var heightMode: LevelHeightMode = .ground
     public var groupID: String?
+    /// Optional generator instance; valid only for the supported lift-gate prefab.
+    public var powerSourceID: String?
     public var locked = false
     /// Editor visibility only; hidden objects still participate in the playable map.
     public var hidden = false

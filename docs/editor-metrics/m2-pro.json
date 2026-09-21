@@ -1,0 +1,596 @@
+{
+  "cycleGPUAllocatedBytes" : [
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392,
+    1851392
+  ],
+  "cycleResidentMB" : [
+    201.5625,
+    321.546875,
+    159.78125,
+    141.125,
+    163.234375,
+    171.328125,
+    162.25,
+    157.6875,
+    150.640625,
+    150.890625
+  ],
+  "device" : "Apple M2 Pro",
+  "editorFrameMethod" : "serial offscreen snapshots incl. CPU readback, 10 warmup + 30 measured",
+  "examples" : [
+    {
+      "authorMs" : 0.59275000239722431,
+      "compileMs" : 0.29504165286198258,
+      "depth" : 32,
+      "editorSerialFrameMs" : 2.3059458365120613,
+      "example" : "training",
+      "fullInspectorSelectionAverageMs" : 3.1087333307368681,
+      "game" : {
+        "backend" : "Metal",
+        "cpuAverageMs" : 0.074815276214697704,
+        "cpuP95Ms" : 0.094999995781108737,
+        "device" : "Apple M2 Pro",
+        "drawCalls" : 23,
+        "forestTrees" : 0,
+        "frames" : 60,
+        "gpuAllocatedMB" : 306.796875,
+        "gpuAverageMs" : 1.1067277771265556,
+        "gpuP95Ms" : 1.6120833461172879,
+        "height" : 800,
+        "nearShadowResolution" : 1024,
+        "renderTargetAccounting" : "current render pass attachments",
+        "samples" : 1,
+        "serialFrameAverageMs" : 1.6945312469033524,
+        "skyTextureWidth" : 4096,
+        "textureDimensions" : {
+          "environment\/sunrise.jpg" : [
+            4096,
+            2048
+          ],
+          "Soldier body-color" : [
+            1024,
+            1024
+          ],
+          "Soldier body-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier head-color" : [
+            1024,
+            1024
+          ],
+          "Soldier head-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness" : [
+            1,
+            1
+          ],
+          "textures\/asphalt\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/asphalt\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/asphalt\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/floor\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/floor\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/floor\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-bark\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-bark\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-bark\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-earth\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-earth\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-earth\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-ground\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-ground\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-ground\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-rock\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-rock\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-rock\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/pine\/alpha.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/color.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/normal.jpg" : [
+            256,
+            512
+          ],
+          "textures\/pine\/roughness.jpg" : [
+            256,
+            512
+          ],
+          "textures\/weapon-fabric\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-fabric\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-fabric\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-metal\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/roughness.jpg" : [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB" : {
+          "foliage" : 33.71875,
+          "landscape" : 135.15625,
+          "renderTargets" : 8.25,
+          "shadows" : 21.171875,
+          "sky" : 42.671875,
+          "soldiers" : 21.3751220703125,
+          "total" : 276.4063720703125,
+          "weapons" : 14.0625
+        },
+        "textureQuality" : "balanced",
+        "visibleInstances" : 246,
+        "warmupFrames" : 10,
+        "width" : 1280
+      },
+      "loadMs" : 0.75016668415628374,
+      "objects" : 5,
+      "residentMB" : 153.484375,
+      "saveMs" : 1.1522083077579737,
+      "sceneBuildMs" : 1.789541682228446,
+      "selectionAverageMs" : 0.075641664443537593,
+      "selectionMaxMs" : 0.12208332191221416,
+      "transformAndInspectorAverageMs" : 4.2710666661150753,
+      "width" : 32
+    },
+    {
+      "authorMs" : 0.52975001744925976,
+      "compileMs" : 1.2872916413471103,
+      "depth" : 64,
+      "editorSerialFrameMs" : 2.743730551446788,
+      "example" : "outpost",
+      "fullInspectorSelectionAverageMs" : 3.1420541636180133,
+      "game" : {
+        "backend" : "Metal",
+        "cpuAverageMs" : 0.076109029275054738,
+        "cpuP95Ms" : 0.12275000335648656,
+        "device" : "Apple M2 Pro",
+        "drawCalls" : 23,
+        "forestTrees" : 0,
+        "frames" : 60,
+        "gpuAllocatedMB" : 308.09375,
+        "gpuAverageMs" : 1.1985604137104626,
+        "gpuP95Ms" : 1.6387083451263607,
+        "height" : 800,
+        "nearShadowResolution" : 1024,
+        "renderTargetAccounting" : "current render pass attachments",
+        "samples" : 1,
+        "serialFrameAverageMs" : 1.7196944434545003,
+        "skyTextureWidth" : 4096,
+        "textureDimensions" : {
+          "environment\/sunrise.jpg" : [
+            4096,
+            2048
+          ],
+          "Soldier body-color" : [
+            1024,
+            1024
+          ],
+          "Soldier body-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier head-color" : [
+            1024,
+            1024
+          ],
+          "Soldier head-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness" : [
+            1,
+            1
+          ],
+          "textures\/asphalt\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/asphalt\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/asphalt\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/floor\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/floor\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/floor\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-bark\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-bark\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-bark\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-earth\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-earth\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-earth\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-ground\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-ground\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-ground\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-rock\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-rock\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-rock\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/pine\/alpha.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/color.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/normal.jpg" : [
+            256,
+            512
+          ],
+          "textures\/pine\/roughness.jpg" : [
+            256,
+            512
+          ],
+          "textures\/weapon-fabric\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-fabric\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-fabric\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-metal\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/roughness.jpg" : [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB" : {
+          "foliage" : 33.71875,
+          "landscape" : 135.15625,
+          "renderTargets" : 8.25,
+          "shadows" : 21.171875,
+          "sky" : 42.671875,
+          "soldiers" : 21.3751220703125,
+          "total" : 276.4063720703125,
+          "weapons" : 14.0625
+        },
+        "textureQuality" : "balanced",
+        "visibleInstances" : 191,
+        "warmupFrames" : 10,
+        "width" : 1280
+      },
+      "loadMs" : 1.5658749907743186,
+      "objects" : 13,
+      "residentMB" : 201.8125,
+      "saveMs" : 1.5856250247452408,
+      "sceneBuildMs" : 2.697666670428589,
+      "selectionAverageMs" : 0.070733332540839911,
+      "selectionMaxMs" : 0.082916667452082038,
+      "transformAndInspectorAverageMs" : 5.8577500050887465,
+      "width" : 64
+    },
+    {
+      "authorMs" : 275.54487501038238,
+      "compileMs" : 77.207916649058461,
+      "depth" : 128,
+      "editorSerialFrameMs" : 4.7518569432819886,
+      "example" : "woodland",
+      "fullInspectorSelectionAverageMs" : 5.0457833305699751,
+      "game" : {
+        "backend" : "Metal",
+        "cpuAverageMs" : 0.28555902633039904,
+        "cpuP95Ms" : 0.39470833144150674,
+        "device" : "Apple M2 Pro",
+        "drawCalls" : 33,
+        "forestTrees" : 0,
+        "frames" : 60,
+        "gpuAllocatedMB" : 316.828125,
+        "gpuAverageMs" : 1.9352645850934398,
+        "gpuP95Ms" : 3.2829166739247739,
+        "height" : 800,
+        "nearShadowResolution" : 1024,
+        "renderTargetAccounting" : "current render pass attachments",
+        "samples" : 1,
+        "serialFrameAverageMs" : 2.6689152766872817,
+        "skyTextureWidth" : 4096,
+        "textureDimensions" : {
+          "environment\/sunrise.jpg" : [
+            4096,
+            2048
+          ],
+          "Soldier body-color" : [
+            1024,
+            1024
+          ],
+          "Soldier body-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier head-color" : [
+            1024,
+            1024
+          ],
+          "Soldier head-normal" : [
+            1024,
+            1024
+          ],
+          "Soldier matte cloth roughness" : [
+            1,
+            1
+          ],
+          "textures\/asphalt\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/asphalt\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/asphalt\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/floor\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/floor\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/floor\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-bark\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-bark\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-bark\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-earth\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-earth\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-earth\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-ground\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-ground\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-ground\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/forest-rock\/color.jpg" : [
+            2048,
+            2048
+          ],
+          "textures\/forest-rock\/normal.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/forest-rock\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/pine\/alpha.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/color.jpg" : [
+            512,
+            1024
+          ],
+          "textures\/pine\/normal.jpg" : [
+            256,
+            512
+          ],
+          "textures\/pine\/roughness.jpg" : [
+            256,
+            512
+          ],
+          "textures\/weapon-fabric\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-fabric\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-fabric\/roughness.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/color.jpg" : [
+            1024,
+            1024
+          ],
+          "textures\/weapon-metal\/normal.jpg" : [
+            512,
+            512
+          ],
+          "textures\/weapon-metal\/roughness.jpg" : [
+            512,
+            512
+          ]
+        },
+        "textureMemoryMB" : {
+          "foliage" : 33.71875,
+          "landscape" : 135.15625,
+          "renderTargets" : 8.25,
+          "shadows" : 21.171875,
+          "sky" : 42.671875,
+          "soldiers" : 21.3751220703125,
+          "total" : 276.4063720703125,
+          "weapons" : 14.0625
+        },
+        "textureQuality" : "balanced",
+        "visibleInstances" : 1362,
+        "warmupFrames" : 10,
+        "width" : 1280
+      },
+      "loadMs" : 9.9984999978914857,
+      "objects" : 500,
+      "residentMB" : 267.5625,
+      "saveMs" : 7.7167916751932353,
+      "sceneBuildMs" : 27.599708322668448,
+      "selectionAverageMs" : 0.24446666066069156,
+      "selectionMaxMs" : 0.25754165835678577,
+      "transformAndInspectorAverageMs" : 37.31516667176038,
+      "width" : 128
+    }
+  ],
+  "os" : "Version 27.0 (Build 26A428)",
+  "physicalMemoryGB" : 16,
+  "quality" : "balanced game; editor SceneKit 2x MSAA",
+  "resolution" : "1280x800",
+  "result" : "pass"
+}

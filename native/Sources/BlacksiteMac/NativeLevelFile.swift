@@ -3,7 +3,7 @@ import MetalKit
 import BlacksiteCore
 
 /// One validated import, retained by value for this application session.
-struct NativeLoadedLevel {
+struct NativeLoadedLevel: Sendable {
     let document: LevelDocument
     let map: MapDefinition
 
@@ -13,12 +13,7 @@ struct NativeLoadedLevel {
     }
 
     static func load(_ url: URL) throws -> Self {
-        let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-        guard values.isRegularFile == true else { throw LevelDocumentError("Bitte eine reguläre Leveldatei auswählen.") }
-        let file = try FileHandle(forReadingFrom: url)
-        defer { try? file.close() }
-        let data = try file.read(upToCount: LevelDocument.maximumFileBytes + 1) ?? Data()
-        return try Self(document: LevelDocument.decode(data))
+        try Self(document: LevelFileStore.read(url))
     }
 
     static func from(arguments: [String]) throws -> Self? {
@@ -45,7 +40,7 @@ struct NativeLoadedLevel {
         let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot,
             highQuality: !arguments.contains("--balanced"), map: map)
         let seed = arguments.contains("--seed") ? try NativeRunSeed.from(arguments: arguments) : document.terrain.seed
-        let simulation = CombatSimulation(map: map, difficulty: .easy, seed: seed)
+        let simulation = CombatSimulation(map: map, difficulty: .easy, seed: seed, mission: document.missionKind)
         var result: [String: Any] = ["result": "pass", "mapID": map.id, "formatVersion": document.formatVersion,
             "objects": document.objects.count, "markers": document.markers.count, "seed": String(seed)]
         if arguments.contains("--graphics-benchmark") {

@@ -36,18 +36,39 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     private var frameCounter = 0, statsStart = CACurrentMediaTime()
     private let audio = NativeAudio()
     private var sheet: NSPanel?
+    var editor: NativeEditorWindow?
+    let editorTestMission: MissionKind?
+    var isEditorPlaytest: Bool { editorTestMission != nil }
+    var onEditorTestFinished: (() -> Void)?
+
+    @objc func editorMenu(_ sender: Any?) { showEditor() }
+    @objc func levelLibraryMenu(_ sender: Any?) { showEditor(); if editor?.playtestWindow == nil { editor?.showLibrary() } }
+    func showEditor() {
+        guard mode == .menu, window.attachedSheet == nil else { return }
+        if let test = editor?.playtestWindow { test.makeKeyAndOrderFront(nil); return }
+        clearInput(); view.isPaused = true; window.orderOut(nil)
+        if editor == nil {
+            editor = NativeEditorWindow()
+            editor?.onClose = { [weak self] in
+                self?.editor = nil; self?.view.isPaused = false; self?.window.makeKeyAndOrderFront(nil)
+            }
+        }
+        editor?.showWindow(nil); editor?.window?.makeKeyAndOrderFront(nil)
+        editor?.offerRecovery()
+    }
+    func confirmQuit() -> Bool { editor?.confirmDiscard() ?? true }
 
     private let importedLevel: NativeLoadedLevel?
     var availableMaps: [MapDefinition] { (importedLevel.map { [$0.map] } ?? []) + PublishedMapRegistry.maps }
 
-    init(window: NSWindow, importedLevel: NativeLoadedLevel? = nil) {
-        self.importedLevel = importedLevel
+    init(window: NSWindow, importedLevel: NativeLoadedLevel? = nil, editorTestMission: MissionKind? = nil) {
+        self.importedLevel = importedLevel; self.editorTestMission = editorTestMission
         self.window = window
         view = NativeGameView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800), device: MTLCreateSystemDefaultDevice())
         hud = GameHUDView(frame: view.frame)
         super.init()
         selectedMap = importedLevel?.map ?? PublishedMapRegistry.map(id: settings.selectedMapID) ?? .blacksite
-        if importedLevel != nil { settings.selectedMission = .waves }
+        if let importedLevel { settings.selectedMission = importedLevel.document.missionKind }
         if !selectedMap.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData }
         simulation = CombatSimulation(map: selectedMap)
         inputState.reconfigure(bindings: settings.bindings, aimMode: settings.aimMode, sprintMode: settings.sprintMode)
@@ -67,14 +88,20 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
         do {
             renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot, highQuality: settings.highQuality, map: selectedMap)
             ready = true; lastFrame = CACurrentMediaTime(); hud.refresh()
+            if let mission = editorTestMission,let level = importedLevel {
+                let configuration = ActiveRunConfiguration(map: level.map,seed: level.document.terrain.seed,mission: mission,difficulty: .easy,loadout: .init(),levelDocument: level.document)
+                activateRun(configuration,map: level.map,simulation: CombatSimulation(map: level.map,difficulty: .easy,seed: configuration.seed,mission: mission))
+            }
         } catch {
             loadingMessage = "Die Grafik konnte nicht gestartet werden."
             view.isPaused = true; hud.refresh()
             let alert = NSAlert(); alert.alertStyle = .critical
             alert.messageText = "Blacksite konnte nicht starten"
             alert.informativeText = error.localizedDescription
-            alert.addButton(withTitle: "Beenden")
-            alert.beginSheetModal(for: window) { _ in NSApplication.shared.terminate(nil) }
+            alert.addButton(withTitle: isEditorPlaytest ? "Zurück zum Editor" : "Beenden")
+            alert.beginSheetModal(for: window) { [weak self] _ in
+                if self?.isEditorPlaytest == true { self?.window.performClose(nil) } else { NSApplication.shared.terminate(nil) }
+            }
         }
     }
 
@@ -185,6 +212,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func pause() { if mode == .playing { setMode(.paused) } }
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
+        if isEditorPlaytest { window.performClose(nil); return }
         if mode == .playing || mode == .paused { finishRun(.aborted); return }
         let base = availableMaps.first { $0.id == selectedMap.id } ?? .blacksite
         guard prepareMap(base) else { return }
@@ -366,8 +394,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         if mode == .menu { view.enableSetNeedsDisplay = false; view.isPaused = false; lastFrame = CACurrentMediaTime() }
     }
-    func windowWillClose(_ notification: Notification) { clearInput(); releaseMouse(); audio.setPaused(true) }
-    func shutdown() { clearInput(); releaseMouse(); audio.setPaused(true); view.isPaused = true }
+    func windowWillClose(_ notification: Notification) { shutdown(); onEditorTestFinished?() }
+    func shutdown() { editor?.playtestCoordinator?.shutdown(); clearInput(); releaseMouse(); audio.setPaused(true); view.isPaused = true }
 
     @objc func newMatchMenu(_ sender: Any?) { startMatch() }
     @objc func pauseMenu(_ sender: Any?) { mode == .paused ? resume() : pause() }

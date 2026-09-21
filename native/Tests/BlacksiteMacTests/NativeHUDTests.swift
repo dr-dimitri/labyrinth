@@ -8,7 +8,7 @@ import BlacksiteCore
 @Suite(.serialized)
 struct NativeHUDTests {
     private let modes: [(NativeRenderMode, Set<String>)] = [
-        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "EINSATZBRIEFING", "WELLEN", "DATEN BERGEN", "FUNK SICHERN", "FELDOPERATION"]),
+        (.menu, ["EINSATZ STARTEN", "EINSTELLUNGEN", "STEUERUNG / ARSENAL", "LEVELEDITOR", "EINSATZBRIEFING", "WELLEN", "DATEN BERGEN", "FUNK SICHERN", "FELDOPERATION"]),
         (.playing, ["Ⅱ  ESC"]),
         (.paused, ["FORTSETZEN", "EINSTELLUNGEN", "EINSATZ ABBRECHEN"]),
         (.result, ["ERNEUT ANTRETEN", "ZURÜCK ZUM HAUPTMENÜ"]),
