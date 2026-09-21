@@ -88,7 +88,10 @@ final class NativeBriefingView: NSView {
     private func popup(_ popup: NSPopUpButton, label: String, titles: [String], selected: Int, y: CGFloat) {
         let text = NSTextField(labelWithString: label)
         text.font = .systemFont(ofSize: 12); text.frame = NSRect(x: 24, y: y + 5, width: 100, height: 22); addSubview(text)
-        popup.addItems(withTitles: titles); popup.selectItem(at: selected)
+        // NSPopUpButton.addItems removes duplicate titles. User levels may have
+        // the same display name; preserve one menu item per stable map identity.
+        for title in titles { popup.menu?.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: "")) }
+        popup.selectItem(at: selected)
         popup.frame = NSRect(x: 127, y: y, width: 297, height: 30)
         popup.target = self; popup.action = #selector(choiceChanged(_:)); popup.setAccessibilityLabel(label + " für den nächsten Einsatz")
         addSubview(popup)
@@ -138,8 +141,9 @@ private extension MapDefinition {
 @MainActor
 final class NativeBriefingPanel: NSPanel {
     let briefingView: NativeBriefingView
-    init(draft: NativeBriefingDraft, interactionLabel: String, gadgetLabel: String = "B") {
-        briefingView = NativeBriefingView(draft: draft, interactionLabel: interactionLabel, gadgetLabel: gadgetLabel)
+    init(draft: NativeBriefingDraft, interactionLabel: String, gadgetLabel: String = "B",
+         maps: [MapDefinition] = PublishedMapRegistry.maps) {
+        briefingView = NativeBriefingView(draft: draft, maps: maps, interactionLabel: interactionLabel, gadgetLabel: gadgetLabel)
         super.init(contentRect: NSRect(origin: .zero, size: NativeBriefingView.size), styleMask: [.titled], backing: .buffered, defer: false)
         title = "Einsatzbriefing"; contentView = briefingView; initialFirstResponder = briefingView.mapChoice
     }

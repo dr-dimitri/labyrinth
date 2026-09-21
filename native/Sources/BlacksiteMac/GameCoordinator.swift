@@ -37,12 +37,17 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     private let audio = NativeAudio()
     private var sheet: NSPanel?
 
-    init(window: NSWindow) {
+    private let importedLevel: NativeLoadedLevel?
+    var availableMaps: [MapDefinition] { (importedLevel.map { [$0.map] } ?? []) + PublishedMapRegistry.maps }
+
+    init(window: NSWindow, importedLevel: NativeLoadedLevel? = nil) {
+        self.importedLevel = importedLevel
         self.window = window
         view = NativeGameView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800), device: MTLCreateSystemDefaultDevice())
         hud = GameHUDView(frame: view.frame)
         super.init()
-        selectedMap = PublishedMapRegistry.map(id: settings.selectedMapID) ?? .blacksite
+        selectedMap = importedLevel?.map ?? PublishedMapRegistry.map(id: settings.selectedMapID) ?? .blacksite
+        if importedLevel != nil { settings.selectedMission = .waves }
         if !selectedMap.supportsMission(settings.selectedMission) { settings.selectedMission = .recoverData }
         simulation = CombatSimulation(map: selectedMap)
         inputState.reconfigure(bindings: settings.bindings, aimMode: settings.aimMode, sprintMode: settings.sprintMode)
@@ -120,8 +125,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     private func beginRun(_ configuration: ActiveRunConfiguration) {
         let map: MapDefinition, nextSimulation: CombatSimulation
         do {
-            map = try configuration.restoreMap()
             nextSimulation = try configuration.makeSimulation()
+            map = nextSimulation.map
         } catch {
             let alert = NSAlert(); alert.messageText = "Einsatz konnte nicht vorbereitet werden"
             alert.informativeText = error.localizedDescription; alert.beginSheetModal(for: window)
@@ -181,7 +186,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func resume() { if mode == .paused && window.attachedSheet == nil { setMode(.playing) } }
     func returnToMenu() {
         if mode == .playing || mode == .paused { finishRun(.aborted); return }
-        let base = PublishedMapRegistry.map(id: selectedMap.id) ?? .blacksite
+        let base = availableMaps.first { $0.id == selectedMap.id } ?? .blacksite
         guard prepareMap(base) else { return }
         selectedMap = base; activeRun = nil
         renderer?.reset(); simulation = CombatSimulation(map: selectedMap); combatFeedback.reset(); noisePresentation.clear(); alarmPresentation.clear(); weatherPresentation.clear(); audio.reset()
@@ -414,12 +419,12 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     func showLoadout() {
         guard mode == .menu || mode == .result, ready, window.attachedSheet == nil else { return }
         clearInput()
-        let base = PublishedMapRegistry.map(id: selectedMap.id) ?? .blacksite
+        let base = availableMaps.first { $0.id == selectedMap.id } ?? .blacksite
         let seed = NativeRunSeed.next(after: activeRun?.seed ?? runReport?.configuration.seed)
         let panel = NativeBriefingPanel(draft: NativeBriefingDraft(map: base,
             mission: settings.selectedMission, difficulty: settings.difficulty, camouflage: settings.selectedCamouflage, operatorClass: settings.selectedClass, seed: seed),
             interactionLabel: NativeControlLabels.label(for: .interact, bindings: settings.bindings),
-            gadgetLabel: NativeControlLabels.label(for: .classGadget, bindings: settings.bindings))
+            gadgetLabel: NativeControlLabels.label(for: .classGadget, bindings: settings.bindings), maps: availableMaps)
         var preparedRun: (configuration: ActiveRunConfiguration, simulation: CombatSimulation)?
         panel.briefingView.onCancel = { [weak self, weak panel] in
             guard let self, let panel else { return }
@@ -429,7 +434,8 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             guard let self, let panel else { return }
             if start {
                 let configuration = ActiveRunConfiguration(map: draft.map, seed: draft.seed,
-                    mission: draft.mission, difficulty: draft.difficulty, loadout: draft.loadout)
+                    mission: draft.mission, difficulty: draft.difficulty, loadout: draft.loadout,
+                    levelDocument: draft.map.id == self.importedLevel?.map.id ? self.importedLevel?.document : nil)
                 do { preparedRun = (configuration, try configuration.makeSimulation()) }
                 catch {
                     let alert = NSAlert(); alert.messageText = "Einsatz konnte nicht vorbereitet werden"

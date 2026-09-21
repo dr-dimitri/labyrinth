@@ -27,10 +27,14 @@ if [[ "$(uname -s)" != Darwin ]]; then
     printf 'The native simulation benchmark requires macOS and the Apple Swift toolchain.\n' >&2
     exit 1
 fi
+if [[ "$(uname -m)" != arm64 ]]; then
+    printf 'Blacksite requires Apple Silicon. Run this script in a native ARM64 macOS shell.\n' >&2
+    exit 1
+fi
 mkdir -p "$BENCHMARK_DIR/ModuleCache"
 export CLANG_MODULE_CACHE_PATH="$BENCHMARK_DIR/ModuleCache"
 swiftc -O -whole-module-optimization -swift-version 5 \
-    -target "$(uname -m)-apple-macosx13.0" \
+    -target arm64-apple-macosx13.0 \
     -module-cache-path "$BENCHMARK_DIR/ModuleCache" \
     -module-name BlacksiteCoreBenchmark \
     "$NATIVE_DIR"/Sources/BlacksiteCore/*.swift \

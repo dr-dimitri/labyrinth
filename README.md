@@ -1,11 +1,11 @@
 # NACHTGANG — BLACKSITE
 
-Ein nativer 3D-Actionshooter für **macOS**, entwickelt mit Swift, AppKit und Metal.
+Ein nativer 3D-Actionshooter für **macOS auf Apple Silicon**, entwickelt mit Swift, AppKit und Metal.
 Die App läuft vollständig offline und enthält ihre Grafik- und Audioressourcen.
 
 ## Starten
 
-Voraussetzungen: macOS 13 oder neuer, eine Metal-fähige GPU, Xcode Command Line
+Voraussetzungen: ein Mac mit Apple Silicon, macOS 13 oder neuer, Xcode Command Line
 Tools mit Swift 5.10 oder neuer und Python 3 für die Offline-Ressourcenprüfung.
 Für die Tests werden Swift 6 und macOS 14 oder neuer benötigt.
 
@@ -20,7 +20,7 @@ make benchmark           # Reproduzierbaren CPU-Simulationsbenchmark ausführen
 
 Die fertige **`release/Blacksite.app`** lässt sich im Finder öffnen oder in den
 Programme-Ordner kopieren. Sie funktioniert unabhängig vom Projektordner. Der Build
-erzeugt die Architektur des jeweiligen Macs, signiert die App lokal ad hoc und
+erzeugt ausschließlich ARM64, signiert die App lokal ad hoc und
 prüft ihre Signatur. Die App ist nicht notarisiert.
 
 Die Skripte sind auch direkt nutzbar:
@@ -71,12 +71,15 @@ Die Skripte sind auch direkt nutzbar:
 | `native/scripts` | Build, Tests, Ressourcenprüfung und Benchmarks |
 | `docs` | Native Dokumentation, Quellen und Prüfprotokolle |
 
-GitHub Actions prüft Tests und Release-Builds auf Apple Silicon und Intel und
-stellt die jeweilige App als ZIP-Artefakt bereit. Laufende Prüfungen veralteter
+GitHub Actions prüft Tests und Release-Builds auf Apple Silicon und
+stellt die ARM64-App als ZIP-Artefakt bereit. Laufende Prüfungen veralteter
 Branch-Stände werden bei neuen Änderungen abgebrochen.
 
 Der geplante [Leveleditor](https://github.com/dr-dimitri/labyrinth/issues/36) ist in
-acht Arbeitspakete gegliedert; er ist noch nicht Bestandteil der App.
+acht Arbeitspakete gegliedert. Die [Grundlage für eigene Leveldateien](docs/LEVEL_EDITOR.md)
+ist implementiert; die Editoroberfläche folgt. Ein externes Beispiellevel lässt
+sich bereits über `--level-file native/Examples/training-ground.blacksite-level.json`
+laden und spielen.
 
 ## Ressourcen und Lizenzen
 

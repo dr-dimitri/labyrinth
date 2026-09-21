@@ -27,6 +27,8 @@ enum NativeResources {
 @MainActor
 final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: GameCoordinator?
+    private let importedLevel: NativeLoadedLevel?
+    init(importedLevel: NativeLoadedLevel? = nil) { self.importedLevel = importedLevel; super.init() }
     func applicationDidFinishLaunching(_ notification: Notification) {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -41,7 +43,7 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
             window.setContentSize(NSSize(width: min(1280, screen.visibleFrame.width - 50), height: screen.visibleFrame.height - 55))
         }
         window.center()
-        coordinator = GameCoordinator(window: window)
+        coordinator = GameCoordinator(window: window, importedLevel: importedLevel)
         installMenu()
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -80,6 +82,15 @@ struct BlacksiteMain {
     @MainActor static func main() {
         let args = CommandLine.arguments
         let app = NSApplication.shared
+        let importedLevel: NativeLoadedLevel?
+        do {
+            importedLevel = try NativeLoadedLevel.from(arguments: args)
+            if let importedLevel, args.contains("--smoke-test") || args.contains("--graphics-benchmark") {
+                app.setActivationPolicy(.prohibited)
+                try importedLevel.check(arguments: args)
+                return
+            }
+        } catch { fputs("Level konnte nicht geladen werden: \(error.localizedDescription)\n", stderr); exit(1) }
         if args.contains("--briefing-check") || args.contains("--report-check") {
             app.setActivationPolicy(.prohibited)
             do {
@@ -211,7 +222,7 @@ struct BlacksiteMain {
             }
         }
         app.setActivationPolicy(.regular)
-        let delegate = BlacksiteAppDelegate(); app.delegate = delegate
+        let delegate = BlacksiteAppDelegate(importedLevel: importedLevel); app.delegate = delegate
         withExtendedLifetime(delegate) { app.run() }
     }
 }

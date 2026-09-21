@@ -37,6 +37,10 @@ if [[ "$(uname -s)" != Darwin ]]; then
     printf 'This application must be built on macOS with the Apple SDK.\n' >&2
     exit 1
 fi
+if [[ "$(uname -m)" != arm64 ]]; then
+    printf 'Blacksite requires Apple Silicon. Run this script in a native ARM64 macOS shell.\n' >&2
+    exit 1
+fi
 if ! command -v swift >/dev/null 2>&1; then
     printf 'Swift is missing. Install the Xcode Command Line Tools first: xcode-select --install\n' >&2
     exit 1
@@ -101,6 +105,7 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$BUILD_DIR/ModuleCache"
 mkdir -p "$CLANG_MODULE_CACHE_PATH" "$BUILD_DIR/cache" "$BUILD_DIR/config" \
     "$BUILD_DIR/security" "$RELEASE_DIR"
 SWIFT_OPTIONS=(
+    --arch arm64
     # The package contains only trusted local targets. Nested sandbox-exec is
     # unavailable in restricted build hosts; cache paths stay inside the repo.
     --disable-sandbox
@@ -118,6 +123,10 @@ BIN_DIR="$(swift build "${SWIFT_OPTIONS[@]}" --show-bin-path)"
 EXECUTABLE="$BIN_DIR/BlacksiteMac"
 SHADER="$NATIVE_DIR/Sources/BlacksiteMac/Resources/Shaders.metal"
 [[ -x "$EXECUTABLE" ]] || { printf 'Missing executable: %s\n' "$EXECUTABLE" >&2; exit 1; }
+[[ "$(lipo -archs "$EXECUTABLE")" == arm64 ]] || {
+    printf 'The application executable must contain only the ARM64 architecture.\n' >&2
+    exit 1
+}
 [[ -f "$SHADER" ]] || { printf 'Missing shader: %s\n' "$SHADER" >&2; exit 1; }
 
 # Assemble and verify a new bundle before replacing the previous successful build.
