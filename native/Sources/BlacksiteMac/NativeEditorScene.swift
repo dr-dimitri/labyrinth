@@ -1,0 +1,126 @@
+import AppKit
+import SceneKit
+import BlacksiteCore
+import simd
+
+/// Camera input is deliberately separate from document tools: right drag orbits,
+/// middle drag pans, wheel zooms. Left mouse and keyboard operate only this view.
+@MainActor
+final class NativeEditorScene: SCNView {
+    let world = SCNNode(), cameraNode = SCNNode()
+    var target = SIMD3<Float>(0, 0, 0), distance: Float = 45, yaw: Float = 0.6, pitch: Float = 0.8
+    var topDown = false { didSet { updateCamera() } }
+    var picked: ((String?, SIMD3<Float>?, NSEvent) -> Void)?
+    var dragged: ((SIMD3<Float>, NSEvent) -> Void)?
+    var released: (() -> Void)?
+    var cancelled: (() -> Void)?
+    var keyAction: ((UInt16) -> Void)?
+    private var terrain: TerrainProfile = .flat
+    override var acceptsFirstResponder: Bool { true }
+    override init(frame: NSRect, options: [String: Any]? = nil) {
+        super.init(frame: frame, options: options)
+        scene = SCNScene(); scene?.rootNode.addChildNode(world)
+        cameraNode.camera = SCNCamera(); cameraNode.camera?.zFar = 2000
+        scene?.rootNode.addChildNode(cameraNode); pointOfView = cameraNode
+        let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient
+        ambient.light?.intensity = 650; scene?.rootNode.addChildNode(ambient)
+        let sun = SCNNode(); sun.name = "sun"; sun.light = SCNLight(); sun.light?.type = .directional
+        sun.light?.intensity = 900; sun.eulerAngles = SCNVector3(-0.8, -0.6, 0)
+        scene?.rootNode.addChildNode(sun)
+        backgroundColor = NSColor(hex: 0x263a44); antialiasingMode = .multisampling2X
+        preferredFramesPerSecond = 30; rendersContinuously = false
+        setAccessibilityLabel("Levelansicht. Linksklick: auswählen. Rechtsziehen: Kamera. Mittlere Taste: verschieben. Mausrad: Zoom.")
+        updateCamera()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:)") }
+    func updateCamera() {
+        cameraNode.camera?.usesOrthographicProjection = topDown
+        cameraNode.camera?.orthographicScale = Double(distance)
+        if topDown {
+            cameraNode.simdPosition = target + SIMD3(0, distance, 0)
+            cameraNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        } else {
+            cameraNode.simdPosition = target + SIMD3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * distance
+            cameraNode.look(at: SCNVector3(target))
+        }
+        needsDisplay = true
+    }
+    func focus(_ point: SIMD3<Float>) { target = point; updateCamera() }
+    func rebuild(_ document: LevelDocument, selection: Set<String>) throws {
+        let map = try document.makeMap(purpose: .preview); terrain = map.terrain
+        world.childNodes.forEach { $0.removeFromParentNode() }
+        var vertices: [SCNVector3] = [], normals: [SCNVector3] = [], indices: [Int32] = []
+        let b = document.bounds, stride = b.width + 1
+        for z in 0...b.depth { for x in 0...b.width {
+            vertices.append(SCNVector3(Float(b.x + x), document.terrain.heights[z * stride + x], Float(b.z + z)))
+            normals.append(SCNVector3(terrain.normal(x: Float(b.x+x),z: Float(b.z+z))))
+        } }
+        for z in 0..<b.depth { for x in 0..<b.width {
+            let a = Int32(z * stride + x), c = a + Int32(stride)
+            indices += [a, c, a + 1, a + 1, c, c + 1]
+        } }
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)], elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        geometry.firstMaterial = material(NSColor(hex: 0x6f7958)); geometry.firstMaterial?.isDoubleSided = true
+        let ground = SCNNode(geometry: geometry); ground.name = "ground"; ground.categoryBitMask = 1; world.addChildNode(ground)
+        for (object, obstacle) in zip(document.objects, map.obstacles) where !object.hidden {
+            let size = obstacle.size, base = map.grounded(obstacle.position)
+            let node = box(size, center: base + SIMD3(0, size.y / 2, 0), color: selection.contains(object.id) ? .systemOrange : .systemGray)
+            node.name = object.id; node.categoryBitMask = 2; world.addChildNode(node)
+        }
+        for marker in document.markers {
+            let node = SCNNode(geometry: SCNSphere(radius: 0.38))
+            node.geometry?.firstMaterial = material(selection.contains(marker.id) ? .systemOrange : .systemCyan)
+            node.simdPosition = map.grounded(marker.position.value) + SIMD3(0, 0.4, 0)
+            node.name = marker.id; node.categoryBitMask = 4; world.addChildNode(node)
+        }
+        // One-metre grid and a distinct perimeter, both following the same heightfield.
+        var grid: [SCNVector3] = [], lines: [Int32] = []
+        func line(_ x: Float, _ z: Float, _ xx: Float, _ zz: Float) {
+            let n = Int32(grid.count)
+            grid += [SCNVector3(x, terrain.height(x: x, z: z) + 0.025, z), SCNVector3(xx, terrain.height(x: xx, z: zz) + 0.025, zz)]
+            lines += [n, n + 1]
+        }
+        for z in 0...b.depth { for x in 0..<b.width { line(Float(b.x+x), Float(b.z+z), Float(b.x+x+1), Float(b.z+z)) } }
+        for x in 0...b.width { for z in 0..<b.depth { line(Float(b.x+x), Float(b.z+z), Float(b.x+x), Float(b.z+z+1)) } }
+        let mesh = SCNGeometry(sources: [SCNGeometrySource(vertices: grid)], elements: [SCNGeometryElement(indices: lines, primitiveType: .line)])
+        mesh.firstMaterial = material(NSColor.black.withAlphaComponent(0.5)); mesh.firstMaterial?.lightingModel = .constant
+        let gridNode = SCNNode(geometry: mesh); gridNode.categoryBitMask = 8; world.addChildNode(gridNode)
+        for (center, size) in [(SIMD3(Float(b.x), 0, Float(b.z)+Float(b.depth)/2), SIMD3<Float>(0.1,0.3,Float(b.depth))),
+            (SIMD3(Float(b.x+b.width),0,Float(b.z)+Float(b.depth)/2), SIMD3<Float>(0.1,0.3,Float(b.depth))),
+            (SIMD3(Float(b.x)+Float(b.width)/2,0,Float(b.z)), SIMD3<Float>(Float(b.width),0.3,0.1)),
+            (SIMD3(Float(b.x)+Float(b.width)/2,0,Float(b.z+b.depth)), SIMD3<Float>(Float(b.width),0.3,0.1))] {
+            var p = center; p.y = terrain.height(x: p.x,z: p.z)
+            let node = box(size, center: p, color: .systemYellow); node.categoryBitMask = 8; world.addChildNode(node)
+        }
+        needsDisplay = true
+    }
+    func material(_ color: NSColor) -> SCNMaterial {
+        let material = SCNMaterial(); material.diffuse.contents = color; material.roughness.contents = 0.9
+        return material
+    }
+    func box(_ size: SIMD3<Float>, center: SIMD3<Float>, color: NSColor) -> SCNNode {
+        let node = SCNNode(geometry: SCNBox(width: CGFloat(size.x), height: CGFloat(size.y), length: CGFloat(size.z), chamferRadius: 0))
+        node.geometry?.firstMaterial = material(color); node.simdPosition = center; return node
+    }
+    func groundPoint(_ event: NSEvent) -> SIMD3<Float>? {
+        let point = convert(event.locationInWindow, from: nil)
+        return hitTest(point, options: [.categoryBitMask: 1]).first.map { SIMD3($0.worldCoordinates) }
+    }
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        let hit = hitTest(convert(event.locationInWindow, from: nil), options: [.categoryBitMask: 6]).first
+        picked?(hit?.node.name, groundPoint(event), event)
+    }
+    override func mouseDragged(with event: NSEvent) { if let point = groundPoint(event) { dragged?(point, event) } }
+    override func mouseUp(with event: NSEvent) { released?() }
+    override func rightMouseDragged(with event: NSEvent) {
+        yaw -= Float(event.deltaX) * 0.01; pitch = min(1.5, max(0.08, pitch + Float(event.deltaY) * 0.01)); updateCamera()
+    }
+    override func otherMouseDragged(with event: NSEvent) {
+        target.x -= Float(event.deltaX) * distance * 0.002; target.z -= Float(event.deltaY) * distance * 0.002; updateCamera()
+    }
+    override func scrollWheel(with event: NSEvent) { distance = min(300, max(4, distance * exp(Float(event.scrollingDeltaY) * 0.015))); updateCamera() }
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { cancelled?() } else { keyAction?(event.keyCode) }
+    }
+}

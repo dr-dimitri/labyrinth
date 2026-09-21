@@ -48,6 +48,9 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        coordinator?.confirmQuit() == false ? .terminateCancel : .terminateNow
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { coordinator?.shutdown() }
 
@@ -64,8 +67,14 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
         let gameItem = NSMenuItem(); main.addItem(gameItem)
         let game = NSMenu(title: "Einsatz"); gameItem.submenu = game
         let briefing = game.addItem(withTitle: "Einsatzbriefing …", action: #selector(GameCoordinator.briefingMenu(_:)), keyEquivalent: "b"); briefing.target = coordinator
+        let editor = game.addItem(withTitle: "Leveleditor …", action: #selector(GameCoordinator.editorMenu(_:)), keyEquivalent: "e"); editor.target = coordinator
         let start = game.addItem(withTitle: "Neuer Einsatz", action: #selector(GameCoordinator.newMatchMenu(_:)), keyEquivalent: "n"); start.target = coordinator
         let pause = game.addItem(withTitle: "Pause / Fortsetzen", action: #selector(GameCoordinator.pauseMenu(_:)), keyEquivalent: "p"); pause.target = coordinator
+        let editItem = NSMenuItem(); main.addItem(editItem)
+        let editMenu = NSMenu(title: "Bearbeiten"); editItem.submenu = editMenu
+        for (title, action, key) in [("Rückgängig", "undo:", "z"), ("Wiederholen", "redo:", "Z"), ("Ausschneiden", "cut:", "x"), ("Kopieren", "copy:", "c"), ("Einfügen", "paste:", "v"), ("Alles auswählen", "selectAll:", "a"), ("Level speichern", "saveDocument:", "s")] {
+            editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
+        }
         let windowItem = NSMenuItem(); main.addItem(windowItem)
         let windowMenu = NSMenu(title: "Fenster"); windowItem.submenu = windowMenu
         windowMenu.addItem(withTitle: "Minimieren", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")

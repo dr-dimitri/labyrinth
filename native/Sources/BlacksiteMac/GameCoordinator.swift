@@ -36,6 +36,21 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     private var frameCounter = 0, statsStart = CACurrentMediaTime()
     private let audio = NativeAudio()
     private var sheet: NSPanel?
+    var editor: NativeEditorWindow?
+
+    @objc func editorMenu(_ sender: Any?) { showEditor() }
+    func showEditor() {
+        guard mode == .menu, window.attachedSheet == nil else { return }
+        clearInput(); view.isPaused = true
+        if editor == nil {
+            editor = NativeEditorWindow()
+            editor?.onClose = { [weak self] in
+                self?.editor = nil; self?.view.isPaused = false; self?.window.makeKeyAndOrderFront(nil)
+            }
+        }
+        editor?.showWindow(nil); editor?.window?.makeKeyAndOrderFront(nil)
+    }
+    func confirmQuit() -> Bool { editor?.confirmDiscard() ?? true }
 
     private let importedLevel: NativeLoadedLevel?
     var availableMaps: [MapDefinition] { (importedLevel.map { [$0.map] } ?? []) + PublishedMapRegistry.maps }

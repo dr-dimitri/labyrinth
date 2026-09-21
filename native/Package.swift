@@ -15,7 +15,7 @@ let package = Package(
             dependencies: ["BlacksiteCore"],
             resources: [.copy("Resources")],
             linkerSettings: [
-                .linkedFramework("AppKit"), .linkedFramework("Metal"),
+                .linkedFramework("AppKit"), .linkedFramework("SceneKit"), .linkedFramework("Metal"),
                 .linkedFramework("MetalKit"), .linkedFramework("AVFoundation"),
                 .linkedFramework("CoreGraphics"), .linkedFramework("QuartzCore"),
             ]
