@@ -128,10 +128,13 @@ final class NativeEditorScene: SCNView {
         let mesh = SCNGeometry(sources: [SCNGeometrySource(vertices: grid)], elements: [SCNGeometryElement(indices: lines, primitiveType: .line)])
         mesh.firstMaterial = material(NSColor.black.withAlphaComponent(0.5)); mesh.firstMaterial?.lightingModel = .constant
         let gridNode = SCNNode(geometry: mesh); gridNode.categoryBitMask = 8; world.addChildNode(gridNode)
-        for (center, size) in [(SIMD3(Float(b.x), 0, Float(b.z)+Float(b.depth)/2), SIMD3<Float>(0.1,0.3,Float(b.depth))),
-            (SIMD3(Float(b.x+b.width),0,Float(b.z)+Float(b.depth)/2), SIMD3<Float>(0.1,0.3,Float(b.depth))),
-            (SIMD3(Float(b.x)+Float(b.width)/2,0,Float(b.z)), SIMD3<Float>(Float(b.width),0.3,0.1)),
-            (SIMD3(Float(b.x)+Float(b.width)/2,0,Float(b.z+b.depth)), SIMD3<Float>(Float(b.width),0.3,0.1))] {
+        let left = Float(b.x), north = Float(b.z), width = Float(b.width), depth = Float(b.depth)
+        let perimeter: [(SIMD3<Float>,SIMD3<Float>)] = [
+            (SIMD3(left,0,north+depth/2),SIMD3(0.1,0.3,depth)),
+            (SIMD3(left+width,0,north+depth/2),SIMD3(0.1,0.3,depth)),
+            (SIMD3(left+width/2,0,north),SIMD3(width,0.3,0.1)),
+            (SIMD3(left+width/2,0,north+depth),SIMD3(width,0.3,0.1))]
+        for (center, size) in perimeter {
             var p = center; p.y = terrain.height(x: p.x,z: p.z)
             let node = box(size, center: p, color: .systemYellow); node.categoryBitMask = 8; world.addChildNode(node)
         }
