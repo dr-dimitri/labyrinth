@@ -1,0 +1,266 @@
+{
+  "provider": "Poly Haven",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "licenseTextUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+  "retrievedAt": "2026-09-15",
+  "assets": [
+    {
+      "id": "gothic_statue",
+      "name": "Gothic Statue",
+      "authorCredits": {
+        "Benny Weimer": "All"
+      },
+      "sourcePage": "https://polyhaven.com/a/gothic_statue",
+      "apiFilesUrl": "https://api.polyhaven.com/files/gothic_statue",
+      "localPath": "public/assets/models/environment/statue.glb",
+      "bytes": 11118844,
+      "sha256": "093a08d2a52cd88b179ce2f2364b3d256354c1c11ca2cd512603610691dddcd2",
+      "triangles": 27739,
+      "vertices": 23314,
+      "meshCount": 1,
+      "meshNames": [
+        "Plane"
+      ],
+      "nodeNames": [
+        "gothic_statue"
+      ],
+      "materialCount": 1,
+      "textures": [
+        {
+          "role": "normal",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear"
+        },
+        {
+          "role": "baseColor",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "sRGB"
+        },
+        {
+          "role": "occlusionRoughnessMetallic",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "channels": {
+            "r": "ambient occlusion",
+            "g": "roughness",
+            "b": "metallic"
+          }
+        }
+      ],
+      "dimensionsMeters": [
+        1.4774640202522278,
+        1.7398977875709534,
+        1.5637580826878548
+      ],
+      "boundsMeters": {
+        "min": [
+          -0.7387320101261139,
+          0,
+          -0.7818790413439274
+        ],
+        "max": [
+          0.7387320101261139,
+          1.7398977875709534,
+          0.7818790413439274
+        ]
+      },
+      "orientation": {
+        "up": "+Y",
+        "units": "meters",
+        "origin": "center in X/Z, base at Y=0",
+        "front": "+Z (visually verified in Three.js)"
+      },
+      "sourceTechnique": "Detailed weathered gothic stone sculpture. Provider credits all creation to Benny Weimer but does not explicitly identify this model as a photogrammetry scan.",
+      "modifications": [
+        "Selected original 2K JPEG PBR texture variant and original exported glTF geometry; no resampling or geometry simplification.",
+        "Embedded all original binary mesh data and JPEG maps in one self-contained GLB; no runtime external dependencies.",
+        "Recentered translation in X/Z and moved base to Y=0; authored dimensions preserved.",
+        "Connected the existing ARM red channel to glTF occlusionTexture; original normal, base color, roughness and metalness maps preserved."
+      ],
+      "validation": [
+        "Every download MD5 matches Poly Haven API metadata.",
+        "All buffer views are within the embedded binary chunk and every image is embedded.",
+        "GLB v2 JSON and BIN chunks padded to 4-byte alignment.",
+        "Loaded successfully with Three.js GLTFLoader in Chromium; verified geometry bounds and all PBR texture maps.",
+        "All three embedded JPEG images decode at 2048 by 2048 pixels.",
+        "Rendered under three studio lights and visually inspected."
+      ],
+      "downloads": [
+        {
+          "sourceRelativePath": "gothic_statue_2k.gltf",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/2k/gothic_statue/gothic_statue_2k.gltf",
+          "bytes": 2900,
+          "md5": "b532f264571a50f0a5a5fc19084e6a3a",
+          "sha256": "589beb2aea6ab11eb3016f95f273acfabe1fdf436d3c6c5a7ad08662c937db75"
+        },
+        {
+          "sourceRelativePath": "textures/gothic_statue_nor_gl_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/gothic_statue/gothic_statue_nor_gl_2k.jpg",
+          "bytes": 3282839,
+          "md5": "9389fe0b60e30fd334db8583cc1bed63",
+          "sha256": "e9f75e0ad1c472b439a4cd66f64b3a1d917c01c718fe1ac8ccb24bf839bac41a"
+        },
+        {
+          "sourceRelativePath": "textures/gothic_statue_diff_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/gothic_statue/gothic_statue_diff_2k.jpg",
+          "bytes": 3663305,
+          "md5": "6a92289da4929c14f89e9cb49b867123",
+          "sha256": "afdc45a14314f4f51e690e974d7ac5918f8509e50da3df2b8aef2b7020b3b959"
+        },
+        {
+          "sourceRelativePath": "textures/gothic_statue_arm_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/gothic_statue/gothic_statue_arm_2k.jpg",
+          "bytes": 3258126,
+          "md5": "c551e10e73536cd255da89f2e1cbc1c6",
+          "sha256": "82e9c16943259aef27bef8f59a5bf296d645ba5e5c95248cc445c95e69845c4e"
+        },
+        {
+          "sourceRelativePath": "gothic_statue.bin",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/gothic_statue/gothic_statue.bin",
+          "bytes": 912484,
+          "md5": "64ff6a07591c56042e01c780dce7685b",
+          "sha256": "8608701ecff6b56e9fd9cddd130541f831ff8131a7758d54e7964af3d0152b9c"
+        }
+      ]
+    },
+    {
+      "id": "rock_07",
+      "name": "Rock 07",
+      "authorCredits": {
+        "Jenelle van Heerden": "All"
+      },
+      "sourcePage": "https://polyhaven.com/a/rock_07",
+      "apiFilesUrl": "https://api.polyhaven.com/files/rock_07",
+      "localPath": "public/assets/models/environment/rock.glb",
+      "bytes": 6310140,
+      "sha256": "94b16c11a1e020ee0cbf06ee7c537724facc73f4ffc6c99e78b8a6b9c81e02bb",
+      "triangles": 14844,
+      "vertices": 7914,
+      "meshCount": 1,
+      "meshNames": [
+        "realCap_Model_3"
+      ],
+      "nodeNames": [
+        "rock_07"
+      ],
+      "materialCount": 1,
+      "textures": [
+        {
+          "role": "normal",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear"
+        },
+        {
+          "role": "baseColor",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "sRGB"
+        },
+        {
+          "role": "occlusionRoughnessMetallic",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "channels": {
+            "r": "ambient occlusion",
+            "g": "roughness",
+            "b": "metallic"
+          }
+        }
+      ],
+      "dimensionsMeters": [
+        0.16888190805912018,
+        0.14372014999389648,
+        0.3202769607305527
+      ],
+      "boundsMeters": {
+        "min": [
+          -0.08444095402956009,
+          0,
+          -0.16013848036527634
+        ],
+        "max": [
+          0.08444095402956009,
+          0.14372014999389648,
+          0.16013848036527634
+        ]
+      },
+      "orientation": {
+        "up": "+Y",
+        "units": "meters",
+        "origin": "center in X/Z, base at Y=0",
+        "front": "Authored glTF orientation retained; adjust yaw visually for placement."
+      },
+      "sourceTechnique": "RealityCapture mesh naming in glTF (realCap_Model_3) identifies the photogrammetry source.",
+      "modifications": [
+        "Selected original 2K JPEG PBR texture variant and original exported glTF geometry; no resampling or geometry simplification.",
+        "Embedded all original binary mesh data and JPEG maps in one self-contained GLB; no runtime external dependencies.",
+        "Recentered translation in X/Z and moved base to Y=0; authored dimensions preserved.",
+        "Connected the existing ARM red channel to glTF occlusionTexture; original normal, base color, roughness and metalness maps preserved."
+      ],
+      "validation": [
+        "Every download MD5 matches Poly Haven API metadata.",
+        "All buffer views are within the embedded binary chunk and every image is embedded.",
+        "GLB v2 JSON and BIN chunks padded to 4-byte alignment.",
+        "Loaded successfully with Three.js GLTFLoader in Chromium; verified geometry bounds and all PBR texture maps.",
+        "All three embedded JPEG images decode at 2048 by 2048 pixels.",
+        "Rendered under three studio lights and visually inspected."
+      ],
+      "downloads": [
+        {
+          "sourceRelativePath": "rock_07_2k.gltf",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/2k/rock_07/rock_07_2k.gltf",
+          "bytes": 2979,
+          "md5": "903924785f3c43703b77ffd692897814",
+          "sha256": "b0ff2386f1225784707df0a07b8bfb0e35e220a42b89a2be5e9e6ac035aa2a85"
+        },
+        {
+          "sourceRelativePath": "rock_07.bin",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/rock_07/rock_07.bin",
+          "bytes": 468936,
+          "md5": "817b2cfd1626cb06f18a825f87f58ec3",
+          "sha256": "e4a532a6d6cf4a08c288f501b790f32cba0528136a29959ce774c3cd39369e7e"
+        },
+        {
+          "sourceRelativePath": "textures/rock_07_arm_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/rock_07/rock_07_arm_2k.jpg",
+          "bytes": 829879,
+          "md5": "b61dd56e72420bd1e08cc8f63c5e7e0e",
+          "sha256": "d083f995ad460c53f436b335493e66d08d911df67a3106293a62521f49131fa6"
+        },
+        {
+          "sourceRelativePath": "textures/rock_07_diff_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/rock_07/rock_07_diff_2k.jpg",
+          "bytes": 2227207,
+          "md5": "21dec6e230e78a4a3758a93f1963e6a1",
+          "sha256": "f83d8439faccbda1c74a37421ef9bada9719eff790db000d87ba34c21bce6f72"
+        },
+        {
+          "sourceRelativePath": "textures/rock_07_nor_gl_2k.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/2k/rock_07/rock_07_nor_gl_2k.jpg",
+          "bytes": 2781907,
+          "md5": "a0842c476bfbb004d6e1a1f479f4512c",
+          "sha256": "9d5c4dc97891ceb04861ae1194caad64b99b0b486e59572d84537e4e0df4183f"
+        }
+      ],
+      "runtimeMaterialRecommendation": "Disable vertexColors to avoid multiplying the scanned vertex color with the photographic albedo; multiply roughness by 1.8 for less polished dungeon rubble. These adjustments do not modify the packaged source texture files."
+    }
+  ]
+}

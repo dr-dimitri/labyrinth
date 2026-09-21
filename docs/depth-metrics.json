@@ -1,0 +1,2232 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-16",
+  "environment": {
+    "platform": "macOS",
+    "runtime": "native Electron",
+    "source": "Vite development modules, final source state",
+    "logicalViewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "devicePixelRatio": 2,
+    "renderPixelRatio": {
+      "high": 1.35,
+      "balanced": 1.0
+    },
+    "previousHighRenderPixelRatio": 1.5,
+    "seed": "DEPTH-2026",
+    "loadout": [
+      "machinegun",
+      "rocket"
+    ]
+  },
+  "method": {
+    "views25": {
+      "size": 25,
+      "levels": 1,
+      "danger": "calm",
+      "stationaryCamera": true,
+      "simulationSteppedDuringMeasurement": false,
+      "renderAnimationActive": true,
+      "settleMs": 650,
+      "rafSampleCallbacks": 60,
+      "measuredIntervals": 59
+    },
+    "stress51": {
+      "size": 51,
+      "levels": 1,
+      "danger": "normal",
+      "initialSimulatedSeconds": 60,
+      "naturalEnemyCount": 8,
+      "protectedStart": true,
+      "simulationSteppedDuringMeasurement": true,
+      "settleMs": 650,
+      "rafSampleCallbacks": 180,
+      "measuredIntervals": 179,
+      "phases": {
+        "normal-60s-blackout": "Naturally active blackout after sixty simulation seconds; live simulation continues while measuring.",
+        "lights-on": "Additional illumination sample: blackout cleared and future events disabled in the temporary harness only; live simulation and eight enemies remain active."
+      }
+    },
+    "fpsDefinition": "1000 divided by the arithmetic mean requestAnimationFrame interval; first interval discarded.",
+    "p95Definition": "Sorted frame intervals at floor(count * 0.95).",
+    "renderCounts": "One composed frame including rendering passes, not unique scene geometry.",
+    "limitations": [
+      "Short, stationary samples on one local computer; not hardware-independent guarantees.",
+      "The eight stress enemies remain naturally positioned in the world; they are not all placed in front of the camera.",
+      "High rendering resolution changed from ratio 1.5 to 1.35, so earlier measurements are not a comparison at equal resolution.",
+      "Only the three archivedScreenshot paths are retained in the repository; filename records preserve temporary capture provenance."
+    ]
+  },
+  "checks": {
+    "nodeTests": {
+      "status": "passed",
+      "passed": 126,
+      "total": 126
+    },
+    "productionBuild": {
+      "status": "passed",
+      "note": "Existing Vite warning about redundant dynamic forest-creatures import."
+    },
+    "browserTests": {
+      "status": "passed",
+      "passed": 4,
+      "total": 4,
+      "durationSeconds": 31.7,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "scenarios": [
+        "Independent mouse aim, keyboard turning and pause",
+        "Trackpad fallback, edge clamping and resize",
+        "Forest planner persistence",
+        "Keyboard movement to elf, ammunition refill, map and journal"
+      ]
+    },
+    "packagedMacOSSmoke": {
+      "status": "passed",
+      "architecture": "arm64",
+      "logicalViewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "quality": "high",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "scenarios": [
+        "Real W+D movement to elf",
+        "Machinegun and rocket fire with Q and R",
+        "Ammunition refill, map, journal and pause",
+        "Forest to catacombs, climb to second level, return to forest"
+      ],
+      "signature": {
+        "verification": "codesign --verify --deep --strict",
+        "status": "passed",
+        "type": "ad hoc"
+      },
+      "resultSource": "/private/tmp/nachtgang-depth-native-result.json",
+      "screenshots": [
+        "docs/screenshots/depth-planner.png",
+        "docs/screenshots/depth-gameplay.png",
+        "docs/screenshots/depth-elf-resupply.png"
+      ]
+    },
+    "nativeWindows": {
+      "status": "not-tested"
+    }
+  },
+  "views25": {
+    "tag": "after2",
+    "errors": [],
+    "results": [
+      {
+        "name": "catacombs",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 25.2,
+            "z": 3.6,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "catacombs"
+        },
+        "measure": {
+          "fps": 66.79497339522244,
+          "p95ms": 17.09999999999991,
+          "render": {
+            "frame": 2441,
+            "calls": 461,
+            "triangles": 3546925,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 145,
+            "textures": 45
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.25,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.08999999999999997,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 43.64937249162945,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.986635512982533,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.923381815315366,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.834324450177398,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.32406116817781,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.35171768233926,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-catacombs.png",
+        "capturedAt": "2026-09-16T11:48:19.327Z",
+        "archivedScreenshot": "docs/screenshots/depth-catacombs.png"
+      },
+      {
+        "name": "ruins",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 25.2,
+            "z": 3.6,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "ruins"
+        },
+        "measure": {
+          "fps": 66.84794924087926,
+          "p95ms": 17.5,
+          "render": {
+            "frame": 6643,
+            "calls": 462,
+            "triangles": 3324113,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 173,
+            "textures": 47
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.38,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.9,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 44.465423387340756,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 9.154645991511332,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.202850894521784,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.195961467894207,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.484176370846683,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.02395044844257,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-ruins.png",
+        "capturedAt": "2026-09-16T11:48:22.207Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "mine",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 3.6,
+            "z": 25.2,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "mine"
+        },
+        "measure": {
+          "fps": 60.48180420297283,
+          "p95ms": 25.100000000000364,
+          "render": {
+            "frame": 10449,
+            "calls": 600,
+            "triangles": 3572697,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 163,
+            "textures": 56
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.21999999999999997,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.04000000000000001,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 40.443436381687754,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.326589843288655,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.68063343774471,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.530296657894098,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.13510060185872,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.010428401299514,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-mine.png",
+        "capturedAt": "2026-09-16T11:48:25.455Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "forest",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -2.199114857512855,
+            "pitch": 0.08,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 40.56655665566558,
+          "p95ms": 26.5,
+          "render": {
+            "frame": 13573,
+            "calls": 692,
+            "triangles": 3138291,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 157,
+            "textures": 77
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 40.85010051240968,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.410314811378464,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.575122574615214,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.0200422870228,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.418853255712,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.891684074711566,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-forest.png",
+        "capturedAt": "2026-09-16T11:48:29.738Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "forest-ravine",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 43.2,
+            "z": 14.4,
+            "level": 0,
+            "y": -9.899872678534361,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": 0.4,
+            "pitch": 0.1,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 54.44311156224044,
+          "p95ms": 25.400000000001455,
+          "render": {
+            "frame": 16697,
+            "calls": 230,
+            "triangles": 1542027,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 89,
+            "textures": 70
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 41.31086149889474,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.505177367419504,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.23557210644195,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.326848941156193,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.767201695415906,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.23994600130636,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-forest-ravine.png",
+        "capturedAt": "2026-09-16T11:48:32.778Z",
+        "archivedScreenshot": "docs/screenshots/depth-forest-ravine.png"
+      },
+      {
+        "name": "forest-cave",
+        "quality": "high",
+        "pose": {
+          "player": {
+            "x": 30.6,
+            "z": 28.800000000000004,
+            "level": 0,
+            "y": -9.56627671489799,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.12,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "high",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 41.39769856862193,
+          "p95ms": 26.700000000000728,
+          "render": {
+            "frame": 20041,
+            "calls": 551,
+            "triangles": 2587183,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 121,
+            "textures": 74
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.21003043391467235,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.020620091011449123,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 43.8812434513133,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 9.034373651740973,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.579571517421076,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.01906030419368,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.47931748518934,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.958905370188187,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-high-forest-cave.png",
+        "capturedAt": "2026-09-16T11:48:36.112Z",
+        "archivedScreenshot": "docs/screenshots/depth-forest-cave.png"
+      },
+      {
+        "name": "catacombs",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 25.2,
+            "z": 3.6,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "catacombs"
+        },
+        "measure": {
+          "fps": 120.43274137579063,
+          "p95ms": 10,
+          "render": {
+            "frame": 23957,
+            "calls": 397,
+            "triangles": 2594663,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 128,
+            "textures": 69
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.25,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.08999999999999997,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 113.65822715354986,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.40022323749556,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.022342034978706,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.861270199103217,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.443804511149597,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.48132454891367,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-catacombs.png",
+        "capturedAt": "2026-09-16T11:48:38.628Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "ruins",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 25.2,
+            "z": 3.6,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "ruins"
+        },
+        "measure": {
+          "fps": 119.60267585647607,
+          "p95ms": 10.299999999999272,
+          "render": {
+            "frame": 29721,
+            "calls": 378,
+            "triangles": 2329359,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 164,
+            "textures": 71
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.38,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.9,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 112.79785328336413,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.223087440692616,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.511334003072985,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.588214751159402,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.442534403974108,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.048727056905385,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-ruins.png",
+        "capturedAt": "2026-09-16T11:48:40.946Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "mine",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 3.6,
+            "z": 25.2,
+            "level": 0,
+            "y": 0,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.02,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "mine"
+        },
+        "measure": {
+          "fps": 119.9674664497765,
+          "p95ms": 8.599999999998545,
+          "render": {
+            "frame": 35199,
+            "calls": 532,
+            "triangles": 2812449,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 163,
+            "textures": 70
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.21999999999999997,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.04000000000000001,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 115.17836345238254,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.713192475490523,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.647944302025177,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.04828054531247,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.97534491478451,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.88851128133254,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-mine.png",
+        "capturedAt": "2026-09-16T11:48:43.068Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "forest",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -2.199114857512855,
+            "pitch": 0.08,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 96.99161597895787,
+          "p95ms": 17.400000000001455,
+          "render": {
+            "frame": 39753,
+            "calls": 590,
+            "triangles": 2486607,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 157,
+            "textures": 77
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 124.19490573600245,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.5695394162358,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.444507406895845,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.800324215477524,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.541221419648576,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.05379093630799,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-forest.png",
+        "capturedAt": "2026-09-16T11:48:45.632Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "forest-ravine",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 43.2,
+            "z": 14.4,
+            "level": 0,
+            "y": -9.899872678534361,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": 0.4,
+            "pitch": 0.1,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 120.0162733930019,
+          "p95ms": 8.900000000001455,
+          "render": {
+            "frame": 44813,
+            "calls": 140,
+            "triangles": 964539,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 85,
+            "textures": 70
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 118.32482478060973,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.360993337184357,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.567262886342558,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.653471545639192,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.531812908216885,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.667573953986278,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-forest-ravine.png",
+        "capturedAt": "2026-09-16T11:48:47.930Z",
+        "archivedScreenshot": null
+      },
+      {
+        "name": "forest-cave",
+        "quality": "balanced",
+        "pose": {
+          "player": {
+            "x": 30.6,
+            "z": 28.800000000000004,
+            "level": 0,
+            "y": -9.56627671489799,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0
+          },
+          "view": {
+            "yaw": -1.5707963267948966,
+            "pitch": 0.12,
+            "light": true,
+            "moving": false,
+            "sprinting": false,
+            "aimX": 0,
+            "aimY": 0
+          },
+          "quality": "balanced",
+          "biome": "forest"
+        },
+        "measure": {
+          "fps": 120.04069175991862,
+          "p95ms": 9.5,
+          "render": {
+            "frame": 50489,
+            "calls": 407,
+            "triangles": 1894667,
+            "points": 400,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 100,
+            "textures": 74
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.21107473387545306,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 0.04189770271235509,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 110.8977032871498,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.83188008853084,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.36459490565992,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.211622654042017,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 27.332229752633797,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 22.898324558441423,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-balanced-forest-cave.png",
+        "capturedAt": "2026-09-16T11:48:50.093Z",
+        "archivedScreenshot": null
+      }
+    ]
+  },
+  "stress51": {
+    "tag": "after2-stress51",
+    "errors": [],
+    "results": [
+      {
+        "quality": "high",
+        "phase": "normal-60s-blackout",
+        "initial": {
+          "elapsed": 59.99999999999873,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -14.018981503522612,
+              "z": 10.588499999999797
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 87.67859999999979,
+              "y": -14.615112624379766,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 1.0327016831431137,
+              "z": 91.8584999999989
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -15.061508344692614,
+              "z": 99.05849999999884
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 57.222599999999865,
+              "y": -13.041076280519793,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 83.12849999999911,
+              "y": -14.853317866515738,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 103.19849999999937,
+              "y": -15.336488923481367,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 65.3945999999999,
+              "y": -14.699117592420059,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 13.099999999999945,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing",
+          "simulationMs": 109.89999999850988
+        },
+        "state": {
+          "elapsed": 63.53509999999865,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -13.536454806940803,
+              "z": 21.087746999999805
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 94.36700919999981,
+              "y": -14.479813753144189,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 0.9807714912189551,
+              "z": 102.35774699999874
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -14.798447697963567,
+              "z": 109.55774699999868
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 63.91100919999982,
+              "y": -14.4681405653417,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 93.62774699999895,
+              "y": -14.47648474567646,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 113.69774699999921,
+              "y": -14.05538307870445,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 72.08300919999992,
+              "y": -15.246791203041058,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 9.564899999999977,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing"
+        },
+        "measure": {
+          "fps": 62.99489706141123,
+          "p95ms": 17.600000000000364,
+          "render": {
+            "frame": 4949,
+            "calls": 1148,
+            "triangles": 6150855,
+            "points": 650,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 288,
+            "textures": 72
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 42.87413660353471,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.827028124257145,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.52532580450401,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.420786855018335,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.276564968503855,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.724556939070087,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-stress51-high-normal-60s-blackout.png",
+        "capturedAt": "2026-09-16T11:52:58.326Z",
+        "archivedScreenshot": null
+      },
+      {
+        "quality": "high",
+        "phase": "lights-on",
+        "initial": {
+          "elapsed": 59.99999999999873,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -14.018981503522612,
+              "z": 10.588499999999797
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 87.67859999999979,
+              "y": -14.615112624379766,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 1.0327016831431137,
+              "z": 91.8584999999989
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -15.061508344692614,
+              "z": 99.05849999999884
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 57.222599999999865,
+              "y": -13.041076280519793,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 83.12849999999911,
+              "y": -14.853317866515738,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 103.19849999999937,
+              "y": -15.336488923481367,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 65.3945999999999,
+              "y": -14.699117592420059,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 13.099999999999945,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing",
+          "simulationMs": 109.89999999850988
+        },
+        "state": {
+          "elapsed": 68.95589999999876,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 114.01247700000023,
+              "y": -13.121667658409777,
+              "z": 36
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 104.62316280000012,
+              "y": -14.528661998704818,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": -0.08261340502896339,
+              "z": 118.45752299999897
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 75.25752299999891,
+              "y": -14.83075286731567,
+              "z": 122.4
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 74.16716280000011,
+              "y": -15.213548141278661,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 109.72752299999918,
+              "y": -13.705427884217038,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 122.59752299999927,
+              "y": -11.099379092142733,
+              "z": 25.2
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 82.33916280000022,
+              "y": -14.896389183025025,
+              "z": 54
+            }
+          ],
+          "event": null,
+          "status": "playing"
+        },
+        "measure": {
+          "fps": 41.18824639315217,
+          "p95ms": 32.69999999999891,
+          "render": {
+            "frame": 10295,
+            "calls": 1320,
+            "triangles": 6986771,
+            "points": 650,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 309,
+            "textures": 74
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1.35
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 42.87077967832013,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 8.826336992595321,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.955427313407178,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.408587659329857,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.062878711798326,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.208690886901596,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-stress51-high-lights-on.png",
+        "capturedAt": "2026-09-16T11:53:04.385Z",
+        "archivedScreenshot": null
+      },
+      {
+        "quality": "balanced",
+        "phase": "normal-60s-blackout",
+        "initial": {
+          "elapsed": 59.99999999999873,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -14.018981503522612,
+              "z": 10.588499999999797
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 87.67859999999979,
+              "y": -14.615112624379766,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 1.0327016831431137,
+              "z": 91.8584999999989
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -15.061508344692614,
+              "z": 99.05849999999884
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 57.222599999999865,
+              "y": -13.041076280519793,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 83.12849999999911,
+              "y": -14.853317866515738,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 103.19849999999937,
+              "y": -15.336488923481367,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 65.3945999999999,
+              "y": -14.699117592420059,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 13.099999999999945,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing",
+          "simulationMs": 97.39999999850988
+        },
+        "state": {
+          "elapsed": 62.22519999999861,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -13.670871677358168,
+              "z": 17.197343999999898
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 91.88867839999918,
+              "y": -14.487120911805215,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 1.058941727256051,
+              "z": 98.46734399999838
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -14.970649381910011,
+              "z": 105.66734399999832
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 61.43267840000038,
+              "y": -14.01356120269958,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 89.73734399999859,
+              "y": -14.53596271109455,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 109.80734399999885,
+              "y": -14.905483671177826,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 69.60467839999929,
+              "y": -15.156474022508222,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 10.874799999999938,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing"
+        },
+        "measure": {
+          "fps": 120.00536336819505,
+          "p95ms": 8.400000000001455,
+          "render": {
+            "frame": 16939,
+            "calls": 1148,
+            "triangles": 6150855,
+            "points": 650,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 288,
+            "textures": 74
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 119.70763337182919,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.645689223611893,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.753154955750766,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.92872388672786,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.3465250585071,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.375387766353874,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-stress51-balanced-normal-60s-blackout.png",
+        "capturedAt": "2026-09-16T11:53:08.934Z",
+        "archivedScreenshot": null
+      },
+      {
+        "quality": "balanced",
+        "phase": "lights-on",
+        "initial": {
+          "elapsed": 59.99999999999873,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -14.018981503522612,
+              "z": 10.588499999999797
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 87.67859999999979,
+              "y": -14.615112624379766,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 1.0327016831431137,
+              "z": 91.8584999999989
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -15.061508344692614,
+              "z": 99.05849999999884
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 57.222599999999865,
+              "y": -13.041076280519793,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 83.12849999999911,
+              "y": -14.853317866515738,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 103.19849999999937,
+              "y": -15.336488923481367,
+              "z": 18
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 65.3945999999999,
+              "y": -14.699117592420059,
+              "z": 54
+            }
+          ],
+          "event": {
+            "type": "blackout",
+            "level": 0,
+            "phase": "active",
+            "remaining": 13.099999999999945,
+            "duration": 17,
+            "label": "Die Wandfackeln erlöschen"
+          },
+          "status": "playing",
+          "simulationMs": 97.39999999850988
+        },
+        "state": {
+          "elapsed": 65.25849999999856,
+          "player": {
+            "x": 3.6,
+            "z": 3.6,
+            "level": 0,
+            "y": -0.9711675027971953,
+            "stamina": 100,
+            "health": 100,
+            "noise": 0,
+            "sneaking": false
+          },
+          "inSanctuary": true,
+          "monsters": [
+            {
+              "id": 1,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -13.242730884025555,
+              "z": 26.206245000000056
+            },
+            {
+              "id": 2,
+              "type": "orc",
+              "x": 97.62768199999864,
+              "y": -14.543355402823286,
+              "z": 54
+            },
+            {
+              "id": 3,
+              "type": "wolf",
+              "x": 21.6,
+              "y": 0.8008558619099388,
+              "z": 107.47624499999799
+            },
+            {
+              "id": 4,
+              "type": "wolf",
+              "x": 72,
+              "y": -14.657447871091867,
+              "z": 114.67624499999793
+            },
+            {
+              "id": 5,
+              "type": "orc",
+              "x": 67.1716820000004,
+              "y": -14.9313225780919,
+              "z": 54
+            },
+            {
+              "id": 6,
+              "type": "wolf",
+              "x": 98.7462449999982,
+              "y": -14.579349177611267,
+              "z": 54
+            },
+            {
+              "id": 7,
+              "type": "wolf",
+              "x": 115.2,
+              "y": -13.512170812581733,
+              "z": 21.616244999998617
+            },
+            {
+              "id": 8,
+              "type": "orc",
+              "x": 75.34368199999875,
+              "y": -15.185232196278715,
+              "z": 54
+            }
+          ],
+          "event": null,
+          "status": "playing"
+        },
+        "measure": {
+          "fps": 91.01077893024205,
+          "p95ms": 17.099999999998545,
+          "render": {
+            "frame": 23561,
+            "calls": 1212,
+            "triangles": 6157955,
+            "points": 650,
+            "lines": 0
+          },
+          "memory": {
+            "geometries": 309,
+            "textures": 74
+          },
+          "canvas": {
+            "w": 1280,
+            "h": 800,
+            "dpr": 2,
+            "ratio": 1
+          },
+          "lights": [
+            {
+              "type": "HemisphereLight",
+              "intensity": 0.29,
+              "shadow": false
+            },
+            {
+              "type": "DirectionalLight",
+              "intensity": 1.65,
+              "shadow": true
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 121.23243266930102,
+              "shadow": false
+            },
+            {
+              "type": "SpotLight",
+              "intensity": 65,
+              "shadow": true
+            },
+            {
+              "type": "PointLight",
+              "intensity": 24.959618490738446,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.888104610851972,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 25.74379911856687,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 26.28750436568872,
+              "shadow": false
+            },
+            {
+              "type": "PointLight",
+              "intensity": 23.887765155318974,
+              "shadow": false
+            }
+          ]
+        },
+        "filename": "/private/tmp/depth-after2-stress51-balanced-lights-on.png",
+        "capturedAt": "2026-09-16T11:53:12.525Z",
+        "archivedScreenshot": null
+      }
+    ]
+  }
+}

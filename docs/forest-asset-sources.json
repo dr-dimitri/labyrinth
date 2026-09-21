@@ -1,0 +1,346 @@
+{
+  "license": "CC0-1.0",
+  "licenseURL": "https://polyhaven.com/license",
+  "retrieved": "2026-09-16",
+  "materials": {
+    "forest-bark": {
+      "name": "Bark Brown 01",
+      "pageURL": "https://polyhaven.com/a/bark_brown_01",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        0.9999990463256836,
+        0.999998927116394
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/forest-bark/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_diff_2k.jpg",
+          "colorSpace": "sRGB",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 2667267,
+          "sha256": "0cdd066f34d357fdbf7eb99159e668a6dc346bb7fd093a9e27058eb827d09b9a"
+        },
+        "normal": {
+          "path": "public/assets/textures/forest-bark/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_nor_gl_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "normalConvention": "OpenGL (+Y)",
+          "bytes": 4621865,
+          "sha256": "971289c90963ef6a3eaf988662f2bce71dbb1024f5382a7dfe9e51e3cd127030"
+        },
+        "roughness": {
+          "path": "public/assets/textures/forest-bark/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_rough_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 812553,
+          "sha256": "8ce13f1be85940fcb9a3dc78afd1529755c6aec6b52e683656bffa92820887d8"
+        },
+        "ao": {
+          "path": "public/assets/textures/forest-bark/ao.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_ao_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 2087917,
+          "sha256": "981f77a874306cc1a1605163412df0a6e34bb91b4afebd274b3edee9daa32fd7"
+        },
+        "height": {
+          "path": "public/assets/textures/forest-bark/height.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/bark_brown_01/bark_brown_01_disp_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 561899,
+          "sha256": "49544aeff3394c581cf45c2fd4ab068ced33f24bb89a0a9578d8cb7befeba2d1"
+        }
+      }
+    },
+    "forest-ground": {
+      "name": "Forest Ground 03",
+      "pageURL": "https://polyhaven.com/a/forrest_ground_03",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.0,
+        2.0
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/forest-ground/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_diff_2k.jpg",
+          "colorSpace": "sRGB",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 3522953,
+          "sha256": "187a8e33773473939c0e85b5e10ae94eb9e8d91463ab8b74e122d833d2d84dc6"
+        },
+        "normal": {
+          "path": "public/assets/textures/forest-ground/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_nor_gl_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "normalConvention": "OpenGL (+Y)",
+          "bytes": 6812765,
+          "sha256": "dcc26b4fd27a8e1f1f14558214fbaf1d68a61d9b569eee805793498e4b30098c"
+        },
+        "roughness": {
+          "path": "public/assets/textures/forest-ground/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_rough_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1877319,
+          "sha256": "b3b04dddd8ed6f441dc0271c3e6e4ac4d6ba882ab9c1028d13b08ddd39f091fa"
+        },
+        "ao": {
+          "path": "public/assets/textures/forest-ground/ao.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_ao_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 2768278,
+          "sha256": "6902aceca68f5e7207d55b1661c9f015473300f52563e1cd48a462c3cbd3ed9c"
+        },
+        "height": {
+          "path": "public/assets/textures/forest-ground/height.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/forrest_ground_03/forrest_ground_03_disp_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1220484,
+          "sha256": "306710e18fb0bd35ef74ee5931d3781373ea5c870409b2084b5da0801cd23da5"
+        }
+      }
+    },
+    "forest-rock": {
+      "name": "Rock Face",
+      "pageURL": "https://polyhaven.com/a/rock_face",
+      "authors": {
+        "Greg Zaal": "Photography",
+        "Dario Barresi": "Processing"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        2.380000114440918,
+        2.380000114440918
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/forest-rock/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_diff_2k.jpg",
+          "colorSpace": "sRGB",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 2971109,
+          "sha256": "b989c832327538a9e546cca359417acb9a657d041f300407e8398daaf743f5bc"
+        },
+        "normal": {
+          "path": "public/assets/textures/forest-rock/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_nor_gl_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "normalConvention": "OpenGL (+Y)",
+          "bytes": 4158538,
+          "sha256": "352b87db2502d54487b0ed8abdfb621fae2abf7d360a281b419f567346178cf0"
+        },
+        "roughness": {
+          "path": "public/assets/textures/forest-rock/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_rough_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 980027,
+          "sha256": "91517cdc191bf60fdb135929e12041e2ad50dd7343b33f25dae75d87ba61b226"
+        },
+        "ao": {
+          "path": "public/assets/textures/forest-rock/ao.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_ao_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1621583,
+          "sha256": "a1307b27bb712faa3569ec6bfbd74e867c30f66a815df3fc88f86b6158551d5d"
+        },
+        "height": {
+          "path": "public/assets/textures/forest-rock/height.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_disp_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 879369,
+          "sha256": "2b057d933924f800f0aa008b9d5a0011dbf2a91d7819fc412db12e02c6553814"
+        }
+      }
+    },
+    "forest-earth": {
+      "name": "Brown Mud 03",
+      "pageURL": "https://polyhaven.com/a/brown_mud_03",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "license": "CC0-1.0",
+      "sizeMeters": [
+        1.299996018409729,
+        1.299996018409729
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/forest-earth/color.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_diff_2k.jpg",
+          "colorSpace": "sRGB",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 2133326,
+          "sha256": "57a87dae26769677578ab53b8829fe9b1e4dfec1ae1726f2942ce99fc73f400b"
+        },
+        "normal": {
+          "path": "public/assets/textures/forest-earth/normal.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_nor_gl_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "normalConvention": "OpenGL (+Y)",
+          "bytes": 3728131,
+          "sha256": "4d9ea1c9321618dbde7bdb2287fae85b646e4bd7b27c294a3475096d30b33880"
+        },
+        "roughness": {
+          "path": "public/assets/textures/forest-earth/roughness.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_rough_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1159072,
+          "sha256": "d4beda6f00e1d0bd431360037569cb7807c38a4f3a5102c256f3c24a4bc0e860"
+        },
+        "ao": {
+          "path": "public/assets/textures/forest-earth/ao.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_ao_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 1426213,
+          "sha256": "4ac0ed146a261a00fb6007844841395962304b7382e37c7ed2ca90d1b184d4a4"
+        },
+        "height": {
+          "path": "public/assets/textures/forest-earth/height.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/brown_mud_03/brown_mud_03_disp_2k.jpg",
+          "colorSpace": "linear",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "bytes": 276662,
+          "sha256": "295bc090d6c436a84fa2e3402f37b8637ea5c6478b71f6fe892d237ab33cd2f4"
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "name": "Fern 02",
+      "pageURL": "https://polyhaven.com/a/fern_02",
+      "authors": {
+        "Rob Tuytel": "scanning",
+        "Rico Cilliers": "modeling"
+      },
+      "license": "CC0-1.0",
+      "path": "public/assets/models/environment/fern.glb",
+      "bytes": 1143580,
+      "sha256": "68b47695e77263eaf2294ed7431255793b54fe5165aece19ace01637b24e6808",
+      "sourceFiles": [
+        {
+          "sourcePath": "fern.gltf",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/fern_02/fern_02_1k.gltf",
+          "bytes": 6899,
+          "sha256": "33974295ee19670af4877705fc7d91f33f42d6302f0d44a625e072271223031f"
+        },
+        {
+          "sourcePath": "textures/fern_02_arm_1k.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_arm_1k.jpg",
+          "bytes": 280359,
+          "sha256": "ebfb5d76ce9cbdaec20bcd22dce9b755f0b1b8650ef29ca13555e3e6961025d7"
+        },
+        {
+          "sourcePath": "textures/fern_02_diff_1k.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_diff_1k.jpg",
+          "bytes": 315705,
+          "sha256": "a828a6e7b4c01c826911e2eac4b3afc7457dab7b3b392a31c681ed88b7d50029"
+        },
+        {
+          "sourcePath": "textures/fern_02_nor_gl_1k.jpg",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_nor_gl_1k.jpg",
+          "bytes": 367222,
+          "sha256": "45bce132c6e96a0864bc89ab5da51361ab3f4afa83a6669ae499ab5ca811f621"
+        },
+        {
+          "sourcePath": "fern_02.bin",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/fern_02/fern_02.bin",
+          "bytes": 176176,
+          "sha256": "fe1abb762bcbbc7ad9e86925c8080437a62add257d9280e9142fdc85c226e64c"
+        }
+      ],
+      "alpha": {
+        "path": "public/assets/textures/forest-fern/alpha.jpg",
+        "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_alpha_1k.jpg",
+        "resolution": [
+          1024,
+          1024
+        ],
+        "colorSpace": "linear",
+        "bytes": 246038,
+        "sha256": "4d8c4d57373651e500f1a3b2071cd59d2d9cc031bc30ff73bc8a5d2b2c91571a"
+      },
+      "processing": "Original meshes, UVs and 1K JPEG maps packed into GLB without changing pixels. Separate original alpha map is applied at runtime with alpha testing."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+Pok — Teh_Bucket
+https://opengameart.org/content/pok
+CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Original CC0 stone textures: João Paulo — https://3dtextures.me/
+
+NACHTGANG modifications: FBX converted to GLB; unused speech morph targets
+removed; original geometry, skin and image maps preserved. PBR materials
+reconstructed; original procedural skeletal walking animation added.
+Source archive and SHA-256 checksums: docs/model-creature-sources.json
