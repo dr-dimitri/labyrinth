@@ -39,6 +39,10 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     var rows: [(id: String, title: String)] = []
     var refreshing = false
     var placement: String?
+    var inspectorSection = 0
+    var terrainTool: EditorTerrainTool = .select
+    var brushRadius: Float = 3, brushStrength: Float = 0.3, brushHeight: Float = 0
+    var paintID = "", paintStart: SIMD2<Float>?
     var extraInspector: ((NSStackView) -> Void)?
     var extraTools: ((NSStackView) -> Void)?
     var undoButton: NSButton!, redoButton: NSButton!
@@ -88,7 +92,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         label("OBJEKTKATALOG", in: catalogPanel)
         catalog.addItems(withTitles: LevelObjectCatalog.items.map(\.name)); catalogPanel.addArrangedSubview(catalog)
         button("Objekt platzieren", in: catalogPanel) { [weak self] in
-            guard let self else { return }; self.placement = LevelObjectCatalog.items[max(0,self.catalog.indexOfSelectedItem)].id
+            guard let self else { return }; self.placement = LevelObjectCatalog.items[max(0,self.catalog.indexOfSelectedItem)].id; self.terrainTool = .select
             self.status.stringValue = "Linksklick auf das Gelände platziert das Objekt. Escape bricht ab."
         }
         label("OBJEKTE UND MARKER · ⇧ Mehrfachauswahl", in: catalogPanel)
@@ -119,6 +123,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     func configureCanvas() {
         canvas.picked = { [weak self] id, point, event in
             guard let self else { return }
+            if self.terrainTool != .select, let point { self.beginTerrain(at: point); return }
             if let template = self.placement, let point {
                 let object = LevelObject(catalogID: template,position: LevelVector(point.x.rounded(),0,point.z.rounded()))
                 self.perform { try self.session.edit("Platzieren") { $0.objects.append(object) }; self.session.selection = [object.id] }
@@ -129,6 +134,8 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
                 self.refresh()
             }
         }
+        canvas.dragged = { [weak self] p,_ in self?.applyTerrain(at: p) }
+        canvas.released = { [weak self] in self?.session.endGesture(); self?.refresh(); self?.changed?() }
         canvas.cancelled = { [weak self] in self?.placement = nil; self?.session.endGesture(cancel: true); self?.refresh() }
         canvas.keyAction = { [weak self] code in
             if code == 51 || code == 117 { self?.perform { try self?.session.deleteSelection() } }
@@ -142,14 +149,18 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         guard !refreshing else { return }; refreshing = true; defer { refreshing = false }
         session.reconcileSelection()
         window?.title = "\(session.document.name) — Leveleditor"; window?.isDocumentEdited = session.isDirty
-        rows = session.document.objects.map { ($0.id, ($0.locked ? "🔒 " : "") + ($0.hidden ? "◌ " : "") + (LevelObjectCatalog.item(id: $0.catalogID)?.name ?? $0.catalogID)) }
+        let warnings = (try? session.document.placementWarnings()) ?? []
+        let warned = Set(warnings.map(\.id))
+        rows = session.document.objects.map { ($0.id, (warned.contains($0.id) ? "⚠ " : "") + ($0.locked ? "🔒 " : "") + ($0.hidden ? "◌ " : "") + (LevelObjectCatalog.item(id: $0.catalogID)?.name ?? $0.catalogID)) }
         rows += session.document.markers.map { ($0.id, "◆ " + $0.kind.rawValue) }
         objects.reloadData(); objects.selectRowIndexes(IndexSet(rows.indices.filter { session.selection.contains(rows[$0].id) }), byExtendingSelection: false)
         undoButton.isEnabled = session.canUndo; redoButton.isEnabled = session.canRedo
         inspector.arrangedSubviews.forEach { inspector.removeArrangedSubview($0); $0.removeFromSuperview() }
         field("Levelname", value: session.document.name, in: inspector) { [weak self] value in self?.perform { try self?.session.edit("Name") { $0.name = value } } }
         label("\(session.document.bounds.width) × \(session.document.bounds.depth) m · \(session.document.objects.count)/1000 Objekte\nGelände: 1-m-Raster · 40 Undo-Schritte", in: inspector)
-        if let id = session.selection.first, session.selection.count == 1, let object = session.document.objects.first(where: { $0.id == id }) {
+        inspector.addArrangedSubview(EditorPopup(["Objekte", "Landschaft"],selected: inspectorSection,label: "Eigenschaftenbereich") { [weak self] index in self?.inspectorSection = index; self?.refresh() })
+        if inspectorSection == 1 { buildTerrainInspector() }
+        if inspectorSection == 0, let id = session.selection.first, session.selection.count == 1, let object = session.document.objects.first(where: { $0.id == id }) {
             label(LevelObjectCatalog.item(id: object.catalogID)?.name ?? object.catalogID, in: inspector)
             for (axis,title) in ["X (m)","Höhenversatz (m)","Z (m)"].enumerated() {
                 field(title,value: String(object.position.value[axis]),in: inspector) { [weak self] value in
@@ -166,6 +177,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         extraInspector?(inspector)
         do { try canvas.rebuild(session.document, selection: session.selection); status.stringValue = session.isDirty ? "Ungesicherte Änderungen. ⌘S speichert. Entwürfe benötigen noch keine Spielmarker." : "Gespeichert." }
         catch { status.stringValue = "Vorschau: " + error.localizedDescription }
+        if let warning = warnings.first(where: { session.selection.contains($0.id) }) ?? warnings.first { status.stringValue += "  ⚠ \(warning.message) (\(warnings.count) Hinweise)." }
     }
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? { NSTextField(labelWithString: rows[row].title) }

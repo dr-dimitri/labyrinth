@@ -83,8 +83,36 @@ extension LevelDocument {
         environment.shadowExtent = Float(max(bounds.width, bounds.depth)) * 0.8
         environment.shadowDistance = max(100, terrain.maximumHeight - terrain.minimumHeight + 80)
         environment.shadowDepth = environment.shadowDistance * 2
+        func regionInside(_ x: Float,_ z: Float,_ width: Float,_ depth: Float) -> Bool {
+            x >= minimum.x && z >= minimum.z && x+width <= maximum.x && z+depth <= maximum.z
+        }
+        for (index, water) in self.environment.water.enumerated() {
+            var valid = regionInside(Float(water.x),Float(water.z),Float(water.width),Float(water.depth))
+            var deepest: Float = 0
+            for z in water.z...water.z+water.depth { for x in water.x...water.x+water.width {
+                deepest = max(deepest,water.surfaceHeight-terrain.height(x: Float(x),z: Float(z)))
+            } }
+            valid = valid && deepest >= 0.15 && deepest <= 0.351
+            valid = valid && !self.environment.water.prefix(index).contains { water.x < $0.x+$0.width && water.x+water.width > $0.x && water.z < $0.z+$0.depth && water.z+water.depth > $0.z }
+            if !valid {
+                if purpose == .play { throw LevelDocumentError("Wasserfläche „\(water.id)“: innerhalb der Karte, ohne Überlappung und 15–35 cm tief erforderlich. Gelände gegebenenfalls einebnen.") }
+                continue
+            }
+            environment.shallowWaterZones.append(MapShallowWaterZone(id: index+1,minimum: SIMD2(Float(water.x),Float(water.z)),maximum: SIMD2(Float(water.x+water.width),Float(water.z+water.depth)),surfaceHeight: water.surfaceHeight))
+        }
+        let density = self.environment.vegetationDensity
+        for index in 0..<Int((density*8).rounded()) {
+            let fx = Float(index%4+1)/5, fz: Float = index < 4 ? 0.25 : 0.75
+            environment.vegetationZones.append(EnvironmentZone(id: "editor.vegetation.\(index)",
+                center: SIMD2(minimum.x+Float(bounds.width)*fx,minimum.z+Float(bounds.depth)*fz),radii: SIMD2(repeating: 1.5),
+                height: 1.0,density: density,kind: .tallGrass))
+        }
         for surface in self.environment.surfaces {
-            let material: SurfaceMaterial = surface.material == .asphalt ? .asphalt : .soil
+            if !regionInside(surface.x,surface.z,surface.width,surface.depth) {
+                if purpose == .play { throw LevelDocumentError("Bodenfläche „\(surface.id)“ liegt außerhalb der Karte.") }
+                continue
+            }
+            let material: SurfaceMaterial = surface.material == .asphalt ? .asphalt : surface.material == .rock ? .concrete : .soil
             let camouflage: CamouflageGround
             switch surface.material {
             case .earth: camouflage = .earth
@@ -93,7 +121,7 @@ extension LevelDocument {
             case .asphalt: camouflage = .none
             }
             environment.groundRegions.append(MapSurfaceRegion(minimum: SIMD2(surface.x, surface.z),
-                maximum: SIMD2(surface.x + surface.width, surface.z + surface.depth), material: material, camouflage: camouflage))
+                maximum: SIMD2(surface.x + surface.width, surface.z + surface.depth), material: material, camouflage: camouflage, soundSurface: surface.material == .rock ? .gravel : nil))
             let tint: SIMD3<Float>
             switch surface.material {
             case .earth: tint = SIMD3(0.50, 0.39, 0.27)

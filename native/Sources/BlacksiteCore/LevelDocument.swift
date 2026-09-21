@@ -93,7 +93,19 @@ public struct LevelEnvironment: Codable, Equatable, Sendable {
     public var sunIntensity: Float = 1
     public var fogColor = LevelVector(0.40, 0.49, 0.54)
     public var surfaces: [LevelSurface] = []
+    public var water: [LevelWater] = []
+    public var vegetationDensity: Float = 0
     public init() {}
+    enum CodingKeys: String, CodingKey { case sunDirection, sunIntensity, fogColor, surfaces, water, vegetationDensity }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sunDirection = try c.decode(LevelVector.self,forKey: .sunDirection)
+        sunIntensity = try c.decode(Float.self,forKey: .sunIntensity)
+        fogColor = try c.decode(LevelVector.self,forKey: .fogColor)
+        surfaces = try c.decode([LevelSurface].self,forKey: .surfaces)
+        water = try c.decodeIfPresent([LevelWater].self,forKey: .water) ?? []
+        vegetationDensity = try c.decodeIfPresent(Float.self,forKey: .vegetationDensity) ?? 0
+    }
 }
 
 public enum LevelGroundMaterial: String, Codable, CaseIterable, Sendable {

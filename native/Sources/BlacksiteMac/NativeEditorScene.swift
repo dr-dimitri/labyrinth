@@ -49,7 +49,8 @@ final class NativeEditorScene: SCNView {
     func rebuild(_ document: LevelDocument, selection: Set<String>) throws {
         let map = try document.makeMap(purpose: .preview); terrain = map.terrain
         world.childNodes.forEach { $0.removeFromParentNode() }
-        var vertices: [SCNVector3] = [], normals: [SCNVector3] = [], indices: [Int32] = []
+        var vertices: [SCNVector3] = [], normals: [SCNVector3] = []
+        var groups = Array(repeating: [Int32](),count: 4)
         let b = document.bounds, stride = b.width + 1
         for z in 0...b.depth { for x in 0...b.width {
             vertices.append(SCNVector3(Float(b.x + x), document.terrain.heights[z * stride + x], Float(b.z + z)))
@@ -57,10 +58,13 @@ final class NativeEditorScene: SCNView {
         } }
         for z in 0..<b.depth { for x in 0..<b.width {
             let a = Int32(z * stride + x), c = a + Int32(stride)
-            indices += [a, c, a + 1, a + 1, c, c + 1]
+            let region = document.environment.surfaces.last { Float(b.x+x)+0.5 >= $0.x && Float(b.x+x)+0.5 <= $0.x+$0.width && Float(b.z+z)+0.5 >= $0.z && Float(b.z+z)+0.5 <= $0.z+$0.depth }
+            let materialIndex = LevelGroundMaterial.allCases.firstIndex(of: region?.material ?? .earth) ?? 0
+            groups[materialIndex] += [a, c, a + 1, a + 1, c, c + 1]
         } }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)], elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
-        geometry.firstMaterial = material(NSColor(hex: 0x6f7958)); geometry.firstMaterial?.isDoubleSided = true
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)], elements: groups.map { SCNGeometryElement(indices: $0,primitiveType: .triangles) })
+        geometry.materials = [0x79694e,0x568043,0x848788,0x383e42].map { material(NSColor(hex: $0)) }
+        geometry.materials.forEach { $0.isDoubleSided = true }
         let ground = SCNNode(geometry: geometry); ground.name = "ground"; ground.categoryBitMask = 1; world.addChildNode(ground)
         for (object, obstacle) in zip(document.objects, map.obstacles) where !object.hidden {
             let size = obstacle.size, base = map.grounded(obstacle.position)
@@ -72,6 +76,26 @@ final class NativeEditorScene: SCNView {
             node.geometry?.firstMaterial = material(selection.contains(marker.id) ? .systemOrange : .systemCyan)
             node.simdPosition = map.grounded(marker.position.value) + SIMD3(0, 0.4, 0)
             node.name = marker.id; node.categoryBitMask = 4; world.addChildNode(node)
+        }
+        let environment = document.environment
+        backgroundColor = NSColor(calibratedRed: CGFloat(environment.fogColor.x),green: CGFloat(environment.fogColor.y),blue: CGFloat(environment.fogColor.z),alpha: 1)
+        if let sun = scene?.rootNode.childNode(withName: "sun",recursively: false) {
+            let direction = simd_normalize(environment.sunDirection.value)
+            sun.simdPosition = direction*100
+            sun.look(at: SCNVector3Zero,up: abs(direction.y)>0.99 ? SCNVector3(0,0,1) : SCNVector3(0,1,0),localFront: SCNVector3(0,0,-1))
+            sun.light?.intensity = CGFloat(environment.sunIntensity*900)
+        }
+        for water in environment.water {
+            let node = box(SIMD3(Float(water.width),0.02,Float(water.depth)),center: SIMD3(Float(water.x)+Float(water.width)/2,water.surfaceHeight,Float(water.z)+Float(water.depth)/2),color: .systemBlue)
+            node.opacity = 0.65; node.categoryBitMask = 8; world.addChildNode(node)
+        }
+        for zone in map.environment.vegetationZones {
+            for index in 0..<zone.requiredPlantCount {
+                let angle = Float(index)*2.39996, r = sqrt(Float(index+1)/Float(zone.requiredPlantCount))*zone.radii.x
+                let x = zone.center.x+cos(angle)*r, z = zone.center.y+sin(angle)*r
+                let node = box(SIMD3(0.12,zone.height,0.12),center: SIMD3(x,terrain.height(x: x,z: z)+zone.height/2,z),color: .systemGreen)
+                node.categoryBitMask = 8; world.addChildNode(node)
+            }
         }
         // One-metre grid and a distinct perimeter, both following the same heightfield.
         var grid: [SCNVector3] = [], lines: [Int32] = []

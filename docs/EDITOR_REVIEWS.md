@@ -19,3 +19,19 @@ Prüfung: drei Sessiontests und vier bestehende Importtests bestanden; Debug-App
 gebaut/signiert. In der App Editor öffnen, Draufsicht, Platzieren, Undo, Redo,
 Schließen/Verwerfen und Rückkehr zum Hauptmenü geprüft. Korrigiertes Layout
 anschließend erneut visuell geprüft. Kein offener Befund für #38.
+
+## #39 — Landschaft
+
+Implementiert: getrennte Maße und Größenpresets, fünf Seed-Vorlagen, vier
+Höhenpinsel, rechteckige Materialspuren, Flachwasserbecken, Licht/Nebelfarbe und
+Vegetationsdichte. Terrain und Spielwelt verwenden dieselben 1-m-Dreiecke.
+Größenänderungen zeigen betroffene Inhalte an und behalten sie ausdrücklich.
+
+Review: Grenzgrößen, weltfeste Verankerung, Wasserflächen nach Terrainänderungen,
+alte Format-1-Dateien, atomare Transaktionen sowie Bodenkontakt geprüft. Bei
+Wasserparametern wurde der Überlauf vor der Addition abgesichert. Bodenflächen
+dürfen nach Verkleinerung im Entwurf außerhalb liegen; Spielvalidierung erklärt
+diesen Zustand. Absolute Objekte erhalten Hinweise bei versenkter/schwebender
+Position. Vier Terrain-/Wassertests und neun Dokumenttests bestanden. Die native
+Oberfläche kompiliert; die vollständige Werkzeug-Bedienprüfung folgt zusätzlich
+in #44. Kein offener Code-Review-Befund für #39.

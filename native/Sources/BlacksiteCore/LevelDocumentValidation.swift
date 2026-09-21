@@ -56,14 +56,21 @@ extension LevelDocument {
                     && environment.sunIntensity.isFinite && (0...1).contains(environment.sunIntensity)
                     && environment.fogColor.isFinite && (0..<3).allSatisfy { (0...1).contains(environment.fogColor.value[$0]) },
                     "Sonnenrichtung, Lichtstärke oder Nebelfarbe sind ungültig.")
+        try require(environment.vegetationDensity.isFinite && (0...1).contains(environment.vegetationDensity) && environment.water.count <= 4,
+                    "Vegetationsdichte muss 0–1 betragen; höchstens vier Wasserflächen sind erlaubt.")
+        for water in environment.water {
+            try register(water.id)
+            try require((-10_000...10_000).contains(water.x) && (-10_000...10_000).contains(water.z)
+                && (1...128).contains(water.width) && (1...128).contains(water.depth)
+                && water.width * water.depth <= 500 && water.surfaceHeight.isFinite && abs(water.surfaceHeight) <= 1000,
+                "Wasserfläche benötigt begrenzte ganzzahlige Maße, höchstens 500 m² und eine endliche Höhe.")
+        }
         for surface in environment.surfaces {
             try register(surface.id)
             try require([surface.x, surface.z, surface.width, surface.depth].allSatisfy(\.isFinite)
                         && surface.width > 0 && surface.depth > 0
-                        && surface.x >= Float(bounds.x) && surface.z >= Float(bounds.z)
-                        && surface.x + surface.width <= Float(bounds.x + bounds.width)
-                        && surface.z + surface.depth <= Float(bounds.z + bounds.depth),
-                        "Bodenfläche „\(surface.id)“ muss vollständig innerhalb der Karte liegen.")
+                        && abs(surface.x) <= 20_000 && abs(surface.z) <= 20_000 && surface.width <= 128 && surface.depth <= 128,
+                        "Bodenfläche „\(surface.id)“ besitzt ungültige Maße.")
         }
     }
 }
