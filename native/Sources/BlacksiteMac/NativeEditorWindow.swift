@@ -220,7 +220,11 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         }
         if inspectorSection == 0 { buildObjectInspector() }
         extraInspector?(inspector)
-        do { try canvas.rebuild(session.document, selection: session.selection); status.stringValue = session.isDirty ? "Ungesicherte Änderungen. ⌘S speichert. Entwürfe benötigen noch keine Spielmarker." : "Gespeichert." }
+        do {
+            try canvas.rebuild(session.document, selection: session.selection)
+            status.stringValue = session.isDirty ? "Ungesicherte Änderungen. ⌘S speichert. Entwürfe benötigen noch keine Spielmarker."
+                : fileURL == nil ? "Neuer leerer Entwurf. ⌘S legt eine Leveldatei an." : "Gespeichert."
+        }
         catch { status.stringValue = "Vorschau: " + error.localizedDescription }
         if let warning = warnings.first(where: { session.selection.contains($0.id) }) ?? warnings.first { status.stringValue += "  ⚠ \(warning.message) (\(warnings.count) Hinweise)." }
     }
