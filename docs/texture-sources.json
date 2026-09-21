@@ -1,0 +1,240 @@
+{
+  "formatVersion": 1,
+  "provider": "Poly Haven",
+  "license": "CC0-1.0",
+  "licenseURL": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "providerLicenseURL": "https://polyhaven.com/license",
+  "acquiredAt": "2026-09-15",
+  "credits": "PBR textures by Poly Haven: https://polyhaven.com. These textures are freely available under CC0.",
+  "materials": {
+    "wall": {
+      "assetId": "medieval_wall_02",
+      "title": "Medieval Wall 02",
+      "pageURL": "https://polyhaven.com/a/medieval_wall_02",
+      "metadataURL": "https://api.polyhaven.com/info/medieval_wall_02",
+      "fileManifestURL": "https://api.polyhaven.com/files/medieval_wall_02",
+      "license": "CC0-1.0",
+      "licenseURL": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "physicalDimensionsMeters": [
+        3.5,
+        3.5
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/wall/color.jpg",
+          "mapType": "Diffuse",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/medieval_wall_02/medieval_wall_02_diff_2k.jpg",
+          "originalFilename": "medieval_wall_02_diff_2k.jpg",
+          "originalBytes": 3089917,
+          "bytes": 3089917,
+          "originalSHA256": "0e8a24e36cd10da57b69f71874816ff77671c5909424e99ebda196515a23829d",
+          "sha256": "0e8a24e36cd10da57b69f71874816ff77671c5909424e99ebda196515a23829d",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "sRGB",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "normal": {
+          "path": "public/assets/textures/wall/normal.jpg",
+          "mapType": "nor_gl",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/medieval_wall_02/medieval_wall_02_nor_gl_2k.jpg",
+          "originalFilename": "medieval_wall_02_nor_gl_2k.jpg",
+          "originalBytes": 4513527,
+          "bytes": 4513527,
+          "originalSHA256": "d0ba0bb6e41d6601d0e9d5eb04310fbcb2903e1e12b986e4514e7c89396e719c",
+          "sha256": "d0ba0bb6e41d6601d0e9d5eb04310fbcb2903e1e12b986e4514e7c89396e719c",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": "OpenGL (+Y)",
+          "processing": "Unmodified original JPEG."
+        },
+        "roughness": {
+          "path": "public/assets/textures/wall/roughness.jpg",
+          "mapType": "Rough",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/medieval_wall_02/medieval_wall_02_rough_2k.jpg",
+          "originalFilename": "medieval_wall_02_rough_2k.jpg",
+          "originalBytes": 1956084,
+          "bytes": 1956084,
+          "originalSHA256": "649cdc5765f540e3b8b8dbdbd29831d9a3af709335423e0f117d5635febd525a",
+          "sha256": "649cdc5765f540e3b8b8dbdbd29831d9a3af709335423e0f117d5635febd525a",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "ao": {
+          "path": "public/assets/textures/wall/ao.jpg",
+          "mapType": "AO",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/medieval_wall_02/medieval_wall_02_ao_2k.jpg",
+          "originalFilename": "medieval_wall_02_ao_2k.jpg",
+          "originalBytes": 2996151,
+          "bytes": 2996151,
+          "originalSHA256": "e6b9676d501cf6a7cb528244fc1990a6ab909ad5b8cc0b9607b05c4aa2672ab9",
+          "sha256": "e6b9676d501cf6a7cb528244fc1990a6ab909ad5b8cc0b9607b05c4aa2672ab9",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "height": {
+          "path": "public/assets/textures/wall/height.jpg",
+          "mapType": "Displacement",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/medieval_wall_02/medieval_wall_02_disp_2k.jpg",
+          "originalFilename": "medieval_wall_02_disp_2k.jpg",
+          "originalBytes": 1167002,
+          "bytes": 1167002,
+          "originalSHA256": "c76f7dbd296f642ebb8050f8ebe43e734d4b36b97bd58c3e2e94530c19147518",
+          "sha256": "c76f7dbd296f642ebb8050f8ebe43e734d4b36b97bd58c3e2e94530c19147518",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        }
+      }
+    },
+    "floor": {
+      "assetId": "monastery_stone_floor",
+      "title": "Monastery Stone Floor",
+      "pageURL": "https://polyhaven.com/a/monastery_stone_floor",
+      "metadataURL": "https://api.polyhaven.com/info/monastery_stone_floor",
+      "fileManifestURL": "https://api.polyhaven.com/files/monastery_stone_floor",
+      "license": "CC0-1.0",
+      "licenseURL": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "authors": [
+        "Amal Kumar"
+      ],
+      "physicalDimensionsMeters": [
+        1.8,
+        1.8
+      ],
+      "files": {
+        "color": {
+          "path": "public/assets/textures/floor/color.jpg",
+          "mapType": "Diffuse",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_diff_2k.jpg",
+          "originalFilename": "monastery_stone_floor_diff_2k.jpg",
+          "originalBytes": 3021140,
+          "bytes": 3021140,
+          "originalSHA256": "aa12137fff1728bbbfe98b30480e33a34cba3b5c096575702c1d66939214e14a",
+          "sha256": "aa12137fff1728bbbfe98b30480e33a34cba3b5c096575702c1d66939214e14a",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "sRGB",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "normal": {
+          "path": "public/assets/textures/floor/normal.jpg",
+          "mapType": "nor_gl",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_nor_gl_2k.jpg",
+          "originalFilename": "monastery_stone_floor_nor_gl_2k.jpg",
+          "originalBytes": 4248820,
+          "bytes": 4248820,
+          "originalSHA256": "8f3e131a9d6d9c3a95c872173393830f7c1de389cd60d4878b2211058d706d2c",
+          "sha256": "8f3e131a9d6d9c3a95c872173393830f7c1de389cd60d4878b2211058d706d2c",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": "OpenGL (+Y)",
+          "processing": "Unmodified original JPEG."
+        },
+        "roughness": {
+          "path": "public/assets/textures/floor/roughness.jpg",
+          "mapType": "Rough",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_rough_2k.jpg",
+          "originalFilename": "monastery_stone_floor_rough_2k.jpg",
+          "originalBytes": 1744682,
+          "bytes": 1744682,
+          "originalSHA256": "61f87f8049b21153b6db25fdcd184c4297642ada2e31c07db03f6810c9f952c3",
+          "sha256": "61f87f8049b21153b6db25fdcd184c4297642ada2e31c07db03f6810c9f952c3",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "ao": {
+          "path": "public/assets/textures/floor/ao.jpg",
+          "mapType": "AO",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_ao_2k.jpg",
+          "originalFilename": "monastery_stone_floor_ao_2k.jpg",
+          "originalBytes": 2172369,
+          "bytes": 2172369,
+          "originalSHA256": "47751b7e429bbd8b6103c6d1170b5146202fd976be5eca0a70a321398166f1dd",
+          "sha256": "47751b7e429bbd8b6103c6d1170b5146202fd976be5eca0a70a321398166f1dd",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        },
+        "height": {
+          "path": "public/assets/textures/floor/height.jpg",
+          "mapType": "Displacement",
+          "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_disp_2k.jpg",
+          "originalFilename": "monastery_stone_floor_disp_2k.jpg",
+          "originalBytes": 847251,
+          "bytes": 847251,
+          "originalSHA256": "164d97eb875ba7500f3d03f571d0187619cdd8ddfa2abad6851b04be83ff337e",
+          "sha256": "164d97eb875ba7500f3d03f571d0187619cdd8ddfa2abad6851b04be83ff337e",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "colorSpace": "linear",
+          "normalConvention": null,
+          "processing": "Unmodified original JPEG."
+        }
+      }
+    }
+  },
+  "environment": {
+    "assetId": "moonlit_golf",
+    "title": "Moonlit Golf",
+    "pageURL": "https://polyhaven.com/a/moonlit_golf",
+    "metadataURL": "https://api.polyhaven.com/info/moonlit_golf",
+    "fileManifestURL": "https://api.polyhaven.com/files/moonlit_golf",
+    "license": "CC0-1.0",
+    "licenseURL": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "authors": [
+      "Greg Zaal"
+    ],
+    "path": "public/assets/textures/environment/night.hdr",
+    "downloadedURL": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/moonlit_golf_1k.hdr",
+    "originalFilename": "moonlit_golf_1k.hdr",
+    "resolution": [
+      1024,
+      512
+    ],
+    "colorSpace": "linear HDR",
+    "bytes": 1725527,
+    "sha256": "cff71a58efa0c06e06b54046ee877c933d74e7292be1d71511aca1a36749d60c",
+    "processing": "Unmodified original Radiance HDR."
+  }
+}

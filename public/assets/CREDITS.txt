@@ -1,0 +1,32 @@
+NACHTGANG — GRAPHICS CREDITS
+
+All graphics listed here are distributed under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+The game's MIT license applies to its code and does not replace these asset licenses.
+
+Medieval Wall 02 — Rob Tuytel / Poly Haven
+https://polyhaven.com/a/medieval_wall_02
+
+Monastery Stone Floor — Amal Kumar / Poly Haven
+https://polyhaven.com/a/monastery_stone_floor
+
+Moonlit Golf — Greg Zaal / Poly Haven
+https://polyhaven.com/a/moonlit_golf
+
+Gothic Statue — Benny Weimer / Poly Haven
+https://polyhaven.com/a/gothic_statue
+
+Rock 07 — Jenelle van Heerden / Poly Haven
+https://polyhaven.com/a/rock_07
+
+Pok — Teh_Bucket / OpenGameArt
+https://opengameart.org/content/pok
+Stone textures included with Pok — João Paulo / 3dtextures.me
+https://3dtextures.me/about/
+
+Poly Haven license: https://polyhaven.com/license
+
+Model conversion, material setup, procedural skeletal animation and masonry
+geometry are implemented for NACHTGANG. Original texture image bytes remain
+unchanged. Detailed sources, transformations and SHA-256 checksums are in the
+project's docs/ASSETS.md and accompanying source manifests.

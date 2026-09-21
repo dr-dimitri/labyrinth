@@ -1,0 +1,41 @@
+{
+  "name": "3d wolf",
+  "author": "NewDLC",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "sourceUrl": "https://opengameart.org/content/3d-wolf",
+  "downloadUrl": "https://opengameart.org/sites/default/files/3dwolf_FBX.zip",
+  "retrieved": "2026-09-16",
+  "originalArchive": {
+    "bytes": 1834944,
+    "sha256": "39797702fb0e7fdbb1e2b474b2f58b0414aa7d0dee8d1bcfabe714c994d7d61f"
+  },
+  "modifications": "Original files preserved byte-for-byte. Runtime PBR material uses original color, normal and roughness textures with a desaturating shader; original bone rig animated by distance travelled. Red eyes and long canines added as attachments. Scale converted from centimetres to metres.",
+  "files": [
+    {
+      "path": "public/assets/models/forest-wolf/dog2.FBX",
+      "bytes": 586208,
+      "sha256": "e2dd4aecacd48244409f0831386836319b8afaad3db982f00d2f2050593e5d67"
+    },
+    {
+      "path": "public/assets/models/forest-wolf/dog2Color.png",
+      "bytes": 289490,
+      "sha256": "a04c1da566be5c50a42f62b66199f97c13ad3f5ce2dde0f84ed75a61b0e292cb"
+    },
+    {
+      "path": "public/assets/models/forest-wolf/dog2Normal.png",
+      "bytes": 675541,
+      "sha256": "6d536f2279b816aca1556e9eee72f472e2d091c14127f988991d87e78d083347"
+    },
+    {
+      "path": "public/assets/models/forest-wolf/dog2Roughness.png",
+      "bytes": 235872,
+      "sha256": "600a8c9f99c14b70cc744ced86c85bd50f025c18d6d885ab9fd007ac1e6d1630"
+    },
+    {
+      "path": "public/assets/models/forest-wolf/dog2specular.png",
+      "bytes": 142491,
+      "sha256": "bd375199e6732cda8e7deb3e799962c4f5e3f1461a83963b2916c4fa11c18c12"
+    }
+  ]
+}
