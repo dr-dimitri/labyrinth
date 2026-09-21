@@ -46,6 +46,7 @@ public struct LevelFileStore: Sendable {
         return try FileManager.default.contentsOfDirectory(at: levels,includingPropertiesForKeys: [.contentModificationDateKey],options: [.skipsHiddenFiles])
             .filter { $0.lastPathComponent.hasSuffix(".blacksite-level.json") }
             .compactMap { url in
+                try Task.checkCancellation()
                 guard let doc = try? Self.read(url) else { return nil }
                 let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
                 return Entry(url: url,name: doc.name,modified: date,objectCount: doc.objects.count,width: doc.bounds.width,depth: doc.bounds.depth)

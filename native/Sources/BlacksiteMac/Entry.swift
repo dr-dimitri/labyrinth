@@ -92,6 +92,14 @@ struct BlacksiteMain {
     @MainActor static func main() {
         let args = CommandLine.arguments
         let app = NSApplication.shared
+        if args.contains("--editor-check") {
+            app.setActivationPolicy(.prohibited)
+            let index = args.firstIndex(of:"--output-directory")
+            let path = index.flatMap { $0+1 < args.count ? args[$0+1] : nil } ?? "/tmp/blacksite-editor-check"
+            do { try NativeEditorCheck.run(output:URL(fileURLWithPath:path)) }
+            catch { fputs("Editorprüfung fehlgeschlagen: \(error.localizedDescription)\n",stderr); exit(1) }
+            return
+        }
         let importedLevel: NativeLoadedLevel?
         do {
             importedLevel = try NativeLoadedLevel.from(arguments: args)

@@ -60,9 +60,9 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     var extraTools: ((NSStackView) -> Void)?
     var undoButton: NSButton!, redoButton: NSButton!
     var changed: (() -> Void)?
-    init(document: LevelDocument = LevelDocument(), fileURL: URL? = nil, store: LevelFileStore? = nil) {
+    init(document: LevelDocument? = nil, fileURL: URL? = nil, store: LevelFileStore? = nil) {
         self.store = store ?? Self.defaultStore
-        session = LevelEditingSession(document: document, saved: fileURL != nil); self.fileURL = fileURL
+        session = LevelEditingSession(document: document ?? LevelDocument(), saved: fileURL != nil || document == nil); self.fileURL = fileURL
         let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 1260,height: 820), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         super.init(window: window); window.delegate = self; window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 1100,height: 720); window.title = "Leveleditor"; window.center()
@@ -105,10 +105,15 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         button("Eigene Levels",in: workflow) { [weak self] in self?.showLibrary() }
         button("In Bibliothek speichern",in: workflow) { [weak self] in self?.saveToLibrary() }
         button("Exportieren …",in: workflow) { [weak self] in self?.exportLevel() }
+        button("Kurzanleitung",in: workflow) { [weak self] in self?.showEditorHelp() }
         let body = stack(.horizontal); body.alignment = .top; body.distribution = .fill
         catalogPanel.orientation = .vertical; catalogPanel.alignment = .leading; catalogPanel.spacing = 7
         inspector.orientation = .vertical; inspector.alignment = .leading; inspector.spacing = 7
         label("OBJEKTKATALOG", in: catalogPanel)
+        let example = EditorPopup(LevelExample.allCases.map(\.title),label:"Beispiellevel") { _ in }; catalogPanel.addArrangedSubview(example)
+        button("Beispiel erstellen …",in:catalogPanel) { [weak self,weak example] in
+            guard let self,let index = example?.indexOfSelectedItem else { return }; self.createExample(LevelExample.allCases[index])
+        }
         configureCatalog()
         button("Objekt platzieren", in: catalogPanel) { [weak self] in
             guard let self, let item = self.catalogPreview.item else { return }; self.placement = item.id; self.markerPlacement = nil; self.terrainTool = .select
@@ -195,7 +200,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         undoButton.isEnabled = session.canUndo; redoButton.isEnabled = session.canRedo
         inspector.arrangedSubviews.forEach { inspector.removeArrangedSubview($0); $0.removeFromSuperview() }
         field("Levelname", value: session.document.name, in: inspector) { [weak self] value in self?.perform { try self?.session.edit("Name") { $0.name = value } } }
-        label("\(session.document.bounds.width) × \(session.document.bounds.depth) m · \(session.document.objects.count)/1000 Objekte\nGelände: 1-m-Raster · 40 Undo-Schritte", in: inspector)
+        label("\(session.document.bounds.width) × \(session.document.bounds.depth) m · \(session.document.objects.count)/1000 Objekte\nReferenz: 500 gemischte Objekte auf 128 × 128 m.\nGelände: 1-m-Raster · 40 Undo-Schritte", in: inspector)
         inspector.addArrangedSubview(EditorPopup(["Objekte", "Landschaft", "Spiel & Prüfung"],selected: inspectorSection,label: "Eigenschaftenbereich") { [weak self] index in self?.inspectorSection = index; if index == 0 { self?.terrainTool = .select }; self?.refresh() })
         if inspectorSection == 1 { buildTerrainInspector() }
         if inspectorSection == 2 { buildGameplayInspector() }
@@ -272,7 +277,7 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     }
     func newDocument() {
         guard confirmDiscard() else { return }
-        resetInteraction(); session = LevelEditingSession(); fileURL = nil; lastRecovery = nil; refresh(); focusSelection()
+        resetInteraction(); session = LevelEditingSession(document:LevelDocument(),saved:true); fileURL = nil; lastRecovery = nil; refresh(); focusSelection()
     }
     func confirmDiscard() -> Bool {
         window?.makeFirstResponder(nil)

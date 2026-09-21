@@ -35,6 +35,11 @@ struct LevelCatalogTests {
             // +Z door rotated +90° faces +X. Footprints are exact colliders,
             // so a visible entrance must connect an outside point to the room.
             #expect(simulation.hasReachableRoute(from: SIMD3(12,0,0),to: SIMD3(0,0,0)),"\(item.name) has blocked entrance")
+            // The game's 2 m navigation lattice must also pass entrances placed
+            // between grid lines, not only the favourable origin-aligned case.
+            building.position = .init(-15,0,12); building.quarterTurns = 0; doc.objects = [building]
+            let shifted = CombatSimulation(map:try doc.makeMap(purpose:.preview))
+            #expect(shifted.hasReachableRoute(from:SIMD3(-15,0,25),to:building.position.value),"\(item.name) off-grid entrance")
             doc.objects[0].scale = LevelVector(0.25,0.25,0.25)
             #expect(throws: LevelDocumentError.self) { try doc.encoded() }
         }

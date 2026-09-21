@@ -105,3 +105,39 @@ extension NativeEditorWindow {
         window?.orderOut(nil); gameWindow.makeKeyAndOrderFront(nil)
     }
 }
+
+extension NativeEditorWindow {
+    func createExample(_ example: LevelExample) {
+        guard confirmDiscard() else { return }
+        resetInteraction(); let token = UUID(); operationID = token
+        let previous = session.document
+        progress.startAnimation(nil); status.stringValue = "Beispiel wird aufgebaut … Abbruch jederzeit möglich."
+        let worker = Task.detached(priority:.userInitiated) { try example.makeDocument() }
+        cancelWork = { worker.cancel() }
+        Task { @MainActor [weak self] in
+            let result = await worker.result
+            guard let self,self.operationID == token else { return }
+            self.cancelWork = nil; self.progress.stopAnimation(nil)
+            guard self.session.document == previous else { self.status.stringValue = "Entwurf inzwischen geändert; Beispiel nicht übernommen."; return }
+            do {
+                let document = try result.get()
+                try self.session.replace(with:document,saved:false); self.fileURL = nil; self.lastRecovery = nil
+                self.refresh(); self.canvas.distance = Float(document.bounds.width)*0.9; self.focusSelection()
+            } catch { self.show(error) }
+        }
+    }
+}
+
+extension NativeEditorWindow {
+    func showEditorHelp() {
+        let alert = NSAlert(); alert.messageText = "Mein erstes Level"
+        let instructions = "1. Rechts den Namen eingeben. Unter Landschaft Größe, Vorlage und Seed wählen; danach Höhen/Material mit der linken Maustaste malen.\n\n2. Links ein Objekt suchen, „Objekt platzieren“ drücken und in die Karte klicken. R dreht, Escape bricht ab. Shift wählt mehrere, ⌘D dupliziert, ⌘Z macht rückgängig. Rechts unter Objekte stehen genaue Maße und Gruppenwerkzeuge.\n\n3. Unter Spiel & Prüfung den Auftrag wählen und Pflichtmarker als Vorlage setzen. Start/Ziele frei und erreichbar halten. „Level prüfen“ zeigt anspringbare Fehler.\n\n4. „In Bibliothek speichern“ sichert den Entwurf. ⌘S speichert Änderungen. Eigene Levels zeigt Vorschau/Datum und bietet Bearbeiten, Spielen und Import. Export schreibt eine portable Kopie.\n\n5. „Testen“ startet das Spiel. Escape → Zurück zum Editor erhält Entwurf und Kamera.\n\nKamera: Rechtsziehen dreht, mittlere Taste verschiebt, Mausrad zoomt. F fokussiert. Beispiele stehen links oben. Automatische Wiederherstellung alle 20 Sekunden; nach einem Absturz beim nächsten Editorstart angeboten.\n\nGrenzen: 12–128 m je Achse, 1000 Objekte, acht Boden- und vier flache Wasserflächen. Gemessene Referenz: 500 gemischte Objekte auf 128 × 128 m. Prüfen, Bibliothek und Beispielaufbau sind abbrechbar."
+        alert.informativeText = "Bauen, speichern und direkt ausprobieren. Die Anleitung lässt sich nach unten scrollen."
+        let scroll = NSScrollView(frame:NSRect(x:0,y:0,width:500,height:340)); scroll.hasVerticalScroller = true
+        let text = NSTextView(frame:scroll.bounds); text.isEditable = false; text.drawsBackground = false
+        text.font = .systemFont(ofSize:13); text.string = instructions; text.isVerticallyResizable = true
+        text.autoresizingMask = [.width]; text.textContainer?.widthTracksTextView = true
+        scroll.documentView = text; alert.accessoryView = scroll
+        alert.addButton(withTitle:"Verstanden"); alert.runModal()
+    }
+}

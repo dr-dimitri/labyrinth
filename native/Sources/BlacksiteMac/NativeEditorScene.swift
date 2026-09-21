@@ -18,6 +18,8 @@ final class NativeEditorScene: SCNView {
     var cancelled: (() -> Void)?
     var keyAction: ((UInt16) -> Void)?
     private var terrain: TerrainProfile = .flat
+    private var cachedDocument: LevelDocument?, cachedSelection: Set<String> = []
+    private var selectableNodes: [(String,SCNNode,NSColor)] = []
     override var acceptsFirstResponder: Bool { true }
     override init(frame: NSRect, options: [String: Any]? = nil) {
         super.init(frame: frame, options: options)
@@ -49,7 +51,9 @@ final class NativeEditorScene: SCNView {
     }
     func focus(_ point: SIMD3<Float>) { target = point; updateCamera() }
     func rebuild(_ document: LevelDocument, selection: Set<String>) throws {
+        if cachedDocument == document { updateSelection(document,selection); return }
         let map = try document.makeMap(purpose: .preview); terrain = map.terrain
+        cachedDocument = document; cachedSelection = []; selectableNodes.removeAll(keepingCapacity:true)
         world.childNodes.forEach { $0.removeFromParentNode() }
         var vertices: [SCNVector3] = [], normals: [SCNVector3] = []
         var groups = Array(repeating: [Int32](),count: 4)
@@ -70,14 +74,16 @@ final class NativeEditorScene: SCNView {
         let ground = SCNNode(geometry: geometry); ground.name = "ground"; ground.categoryBitMask = 1; world.addChildNode(ground)
         for object in document.objects where !object.hidden {
             for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) {
-                let color = selection.contains(object.id) ? NSColor.systemOrange : NSColor(calibratedRed: CGFloat(part.color.x),green: CGFloat(part.color.y),blue: CGFloat(part.color.z),alpha: 1)
+                let color = NSColor(calibratedRed: CGFloat(part.color.x),green: CGFloat(part.color.y),blue: CGFloat(part.color.z),alpha: 1)
                 let node = box(part.size,center: part.center,color: color)
+                selectableNodes.append((object.id,node,color))
                 node.name = object.id; node.categoryBitMask = 2; world.addChildNode(node)
             }
         }
         for marker in document.markers {
             let node = SCNNode(geometry: SCNSphere(radius: 0.38))
-            node.geometry?.firstMaterial = material(selection.contains(marker.id) ? .systemOrange : .systemCyan)
+            node.geometry?.firstMaterial = material(.systemCyan)
+            selectableNodes.append((marker.id,node,.systemCyan))
             node.simdPosition = map.grounded(marker.position.value) + SIMD3(0, 0.4, 0)
             node.name = marker.id; node.categoryBitMask = 4; world.addChildNode(node)
             if marker.kind == .playerStart {
@@ -129,6 +135,15 @@ final class NativeEditorScene: SCNView {
             var p = center; p.y = terrain.height(x: p.x,z: p.z)
             let node = box(size, center: p, color: .systemYellow); node.categoryBitMask = 8; world.addChildNode(node)
         }
+        updateSelection(document,selection)
+    }
+    private func updateSelection(_ document: LevelDocument,_ selection: Set<String>) {
+        let changed = cachedSelection.symmetricDifference(selection)
+        for (id,node,color) in selectableNodes where changed.contains(id) {
+            node.geometry?.firstMaterial?.diffuse.contents = selection.contains(id) ? NSColor.systemOrange : color
+        }
+        cachedSelection = selection
+        world.childNodes.filter { $0.categoryBitMask == 16 }.forEach { $0.removeFromParentNode() }
         let selected = document.objects.filter { selection.contains($0.id) && !$0.locked && !$0.hidden }
         if !selected.isEmpty {
             var center = selected.reduce(SIMD3<Float>.zero) { $0+$1.position.value } / Float(selected.count)

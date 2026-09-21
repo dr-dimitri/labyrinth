@@ -99,3 +99,33 @@ die Quelldatei. Drei Persistenztests sowie fünf native Import-/Menütests besta
 Zusätzlicher nativer Test deckt Wiederherstellung, Speichern und Werkzeugreset ab.
 In der App: Bibliothek aus dem Spielmenü geöffnet, Entwurf benannt/gespeichert,
 Eintrag mit Datum angezeigt und erneut zum Bearbeiten geöffnet. Kein offener Befund.
+
+## #44 — Integration und große Szenen
+
+Drei reproduzierbare Editorrezepte, exportierte Beispiele, integrierte Kurzanleitung
+und ausführlicher Einsteigertext implementiert. Der native Editorcheck erfasst
+Laden/Speichern, Szenenaufbau, Auswahl/Transformation mit Inspector, SceneKit-/
+Metal-Bildzeiten und zehn Ressourcenzyklen. Ergebnisse und Rohdaten stehen in
+`EDITOR_PERFORMANCE.md` beziehungsweise `editor-metrics`.
+
+Review-Befunde behoben: 2-m-Türen konnten je nach Position zwischen den 2-m-
+Navigationslinien Gegner ausschließen; 3-m-Durchgänge und ein versetzter
+Gebäudeeingangstest sichern den freien Zugang ab. Auswahl aktualisiert jetzt nur
+Markierung/Griffe; der Referenzaufwand sank von 28,35 auf 0,24 ms (inklusive Inspector
+5,05 ms). Bibliothekslesen läuft ebenfalls abbrechbar im Hintergrund. Ein frisch
+geöffneter leerer Editor löst keine grundlose Speicherabfrage mehr aus. Die
+Kurzanleitung ist scrollbar; der bestehende HUD-Test berücksichtigt den neuen
+Editorzugang und prüft weiterhin Grenzen, Überlappungen und Trefferflächen.
+
+Prüfung: Alle drei Beispiele in der Oberfläche erzeugt und gespeichert; App
+vollständig beendet, anschließend alle drei aus der Bibliothek geladen/gespielt,
+pausiert und unverändert zum Editor zurückgekehrt. Kartengröße geändert und durch
+Undo vollständig zurückgesetzt. SceneKit- und Metal-Bilder geprüft. Alle 46
+Katalogobjekte und die drei Rezepte bestehen die Roundtrip-/Geometrieprüfungen.
+279 Coretests bestanden. Im vollständigen nativen Lauf bestanden alle Prüfungen
+außer dem veralteten HUD-Titelvergleich; nach dessen Korrektur bestanden alle
+sieben HUD-Tests. Nach der letzten Bedienkorrektur bestanden die zwölf Editor-/
+HUD-Tests (ein optionaler Hardwaretest dabei deaktiviert). Der echte Spieltest-
+Freigabetest wurde zuvor separat aktiviert und bestand drei Zyklen; vier andere
+optionale Audio-/Metaltests blieben deaktiviert. Release-App gebaut/signiert,
+500-Objekt-Messung und zehn Ressourcenzyklen erfolgreich. Kein offener Befund.

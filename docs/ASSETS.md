@@ -76,11 +76,11 @@ Sirocco verwendet vorhandene fotografische Beton- und Felsmaterialien sowie dens
 
 ## Editor-Katalog
 
-Die 44 Editorvorlagen in `LevelObjectCatalog.swift` sind originale, prozedural aus
+Die 46 Editorvorlagen in `LevelObjectCatalog.swift` sind originale, prozedural aus
 Quadern zusammengesetzte Geometrien dieses Projekts (MIT wie der Spielcode).
 Sie benötigen keine zusätzlichen Downloads oder Fremdlizenzen. Derselbe
 Bauteilkatalog erzeugt isometrische Vorschaubilder, Editorobjekte und Spielwelt.
 Die Kennzeichnung nennt Kollision, Zerstörbarkeit und dekorative Elemente.
 Geometrien sind bewusst kompakt (höchstens sieben Teile je Vorlage); die
-Referenzszene und tatsächlichen Leistungsgrenzen werden in der Editorabnahme
-geprüft.
+Referenzszene und gemessenen Leistungsgrenzen sind in
+[der Editorabnahme](EDITOR_PERFORMANCE.md) dokumentiert.

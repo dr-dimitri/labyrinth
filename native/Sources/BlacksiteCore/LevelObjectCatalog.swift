@@ -40,7 +40,7 @@ public enum LevelObjectCatalog {
     private static func room(_ w: Float,_ h: Float,_ d: Float,_ color: SIMD3<Float>,open: Bool = false) -> [LevelCatalogPart] {
         var parts = [part(-w/2+0.2,h/2,0,0.4,h,d,color),part(w/2-0.2,h/2,0,0.4,h,d,color),part(0,h/2,-d/2+0.2,w,h,0.4,color),part(0,h+0.15,0,w,0.3,d,color)]
         if !open {
-            parts += [part(-w/4-0.5,h/2,d/2-0.2,w/2-1,h,0.4,color),part(w/4+0.5,h/2,d/2-0.2,w/2-1,h,0.4,color)]
+            parts += [part(-w/4-0.75,h/2,d/2-0.2,w/2-1.5,h,0.4,color),part(w/4+0.75,h/2,d/2-0.2,w/2-1.5,h,0.4,color)]
         }
         return parts
     }
@@ -56,15 +56,15 @@ public enum LevelObjectCatalog {
         add("core.barrier","Betonbarriere",.infrastructure,[part(0,0.65,0,3,1.3,0.6)],"Betondeckung; fest.")
         add("core.container","Container",.infrastructure,[part(0,1.3,0,6,2.6,2.5,metal,kind: .container,breakable: true)],"Geschlossene Deckung; zerstörbar.")
         add("core.block","Massiver Baublock",.infrastructure,[part(0,1.5,0,3,3,3)])
-        add("building.hut","Hütte",.buildings,room(5,2.8,5,wood),"Begehbar: 2 m breiter Eingang, drei feste Wände und Dach.",minimumScale: 1)
-        add("building.house","Wohnhaus",.buildings,room(7,3.2,6,stone)+[part(0,3.65,0,4,0.6,6,wood)],"Begehbar: 2 m Eingang. Gestuftes Dach ist fest.",minimumScale: 1)
+        add("building.hut","Hütte",.buildings,room(5,2.8,5,wood),"Begehbar: 3 m breiter Eingang, drei feste Wände und Dach.",minimumScale: 1)
+        add("building.house","Wohnhaus",.buildings,room(7,3.2,6,stone)+[part(0,3.65,0,4,0.6,6,wood)],"Begehbar: 3 m Eingang. Gestuftes Dach ist fest.",minimumScale: 1)
         add("building.warehouse","Lagerhalle",.buildings,room(10,4,8,metal,open: true),"Begehbar: gesamte Front offen; feste Wände und Dach.",minimumScale: 1)
         add("building.workshop","Werkstatt",.buildings,room(8,3,6,stone,open: true)+[part(-2,0.5,-1,2,1,1,metal)],"Begehbar: offene Werkstatt mit fester Werkbank.",minimumScale: 1)
-        add("building.bunker","Bunker",.buildings,room(8,2.5,7,stone)+[part(0,3,0,8,0.7,7)],"Begehbar: 2 m Eingang; dickes festes Dach.",minimumScale: 1)
+        add("building.bunker","Bunker",.buildings,room(8,2.5,7,stone)+[part(0,3,0,8,0.7,7)],"Begehbar: 3 m Eingang; dickes festes Dach.",minimumScale: 1)
         add("building.tower","Beobachtungsturm",.buildings,[part(-1.7,2.5,-1.7,0.5,5,0.5,metal),part(1.7,2.5,-1.7,0.5,5,0.5,metal),part(-1.7,2.5,1.7,0.5,5,0.5,metal),part(1.7,2.5,1.7,0.5,5,0.5,metal),part(0,5,0,4,0.4,4),part(0,6.8,0,4.5,0.3,4.5,metal)],"Unterbau durchgehbar. Oberes Deck ohne Zugang: dekorativ.",minimumScale: 1)
         add("building.hangar","Hangar",.buildings,room(12,5,10,metal,open: true)+[part(0,5.7,0,7,1.1,10,metal)],"Begehbar: große offene Front, festes Stufendach.",minimumScale: 1)
         add("building.greenhouse","Pflanzenhaus",.buildings,room(6,2.8,8,green,open: true)+[part(-1.8,0.35,0,1,0.7,5,wood),part(1.8,0.35,0,1,0.7,5,wood)],"Begehbar zwischen festen Pflanzkästen; offene Front.",minimumScale: 1)
-        add("building.office","Containerbüro",.buildings,room(7,2.7,4,metal)+[part(-1.8,0.5,-0.8,2,1,1,wood)],"Begehbar: Eingang 2 m, innen fester Tisch.",minimumScale: 1)
+        add("building.office","Containerbüro",.buildings,room(7,2.7,4,metal)+[part(-1.8,0.5,-0.8,2,1,1,wood)],"Begehbar: Eingang 3 m, innen fester Tisch.",minimumScale: 1)
         add("building.shelter","Unterstand",.buildings,[part(-2.5,1.5,-1.5,0.3,3,0.3,wood),part(2.5,1.5,-1.5,0.3,3,0.3,wood),part(-2.5,1.5,1.5,0.3,3,0.3,wood),part(2.5,1.5,1.5,0.3,3,0.3,wood),part(0,3.2,0,6,0.4,4,wood)],"Begehbar: vier offene Seiten und festes Dach.",minimumScale: 1)
         add("nature.pine","Kiefer",.nature,[part(0,2.5,0,0.5,5,0.5,wood),part(0,3,0,3.4,1,3.4,green,solid: false),part(0,4,0,2.4,1,2.4,green,solid: false),part(0,5,0,1.2,1.5,1.2,green,solid: false)],"Stamm kollidiert; Krone dekorativ und durchlässig.")
         add("nature.spruce","Fichte",.nature,[part(0,3,0,0.4,6,0.4,wood),part(0,2,0,2.8,1,2.8,green,solid: false),part(0,3.3,0,2.2,1.3,2.2,green,solid: false),part(0,4.6,0,1.5,1.3,1.5,green,solid: false),part(0,5.8,0,0.7,1.2,0.7,green,solid: false)],"Fester Stamm; schmale gestufte Schmuckkrone.")

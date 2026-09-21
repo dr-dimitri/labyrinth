@@ -86,8 +86,21 @@ extension NativeEditorWindow {
         catch { show(error) }
     }
     func showLibrary() {
+        cancelOperation(); let token = UUID(); operationID = token
+        progress.startAnimation(nil); status.stringValue = "Levelbibliothek wird gelesen …"
+        let store = store
+        let worker = Task.detached(priority:.userInitiated) { try store.list() }
+        cancelWork = { worker.cancel() }
+        Task { @MainActor [weak self] in
+            let result = await worker.result
+            guard let self,self.operationID == token else { return }
+            self.cancelWork = nil; self.progress.stopAnimation(nil)
+            do { self.presentLibrary(try result.get()) } catch { self.show(error) }
+        }
+    }
+    private func presentLibrary(_ entries: [LevelFileStore.Entry]) {
         do {
-            let entries = try store.list(), alert = NSAlert()
+            let alert = NSAlert()
             alert.messageText = "Eigene Levels"; alert.informativeText = "Lokale Levelbibliothek. Import legt eine unabhängige Kopie an. Externe Dateien lassen sich über „Öffnen“ bearbeiten."
             let panel = stack(); let preview = EditorLevelPreview(frame: NSRect(x:0,y:0,width:440,height:200))
             let info = NSTextField(wrappingLabelWithString: "Noch keine gespeicherten Levels.")

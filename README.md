@@ -75,9 +75,9 @@ GitHub Actions prüft Tests und Release-Builds auf Apple Silicon und
 stellt die ARM64-App als ZIP-Artefakt bereit. Laufende Prüfungen veralteter
 Branch-Stände werden bei neuen Änderungen abgebrochen.
 
-Der geplante [Leveleditor](https://github.com/dr-dimitri/labyrinth/issues/36) ist in
-acht Arbeitspakete gegliedert. Die [Grundlage für eigene Leveldateien](docs/LEVEL_EDITOR.md)
-ist implementiert; die Editoroberfläche folgt. Ein externes Beispiellevel lässt
+Der native [Leveleditor](docs/LEVEL_EDITOR.md) bietet Landschaftswerkzeuge,
+46 Objektvorlagen, Gruppen und Undo/Redo, Missionsmarker, direkte Spieltests sowie
+eine lokale Levelbibliothek mit Import/Export und Wiederherstellung. Ein externes Beispiellevel lässt
 sich bereits über `--level-file native/Examples/training-ground.blacksite-level.json`
 laden und spielen.
 
