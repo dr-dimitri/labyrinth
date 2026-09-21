@@ -16,9 +16,11 @@ extension LevelEditingSession {
         guard !originals.isEmpty else { return }
         var groups: [String:String] = [:]
         for original in originals { if let id = original.groupID, groups[id] == nil { groups[id] = UUID().uuidString } }
+        let copiedIDs = Dictionary(uniqueKeysWithValues: originals.map { ($0.id,UUID().uuidString) })
         let copies = originals.map { original -> LevelObject in
-            var copy = original; copy.id = UUID().uuidString; copy.position.x += 2; copy.position.z += 2
-            copy.groupID = original.groupID.flatMap { groups[$0] }; copy.locked = false; return copy
+            var copy = original; copy.id = copiedIDs[original.id]!; copy.position.x += 2; copy.position.z += 2
+            copy.groupID = original.groupID.flatMap { groups[$0] }
+            copy.powerSourceID = original.powerSourceID.map { copiedIDs[$0] ?? $0 }; copy.locked = false; return copy
         }
         try edit("Duplizieren") { doc in
             for (old,new) in groups { doc.groups.append(LevelGroup(id: new,name: String((doc.groups.first { $0.id == old }?.name ?? "Gruppe").prefix(114)) + " Kopie")) }

@@ -7,6 +7,7 @@ extension LevelDocument {
     /// The only document-to-world adapter. Preview may use temporary markers;
     /// neither preview nor combat writes those defaults back to the document.
     public func makeMap(purpose: LevelMapPurpose = .play) throws -> MapDefinition {
+        try Task.checkCancellation()
         try validateDraft()
         let terrain = TerrainProfile.heightField(try TerrainHeightField(
             origin: SIMD2(Float(bounds.x), Float(bounds.z)), width: bounds.width + 1,
@@ -46,6 +47,7 @@ extension LevelDocument {
         var obstacles: [Obstacle] = [], obstacleIDs = Set<Int>()
         var levelBoxes: [MapVisualBox] = []
         for object in objects {
+            try Task.checkCancellation()
             // validateDraft has already checked all catalog references and transforms.
             guard let item = LevelObjectCatalog.item(id: object.catalogID) else {
                 throw LevelDocumentError("Unbekannte Vorlage „\(object.catalogID)“.")
@@ -108,6 +110,23 @@ extension LevelDocument {
                 continue
             }
             environment.shallowWaterZones.append(MapShallowWaterZone(id: index+1,minimum: SIMD2(Float(water.x),Float(water.z)),maximum: SIMD2(Float(water.x+water.width),Float(water.z+water.depth)),surfaceHeight: water.surfaceHeight))
+        }
+        for object in objects where object.catalogID == "device.generator" || object.catalogID == "device.lift-gate" {
+            let gate = object.catalogID == "device.lift-gate"
+            guard let owner = obstacles.first(where: { $0.id == Self.obstacleID(object.id) }) else { continue }
+            let points = [-1 as Float,1].map { owner.position + SIMD3(0,-owner.position.y,$0*(owner.size.z/2+1)) }
+            guard points.allSatisfy(inside),abs(object.position.y) <= 0.05,object.heightMode == .ground else {
+                if purpose == .play { throw LevelDocumentError("Gerät „\(object.id)“ benötigt Bodenkontakt und freie Bedienpunkte innerhalb der Karte.") }
+                continue
+            }
+            environment.devices.append(WorldInteractableDefinition(id: Self.deviceID(object.id),kind: gate ? .serviceGate : .generator,
+                ownerObstacleID: owner.id,interactionPoints: points,generatorID: object.powerSourceID.map(Self.deviceID),
+                openOffset: gate ? SIMD3(0,owner.size.y+0.3,0) : .zero))
+        }
+        // Incomplete previews must not retain references to omitted devices.
+        if purpose == .preview {
+            let generatorIDs = Set(environment.devices.filter { $0.kind == .generator }.map(\.id))
+            environment.devices = environment.devices.filter { $0.generatorID.map { generatorIDs.contains($0) } ?? true }
         }
         let density = self.environment.vegetationDensity
         for index in 0..<Int((density*8).rounded()) {

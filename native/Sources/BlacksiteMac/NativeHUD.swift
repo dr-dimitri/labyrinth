@@ -188,7 +188,7 @@ final class GameHUDView: NSView {
         let w = bounds.width, h = bounds.height, x = w * 0.07
         reportView.isHidden = mode != .result || !ready
         reportView.frame = NSRect(x: w / 2 - 360, y: h / 2 - 248, width: 720, height: 352)
-        let leaveTitle = mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
+        let leaveTitle = coordinator?.isEditorPlaytest == true ? "ZURÜCK ZUM EDITOR" : mode == .paused ? "EINSATZ ABBRECHEN" : "ZURÜCK ZUM HAUPTMENÜ"
         if leaveButton.title != leaveTitle {
             leaveButton.title = leaveTitle; leaveButton.setAccessibilityLabel(leaveTitle)
         }

@@ -80,6 +80,15 @@ final class NativeEditorScene: SCNView {
             node.geometry?.firstMaterial = material(selection.contains(marker.id) ? .systemOrange : .systemCyan)
             node.simdPosition = map.grounded(marker.position.value) + SIMD3(0, 0.4, 0)
             node.name = marker.id; node.categoryBitMask = 4; world.addChildNode(node)
+            if marker.kind == .playerStart {
+                let forward = SIMD3<Float>(-sin(marker.yaw),0,-cos(marker.yaw))
+                let arrow = box(SIMD3(0.12,0.12,1.5),center: node.simdPosition+forward*0.8,color: .systemCyan)
+                arrow.simdEulerAngles.y = marker.yaw; arrow.categoryBitMask = 8; world.addChildNode(arrow)
+            }
+            if marker.kind == .extraction {
+                let ring = SCNNode(geometry: SCNTorus(ringRadius: CGFloat(marker.radius),pipeRadius: 0.04))
+                ring.simdPosition = node.simdPosition-SIMD3(0,0.3,0); ring.geometry?.firstMaterial = material(.systemYellow); ring.categoryBitMask = 8; world.addChildNode(ring)
+            }
         }
         let environment = document.environment
         backgroundColor = NSColor(calibratedRed: CGFloat(environment.fogColor.x),green: CGFloat(environment.fogColor.y),blue: CGFloat(environment.fogColor.z),alpha: 1)

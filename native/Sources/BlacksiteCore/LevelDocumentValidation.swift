@@ -41,6 +41,14 @@ extension LevelDocument {
             try require((0...3).contains(object.quarterTurns) && object.scale.isFinite
                         && (0..<3).allSatisfy { ((LevelObjectCatalog.item(id: object.catalogID)?.minimumScale ?? 0.25)...4).contains(object.scale.value[$0]) },
                         "Objekt „\(object.id)“: erlaubt sind Vierteldrehungen (0–3) und Skalierungen bis 4 (Gebäude und Durchgänge mindestens 1, sonst 0,25).")
+            if object.catalogID == "device.lift-gate" {
+                try require(object.quarterTurns.isMultiple(of: 2) && (0..<3).allSatisfy { object.scale.value[$0] <= 1.5 },
+                    "Hubtore unterstützen nur 0°/180° und Maßstab 1–1,5.")
+            }
+            if let source = object.powerSourceID {
+                try require(object.catalogID == "device.lift-gate" && objects.contains { $0.id == source && $0.catalogID == "device.generator" },
+                    "Objekt „\(object.id)“ verweist auf eine fehlende oder ungeeignete Generatorversorgung.")
+            }
             try require(object.groupID.map { groupIDs.contains($0) } ?? true,
                         "Objekt „\(object.id)“ verweist auf die fehlende Gruppe „\(object.groupID ?? "")“.")
         }

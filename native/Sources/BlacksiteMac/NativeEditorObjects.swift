@@ -33,6 +33,18 @@ extension NativeEditorWindow {
         }
         if selected.count == 1,let object = selected.first {
             let id = object.id
+            if object.catalogID == "device.lift-gate" {
+                let generators = session.document.objects.filter { $0.catalogID == "device.generator" }
+                let titles = ["Ohne Versorgung (Handbetrieb)"] + generators.enumerated().map { "Generator \($0.offset+1) · X \($0.element.position.x), Z \($0.element.position.z)" }
+                let selected = object.powerSourceID.flatMap { id in generators.firstIndex { $0.id == id }.map { $0+1 } } ?? 0
+                panel.addArrangedSubview(EditorPopup(titles,selected: selected,label: "Torversorgung") { [weak self] index in
+                    self?.perform { try self?.session.edit("Tor verbinden") { doc in
+                        guard let i = doc.objects.firstIndex(where: { $0.id == id }),!doc.objects[i].locked else { return }
+                        doc.objects[i].powerSourceID = index == 0 ? nil : generators[index-1].id
+                    } }
+                })
+                label("Hubtor: nur 0°/180°; Maßstab 1–1,5. E am Tor öffnet/schließt; der Generator beeinflusst den Antrieb.",in: panel)
+            }
             panel.addArrangedSubview(EditorPopup(["Geländerelativer Versatz", "Absolute Welthöhe"],selected: object.heightMode == .ground ? 0 : 1,label: "Höhenbezug") { [weak self] index in
                 guard let self else { return }
                 self.perform {

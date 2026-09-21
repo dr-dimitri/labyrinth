@@ -7,11 +7,15 @@ final class EditorPopup: NSPopUpButton {
     let changed: (Int) -> Void
     init(_ titles: [String], selected: Int = 0, label: String, changed: @escaping (Int) -> Void) {
         self.changed = changed; super.init(frame: .zero,pullsDown: false)
-        for title in titles { menu?.addItem(NSMenuItem(title: title,action: nil,keyEquivalent: "")) }
+        for title in titles {
+            let item = NSMenuItem(title: title,action: #selector(selectChoice(_:)),keyEquivalent: "")
+            item.target = self; menu?.addItem(item)
+        }
         selectItem(at: selected); target = self; action = #selector(update); setAccessibilityLabel(label)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:)") }
     @objc private func update() { changed(indexOfSelectedItem) }
+    @objc private func selectChoice(_ item: NSMenuItem) { select(item); changed(indexOfSelectedItem) }
 }
 
 enum EditorTerrainTool: Int, CaseIterable {

@@ -3,7 +3,7 @@ import MetalKit
 import BlacksiteCore
 
 /// One validated import, retained by value for this application session.
-struct NativeLoadedLevel {
+struct NativeLoadedLevel: Sendable {
     let document: LevelDocument
     let map: MapDefinition
 
@@ -45,7 +45,7 @@ struct NativeLoadedLevel {
         let renderer = try NativeRenderer(view: view, assetRoot: NativeResources.assetRoot,
             highQuality: !arguments.contains("--balanced"), map: map)
         let seed = arguments.contains("--seed") ? try NativeRunSeed.from(arguments: arguments) : document.terrain.seed
-        let simulation = CombatSimulation(map: map, difficulty: .easy, seed: seed)
+        let simulation = CombatSimulation(map: map, difficulty: .easy, seed: seed, mission: document.missionKind)
         var result: [String: Any] = ["result": "pass", "mapID": map.id, "formatVersion": document.formatVersion,
             "objects": document.objects.count, "markers": document.markers.count, "seed": String(seed)]
         if arguments.contains("--graphics-benchmark") {

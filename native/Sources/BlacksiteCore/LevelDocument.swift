@@ -17,6 +17,7 @@ public struct LevelDocument: Codable, Equatable, Sendable {
     public var objects: [LevelObject] = []
     public var groups: [LevelGroup] = []
     public var markers: [LevelMarker] = []
+    public var mission: LevelMission?
 
     public init(id: String = UUID().uuidString, name: String = "Neues Level", bounds: LevelBounds = .init()) {
         self.id = id; self.name = name; self.bounds = bounds
@@ -131,6 +132,8 @@ public struct LevelObject: Codable, Equatable, Sendable {
     public var scale = LevelVector(1, 1, 1)
     public var heightMode: LevelHeightMode = .ground
     public var groupID: String?
+    /// Optional generator instance; valid only for the supported lift-gate prefab.
+    public var powerSourceID: String?
     public var locked = false
     /// Editor visibility only; hidden objects still participate in the playable map.
     public var hidden = false

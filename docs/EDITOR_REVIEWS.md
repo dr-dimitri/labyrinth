@@ -65,3 +65,19 @@ Startzustand, dadurch entsteht kein kumulierender Versatz. Griffnamen benutzen
 einen getrennten Namensraum, damit zulässige Objekt-IDs nicht als Griff gelten.
 Elf Objekt-/Katalog-/Sessiontests bestanden, nach den Review-Korrekturen zusätzlich
 alle vier Objekttests. Kein offener Review-Befund für #41.
+
+## #42 — Gameplay und Spieltest
+
+Missionen, Pflichtanker-Vorlage, einzelne Marker mit Blickrichtung/Radius,
+anspringbare Erreichbarkeitsdiagnosen sowie Generator/Hubtor-Verbindungen sind
+implementiert. Der Spieltest verwendet eine unveränderliche Dokumentkopie in der
+echten Simulation; Rückkehr behält Editor und Kamera. Prüfung ist abbrechbar.
+
+Review: Kopieren und Löschen der Gerätebeziehungen, gesperrte abhängige Tore,
+blockierte Startpunkte, Mission bis zum Erfolg, frischer Wiederholungszustand und
+veraltete asynchrone Ergebnisse geprüft. Fokus berücksichtigt Geländehöhe.
+Bedienprüfung: Marker-Vorlage gesetzt, Spiel gestartet, pausiert und über „Zurück
+zum Editor“ zum unveränderten Entwurf zurückgekehrt. Menüeinträge erhalten nun
+explizite Aktionen einschließlich eines Regressionstests für gleiche Titel.
+Elf Coretests bestanden; nach den Sperrkorrekturen nochmals drei Gameplaytests.
+Debug-App gebaut/signiert und Menü-/Spieltestablauf geprüft. Kein offener Befund.

@@ -57,8 +57,15 @@ public struct LevelEditingSession {
     public mutating func deleteSelection() throws {
         let ids = selection
         try edit("Löschen") { doc in
+            if doc.objects.contains(where: { object in
+                object.locked && object.powerSourceID.map { source in
+                    ids.contains(source) && doc.objects.contains { $0.id == source && !$0.locked }
+                } == true
+            }) { throw LevelDocumentError("Ein gesperrtes Tor verwendet diesen Generator. Zuerst das Tor entsperren oder seine Verbindung lösen.") }
             doc.objects.removeAll { ids.contains($0.id) && !$0.locked }
             doc.markers.removeAll { ids.contains($0.id) }
+            let remaining = Set(doc.objects.map(\.id))
+            for i in doc.objects.indices { if let source = doc.objects[i].powerSourceID,!remaining.contains(source) { doc.objects[i].powerSourceID = nil } }
         }
     }
 }

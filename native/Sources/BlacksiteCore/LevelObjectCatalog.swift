@@ -96,6 +96,8 @@ public enum LevelObjectCatalog {
         add("prop.table","Arbeitstisch",.props,[part(-0.8,0.5,0,0.2,1,0.7,metal),part(0.8,0.5,0,0.2,1,0.7,metal),part(0,1,0,2,0.15,1,wood)])
         add("prop.sign","Hinweisschild",.props,[part(0,0.8,0,0.15,1.6,0.15,metal),part(0,1.6,0,1.5,0.8,0.1,SIMD3(0.8,0.65,0.2))],"Festes Schild ohne Missionsfunktion.")
         add("prop.cable","Kabeltrommel",.props,[part(-0.5,0.7,0,0.15,1.4,1.4,wood),part(0.5,0.7,0,0.15,1.4,1.4,wood),part(0,0.7,0,1,0.9,0.9,metal)])
+        add("device.generator","Schaltbarer Generator",.props,[part(0,0.7,0,1.6,1.4,1,metal,kind: .container)],"Interaktiv mit E: Versorgung ein-/ausschalten. Tore im Eigenschaftenfeld verknüpfen.",minimumScale: 1)
+        add("device.lift-gate","Bedienbares Hubtor",.infrastructure,[part(0,1.3,0,3,2.6,0.25,metal,kind: .container)],"Interaktiv mit E, optional Generatorversorgung. Nur 0°/180°, Maßstab 1–1,5.",minimumScale: 1)
         return result
     }()
     private static let index = Dictionary(uniqueKeysWithValues: items.map { ($0.id,$0) })
