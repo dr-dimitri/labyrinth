@@ -35,3 +35,19 @@ diesen Zustand. Absolute Objekte erhalten Hinweise bei versenkter/schwebender
 Position. Vier Terrain-/Wassertests und neun Dokumenttests bestanden. Die native
 Oberfläche kompiliert; die vollständige Werkzeug-Bedienprüfung folgt zusätzlich
 in #44. Kein offener Code-Review-Befund für #39.
+
+## #40 — Katalog
+
+44 Vorlagen: 10 Gebäude, 10 Naturmodelle, 13 Infrastruktur- und 11
+Ausstattungsobjekte. Suche, Kategorien, Favoriten, Geometrievorschau, Maße sowie
+Kollisions-/Zerstörungsangaben sind integriert. Vorschau und Spielwelt leiten
+Geometrie aus denselben Bauteilen ab. Gebäude besitzen echte offene Durchgänge;
+rein dekorative Elemente sind als solche bezeichnet.
+
+Review: Jede Vorlage und jede Kategorie auf eindeutige Geometrie, IDs, Dimensionen,
+Roundtrip und Kollisionsübereinstimmung geprüft. Alle zehn Gebäudeeingänge bleiben
+nach Vierteldrehung erreichbar; Mindestskalierung verhindert unbrauchbar kleine
+Durchgänge. Ein Namensraumfehler bei Bauteil-IDs wurde behoben: Instanznamen können
+nicht mehr dieselbe Eingabe wie abgeleitete Bauteil-IDs erzeugen. Der Hashbereich
+wurde für große Szenen erweitert. Vier Katalogtests und die vorhandenen Dokument-/
+Terraintests bestanden. Kein offener Review-Befund für #40.

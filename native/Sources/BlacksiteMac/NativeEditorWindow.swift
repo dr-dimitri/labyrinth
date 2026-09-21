@@ -36,6 +36,10 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     let inspector = EditorColumn(), catalogPanel = EditorColumn(), tools = NSStackView()
     let objects = NSTableView(), status = NSTextField(wrappingLabelWithString: "")
     let catalog = NSPopUpButton(), recent = NSPopUpButton()
+    let catalogPreview = EditorCatalogPreview(frame: .zero), catalogInfo = NSTextField(wrappingLabelWithString: "")
+    var visibleCatalog: [LevelCatalogItem] = [], catalogCategory: LevelCatalogCategory?
+    var catalogQuery = "", favoritesOnly = false
+    var catalogFavorites = Set(UserDefaults.standard.stringArray(forKey: "editor.favorites") ?? [])
     var rows: [(id: String, title: String)] = []
     var refreshing = false
     var placement: String?
@@ -90,9 +94,9 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         catalogPanel.orientation = .vertical; catalogPanel.alignment = .leading; catalogPanel.spacing = 7
         inspector.orientation = .vertical; inspector.alignment = .leading; inspector.spacing = 7
         label("OBJEKTKATALOG", in: catalogPanel)
-        catalog.addItems(withTitles: LevelObjectCatalog.items.map(\.name)); catalogPanel.addArrangedSubview(catalog)
+        configureCatalog()
         button("Objekt platzieren", in: catalogPanel) { [weak self] in
-            guard let self else { return }; self.placement = LevelObjectCatalog.items[max(0,self.catalog.indexOfSelectedItem)].id; self.terrainTool = .select
+            guard let self, let item = self.catalogPreview.item else { return }; self.placement = item.id; self.terrainTool = .select
             self.status.stringValue = "Linksklick auf das Gelände platziert das Objekt. Escape bricht ab."
         }
         label("OBJEKTE UND MARKER · ⇧ Mehrfachauswahl", in: catalogPanel)

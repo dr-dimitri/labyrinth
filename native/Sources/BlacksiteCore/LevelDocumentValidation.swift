@@ -39,8 +39,8 @@ extension LevelDocument {
             try require(object.position.isFinite && (0..<3).allSatisfy { abs(object.position.value[$0]) <= 20_000 },
                         "Objekt „\(object.id)“ besitzt eine ungültige Position.")
             try require((0...3).contains(object.quarterTurns) && object.scale.isFinite
-                        && (0..<3).allSatisfy { (0.25...4).contains(object.scale.value[$0]) },
-                        "Objekt „\(object.id)“: erlaubt sind Vierteldrehungen (0–3) und Skalierungen von 0,25 bis 4.")
+                        && (0..<3).allSatisfy { ((LevelObjectCatalog.item(id: object.catalogID)?.minimumScale ?? 0.25)...4).contains(object.scale.value[$0]) },
+                        "Objekt „\(object.id)“: erlaubt sind Vierteldrehungen (0–3) und Skalierungen bis 4 (Gebäude und Durchgänge mindestens 1, sonst 0,25).")
             try require(object.groupID.map { groupIDs.contains($0) } ?? true,
                         "Objekt „\(object.id)“ verweist auf die fehlende Gruppe „\(object.groupID ?? "")“.")
         }

@@ -44,6 +44,7 @@ extension LevelDocument {
             return required && values.isEmpty ? [fallback] : values
         }
         var obstacles: [Obstacle] = [], obstacleIDs = Set<Int>()
+        var levelBoxes: [MapVisualBox] = []
         for object in objects {
             // validateDraft has already checked all catalog references and transforms.
             guard let item = LevelObjectCatalog.item(id: object.catalogID) else {
@@ -59,15 +60,23 @@ extension LevelDocument {
                     throw LevelDocumentError("Objekt „\(object.id)“ ragt über den Kartenrand.")
                 }
             }
-            let runtimeID = Self.obstacleID(object.id)
-            guard obstacleIDs.insert(runtimeID).inserted else {
-                throw LevelDocumentError("Objekt „\(object.id)“ erzeugt eine kollidierende Laufzeit-ID; bitte eine neue Instanz-ID vergeben.")
+            for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) {
+                guard obstacleIDs.insert(part.id).inserted else { throw LevelDocumentError("Kollidierende Laufzeit-ID bei „\(object.id)“; neue Instanz-ID vergeben.") }
+                if part.solid {
+                    var base = part.center-SIMD3(0,part.size.y/2,0)
+                    base.y -= terrain.height(x: base.x,z: base.z)
+                    var obstacle = Obstacle(id: part.id,kind: part.kind,position: base,size: part.size)
+                    if !part.destructible { obstacle.health = .infinity }
+                    obstacles.append(obstacle)
+                }
+                levelBoxes.append(MapVisualBox(position: part.solid ? SIMD3(0,part.size.y/2,0) : part.center,size: part.size,color: part.color,
+                    material: SIMD4(0.9,0,0,0),ownerID: part.solid ? part.id : nil,replacesOwnerBody: part.solid))
             }
-            obstacles.append(Obstacle(id: runtimeID, kind: item.kind, position: position, size: size))
         }
         var player = PlayerState(position: point(.playerStart))
         player.yaw = matching(.playerStart).first?.yaw ?? 0
         var scenery = MapSceneryDefinition()
+        scenery.boxes = levelBoxes
         scenery.center = SIMD2(center.x, center.z)
         scenery.renderMinimum = SIMD2(minimum.x - 8, minimum.z - 8)
         scenery.renderMaximum = SIMD2(maximum.x + 8, maximum.z + 8)
@@ -152,6 +161,6 @@ extension LevelDocument {
     static func obstacleID(_ id: String) -> Int {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in id.utf8 { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }
-        return Int(hash & 0x0fff_ffff) + 1
+        return Int(hash & 0x001f_ffff_ffff_ffff) + 1
     }
 }

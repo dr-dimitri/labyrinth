@@ -66,10 +66,12 @@ final class NativeEditorScene: SCNView {
         geometry.materials = [0x79694e,0x568043,0x848788,0x383e42].map { material(NSColor(hex: $0)) }
         geometry.materials.forEach { $0.isDoubleSided = true }
         let ground = SCNNode(geometry: geometry); ground.name = "ground"; ground.categoryBitMask = 1; world.addChildNode(ground)
-        for (object, obstacle) in zip(document.objects, map.obstacles) where !object.hidden {
-            let size = obstacle.size, base = map.grounded(obstacle.position)
-            let node = box(size, center: base + SIMD3(0, size.y / 2, 0), color: selection.contains(object.id) ? .systemOrange : .systemGray)
-            node.name = object.id; node.categoryBitMask = 2; world.addChildNode(node)
+        for object in document.objects where !object.hidden {
+            for part in LevelObjectCatalog.placedParts(for: object,terrain: terrain) {
+                let color = selection.contains(object.id) ? NSColor.systemOrange : NSColor(calibratedRed: CGFloat(part.color.x),green: CGFloat(part.color.y),blue: CGFloat(part.color.z),alpha: 1)
+                let node = box(part.size,center: part.center,color: color)
+                node.name = object.id; node.categoryBitMask = 2; world.addChildNode(node)
+            }
         }
         for marker in document.markers {
             let node = SCNNode(geometry: SCNSphere(radius: 0.38))
