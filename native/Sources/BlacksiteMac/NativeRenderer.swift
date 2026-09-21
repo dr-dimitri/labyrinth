@@ -534,7 +534,15 @@ final class NativeRenderer {
         encode(command: command, descriptor: descriptor, samples: view.sampleCount, slot: slot, scene: scene)
         let semaphore = inflight; command.addCompletedHandler { _ in semaphore.signal() }
         command.present(drawable); command.commit()
-        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0)) Instanzen · \(scene.main.count + scene.glass.count * max(1,shallowWater.resources.layers+1) + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + scene.spotDrawCount + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + shallowWater.drawCallCount + 1) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+        statistics = "\(deviceName) · \(view.sampleCount)× MSAA · \(scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0)) Instanzen · \(drawCount(for: scene)) Draws · \(Int(1 / max(frameAverage, 0.001))) FPS"
+    }
+
+    private func drawCount(for scene: PreparedScene) -> Int {
+        let opaque = scene.main.count + scene.weapon.count + scene.weaponShadows.count
+        let shadows = scene.shadows.count + scene.nearShadows.count + scene.spotDrawCount
+        let glass = scene.glass.count * max(1, shallowWater.resources.layers + 1)
+        let actors = (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount
+        return opaque + shadows + glass + actors + shallowWater.drawCallCount + 1
     }
 
     /// Captures the same native GPU pipeline, including shadows and material
@@ -605,7 +613,7 @@ final class NativeRenderer {
                     cpu.append((cpuEnd-begin)*1000); gpu.append((command.gpuEndTime-command.gpuStartTime)*1000)
                     wall.append((ProcessInfo.processInfo.systemUptime-begin)*1000)
                 }
-                visible = scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0); draws = scene.main.count + scene.glass.count * max(1,shallowWater.resources.layers+1) + scene.weapon.count + scene.weaponShadows.count + scene.shadows.count + scene.nearShadows.count + scene.spotDrawCount + (skinnedSoldiers?.drawCallCount ?? 0) + combatEffects.drawCallCount + shallowWater.drawCallCount + 1
+                visible = scene.visibleCount + (skinnedSoldiers?.soldierCount ?? 0); draws = drawCount(for: scene)
             }
         }
         func mean(_ values: [Double]) -> Double { values.reduce(0,+)/Double(max(1,values.count)) }

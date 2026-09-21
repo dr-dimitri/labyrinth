@@ -140,17 +140,19 @@ final class GameHUDView: NSView {
             else { objective = presentation.accessibilityText }
             let wave = s.missionKind == .waves ? "Welle \(s.wave) von 3. " : ""
             let contextDevice = s.deviceContextAvailable ? s.deviceInteractionStatus : nil
-            let controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus) +
-                (contextDevice.map { ". " + NativeDevicePresentation($0, interactionLabel: hints.interactionLabel,
-                    suppliesRadio: s.map.environment.alarm?.radioDeviceID == $0.id).accessibilityText } ?? "") +
-                ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings) +
-                ". " + NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).accessibilityText +
-                ". " + NativeClassPresentation.accessibilityText(s, bindings: c.settings.bindings) +
-                (c.settings.soundCaptions ? ". " + c.noisePresentation.lines.joined(separator: ". ") : "") +
-                (c.weatherPresentation.line(simulation: s).map { ". " + $0 } ?? "") +
-                (c.alarmPresentation.accessibilityText.isEmpty ? "" : ". " + c.alarmPresentation.accessibilityText) +
-                (s.operationStatus.map { ". " + NativeOperationPresentation($0).accessibilityText } ?? "") +
-                (c.mode == .paused ? ". " + hints.modeLines.joined(separator:". ") : "")
+            var controls = ". " + NativeCamouflagePresentation.localStatus(s.concealmentStatus)
+            if let contextDevice {
+                controls += ". " + NativeDevicePresentation(contextDevice, interactionLabel: hints.interactionLabel,
+                    suppliesRadio: s.map.environment.alarm?.radioDeviceID == contextDevice.id).accessibilityText
+            }
+            controls += ". Geräuschköder: " + NativeControlLabels.label(for: .decoy, bindings: c.settings.bindings)
+            controls += ". " + NativeSmokePresentation(simulation: s, bindings: c.settings.bindings).accessibilityText
+            controls += ". " + NativeClassPresentation.accessibilityText(s, bindings: c.settings.bindings)
+            if c.settings.soundCaptions { controls += ". " + c.noisePresentation.lines.joined(separator: ". ") }
+            if let weather = c.weatherPresentation.line(simulation: s) { controls += ". " + weather }
+            if !c.alarmPresentation.accessibilityText.isEmpty { controls += ". " + c.alarmPresentation.accessibilityText }
+            if let operation = s.operationStatus { controls += ". " + NativeOperationPresentation(operation).accessibilityText }
+            if c.mode == .paused { controls += ". " + hints.modeLines.joined(separator: ". ") }
             setAccessibilityValue("\(phase). \(NativeMissionPresentation.name(s.missionKind)). \(objective). Gesundheit \(Int(s.player.health)). \(wave)\(s.activeWeapon.displayName), \(s.weapons[s.activeWeapon]?.ammo ?? 0) Schuss. \(s.grenadeCount) Granaten, \(s.noiseDecoyCount) Geräuschköder. \(s.player.prone ? "Liegend" : "Stehend"). \(awarenessText(s)). \((damage + grenades).joined(separator: ". "))\(controls)")
         }
     }
