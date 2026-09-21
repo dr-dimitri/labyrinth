@@ -1,4 +1,4 @@
-name: Desktop builds
+name: Native macOS builds
 
 on:
   push:
@@ -10,8 +10,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  package:
+  native:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -21,44 +25,28 @@ jobs:
         include:
           - name: macOS Apple Silicon
             os: macos-15
-            platform: mac
             arch: arm64
           - name: macOS Intel
             os: macos-15-intel
-            platform: mac
-            arch: x64
-          - name: Windows x64
-            os: windows-2022
-            platform: win
-            arch: x64
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+            arch: x86_64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Test maze and game logic
-        run: npm test
-      - name: Build game assets
-        run: npm run build
-      - name: Package desktop application
-        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
-      - name: Upload installers
+      - name: Test native application and game logic
+        run: make test
+      - name: Build and verify signed application
+        run: make build
+      - name: Verify architecture and archive application
+        run: |
+          lipo -verify_arch ${{ matrix.arch }} release/Blacksite.app/Contents/MacOS/BlacksiteMac
+          ditto -c -k --sequesterRsrc --keepParent release/Blacksite.app release/Blacksite-macOS-${{ matrix.arch }}.zip
+      - name: Upload application
         uses: actions/upload-artifact@v7
         with:
-          name: NACHTGANG-${{ matrix.platform }}-${{ matrix.arch }}
-          path: |
-            release/*.dmg
-            release/*.zip
-            release/*.exe
+          name: Blacksite-macOS-${{ matrix.arch }}
+          path: release/Blacksite-macOS-${{ matrix.arch }}.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

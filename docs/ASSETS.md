@@ -1,41 +1,6 @@
 # Grafikressourcen und Lizenzen
 
-Der NACHTGANG-Quellcode steht unter [MIT](../LICENSE). Die unten aufgeführten Bild- und Modelldateien unter `public/assets/` stammen von Dritten und werden unter **[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)** mitgeliefert. Ihre Lizenz wird durch die MIT-Lizenz des Spiels nicht ersetzt. Die Namensnennung dokumentiert die Herkunft.
-
-## Quellen
-
-| Verwendung | Original und Quelle | Urheber | Enthaltene Daten |
-| --- | --- | --- | --- |
-| Wände und Mauerwerk | [Medieval Wall 02](https://polyhaven.com/a/medieval_wall_02) · Poly Haven | Rob Tuytel | Fünf 2K-Texturen; fotografierter Bereich 3,5 × 3,5 m |
-| Steinboden | [Monastery Stone Floor](https://polyhaven.com/a/monastery_stone_floor) · Poly Haven | Amal Kumar | Fünf 2K-Texturen; fotografierter Bereich 1,8 × 1,8 m |
-| Umgebungslicht und Reflexionen | [Moonlit Golf](https://polyhaven.com/a/moonlit_golf) · Poly Haven | Greg Zaal | Radiance HDR, 1024 × 512 Pixel |
-| Gotische Statue | [Gothic Statue](https://polyhaven.com/a/gothic_statue) · Poly Haven | Benny Weimer | 27.739 Dreiecke, drei 2K-Texturen |
-| Felsstücke | [Rock 07](https://polyhaven.com/a/rock_07) · Poly Haven | Jenelle van Heerden | 14.844 Dreiecke, drei 2K-Texturen |
-| Waldboden | [Forest Ground 03](https://polyhaven.com/a/forrest_ground_03) · Poly Haven | Rob Tuytel | Fünf 2K-Texturen; 2 × 2 m |
-| Baumrinde | [Bark Brown 01](https://polyhaven.com/a/bark_brown_01) · Poly Haven | Rob Tuytel | Fünf 2K-Texturen; 1 × 1 m |
-| Natürliche Felswände | [Rock Face](https://polyhaven.com/a/rock_face) · Poly Haven | Greg Zaal (Fotografie), Dario Barresi (Aufbereitung) | Fünf 2K-Texturen; 2,38 × 2,38 m |
-| Höhlenerde | [Brown Mud 03](https://polyhaven.com/a/brown_mud_03) · Poly Haven | Rob Tuytel | Fünf 2K-Texturen; 1,3 × 1,3 m |
-| Farne und Blattwerk | [Fern 02](https://polyhaven.com/a/fern_02) · Poly Haven | Rob Tuytel (Scan), Rico Cilliers (Modellierung) | Vier Varianten mit 2.384 / 2.248 / 784 / 816 Dreiecken; drei 1K-Texturen und separate Alphamaske |
-| Rotaugenwolf | [3d wolf](https://opengameart.org/content/3d-wolf) · OpenGameArt | NewDLC | Original-FBX mit Skelett; Farb-, Normalen-, Rauheits- und Glanztextur |
-| Steinwächter | [Pok](https://opengameart.org/content/pok) · OpenGameArt | Teh_Bucket; Steintexturen: João Paulo / [3dtextures.me](https://3dtextures.me/) | 31.998 Dreiecke, 29 Skelettknochen, zehn 1K-Texturen |
-
-Lizenznachweise: [Poly Haven](https://polyhaven.com/license), [Pok](https://opengameart.org/content/pok), [3dtextures.me](https://3dtextures.me/about/). Das Pok-Original nennt ausdrücklich die mitgelieferten CC0-Texturen von João Paulo.
-
-## Aufbereitung
-
-Wand und Boden verwenden jeweils Farbe, OpenGL-Normalen, Rauheit, Umgebungsverdeckung und Höhe mit 2048 × 2048 Pixeln. Farbe wird als sRGB gelesen, die übrigen Karten als lineare Daten. Die heruntergeladenen Bilder und die HDR-Datei wurden unverändert übernommen. Physische Texturgrößen bestimmen die Wiederholung im Spiel; das Bodenmaterial nutzt die Höhenkarte für geringfügige Unebenheiten.
-
-Statue und Fels wurden aus glTF in eigenständige GLB-Dateien mit eingebetteten Originalbildern verpackt. Die Geometrie blieb erhalten; der Ursprung liegt jetzt mittig am Boden, mit Y als Hochachse und Metern als Einheit. Die vorhandene Verdeckungskarte wurde zusätzlich mit dem Material verbunden. Die Statue misst 1,477 × 1,740 × 1,564 m, der Fels 0,169 × 0,144 × 0,320 m vor Platzierungsskalierung. Beim Fels weist der RealityCapture-Meshname auf Photogrammetrie hin. Für die Statue ist kein Scanverfahren ausdrücklich dokumentiert.
-
-Pok wurde von FBX nach GLB konvertiert. Unbenutzte Mundform-Morphs wurden entfernt; die vollständige Geometrie und das Original-Skelett bleiben erhalten. Die Bilddateien wurden unverändert kopiert und umbenannt. Materialien, Grundhaltung, Skalierung und der bewegungsabhängige Gang werden im Spiel eingerichtet. Die Gehbewegung ist eine eigene prozedurale Skelettanimation; das Paket enthält keine heruntergeladenen Bewegungsclips.
-
-Die vier Waldmaterialien verwenden ebenfalls Farbe, OpenGL-Normalen, Rauheit, Verdeckung und Höhe in 2K. Die Originalbilder sind unverändert. Fern 02 wurde einschließlich seiner vier Original-Meshes und drei 1K-Bilder in eine lokale GLB-Datei verpackt. Die separate Original-Alphamaske schneidet die Blattsilhouetten aus. Im Wald werden die beiden kleineren Mesh-Varianten mehrfach gezeichnet; ihr gemeinsames Material spart Speicher.
-
-Das Wolfsmodell von NewDLC wird mit seinem Original-Skelett und seinen unveränderten Texturdateien geladen. Ein eigener Shader entsättigt das Fell. Rote Augen und verlängerte Fangzähne folgen als zusätzliche Geometrie dem Kopf beziehungsweise Kiefer. Die Laufbewegung wird aus der tatsächlich zurückgelegten Strecke berechnet; sie verwendet keinen heruntergeladenen Animationsclip. Der Ursprung wird auf die Pfoten gesetzt, die Zentimeter werden in Meter umgerechnet.
-
-Orks und Elfen sind im Projekt modelliert und animiert. Ihre Haut- und Stoffoberflächen werden prozedural erzeugt. Diese eigenen Modelle stehen wie der übrige Projektcode unter MIT. Keines der Charaktermodelle wird als photogrammetrischer Scan ausgewiesen.
-
-Die Ressourcen der Browser-/Electron-Ausgabe unter `public/assets` liegen lokal bei, insgesamt rund **105 MB**. Beim ersten Start werden sie geladen und dekodiert. Dafür ist keine Verbindung zu den Quellen nötig; weitere Labyrinthe verwenden die bereits geladenen Daten.
+Der Quellcode von **NACHTGANG — BLACKSITE** steht unter [MIT](../LICENSE). Die native macOS-App enthält Ressourcen unter `native/Assets`, deren eigene Lizenzbedingungen unten dokumentiert sind. Die MIT-Lizenz ersetzt diese Bedingungen nicht.
 
 ## Hochauflösende native Landschaft
 
@@ -91,17 +56,15 @@ Die Laufzeit verwendet vier unveränderte originale PNG-Dateien mit jeweils **20
 
 Die folgenden Dateien enthalten genaue Download-URLs, Dateigrößen, SHA-256-Prüfsummen und Bearbeitungsschritte:
 
-- [Texturen und HDR](texture-sources.json)
-- [Statue und Fels](model-environment-sources.json)
-- [Steinwächter und seine Texturen](model-creature-sources.json)
-- [Waldmaterialien und gescannte Farne](forest-asset-sources.json)
-- [Wolfsmodell und Originaltexturen](model-forest-creature-sources.json)
+- [Landschaftsmaterialien](../native/Assets/texture-sources.json)
+- [Kiefern](native-foliage-sources.json)
+- [Himmel](native-sky-sources.json)
 - [Native Waffen- und Stoffmaterialien](native-weapon-material-sources.json)
 - [Nebelwacht-Materialien und Himmel](native-nebelwacht-sources.json)
 - [Sundkai-Schlamm und breite Blattkarten](native-sundkai-sources.json)
 - [Nativer SWAT-Soldat, Originaltexturen und Animationen](../native/Assets/characters/soldier/SOURCE.json)
 
-`npm test` prüft unter anderem diese Prüfsummen, Bildabmessungen, GLB-Datenbereiche, Materialkarten und die Skelettgewichte des Steinwächters.
+`make verify-assets` prüft die fotografischen Ressourcen offline auf Prüfsummen, Dateigrößen und Bildabmessungen. `make build` prüft zusätzlich das Soldatenmodell, seine Originaltexturen und Materialzuordnung vor dem Erstellen der App. `make test` prüft unter anderem den nativen GLB-Import und die Skelettanimation.
 
 ## Kessel-9: vorhandene fotografische Materialien
 

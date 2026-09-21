@@ -1,11 +1,12 @@
 # Native macOS-Anwendung
 
-Die native Ausgabe von **NACHTGANG — BLACKSITE** verwendet Swift, AppKit und Metal. Sie enthält weder Electron noch Chromium, JavaScript oder einen lokalen Webserver. Die Browser- und Electron-Ausgaben bleiben eigenständige Startmöglichkeiten im Projekt.
+**NACHTGANG — BLACKSITE** ist eine native macOS-App mit Swift, AppKit und Metal. Das Projekt enthält ausschließlich diese Ausgabe. Spiel und mitgelieferte Ressourcen funktionieren offline.
 
 ## 1. Voraussetzungen
 
 - macOS 13 oder neuer und eine Metal-fähige GPU.
-- Xcode Command Line Tools mit Swift 5.10 oder neuer; bei Bedarf mit `xcode-select --install` installieren.
+- Xcode Command Line Tools mit Swift 5.10 oder neuer; bei Bedarf mit `xcode-select --install` installieren. Für die Tests sind Swift 6 und macOS 14 oder neuer erforderlich.
+- Python 3 für die Offline-Prüfung der Ressourcen beim Build; es werden keine zusätzlichen Python-Pakete benötigt.
 - Für Spiel und Grafikprüfung eine angemeldete grafische macOS-Sitzung.
 
 Der Build verwendet die Architektur des ausführenden Macs. Auf Apple Silicon entsteht eine ARM64-App. Auf einem Intel-Mac kann derselbe Quellcode mit einem passenden Apple-SDK als x86_64 gebaut werden; ein Universal-Binary wird durch dieses Skript nicht erzeugt.
@@ -20,7 +21,7 @@ Im Projektordner:
 
 Das Ergebnis liegt in `release/Blacksite.app`. Diese App lässt sich im Finder doppelklicken oder in den persönlichen Programme-Ordner kopieren. Sie enthält die verwendeten Texturen und läuft ohne Verbindung zum Internet und ohne die Quelldateien des Projekts.
 
-Das Skript baut standardmäßig die Swift-Release-Konfiguration. Compiler- und Paket-Caches liegen unter `native/.build`; wiederholte Builds können sie wiederverwenden. Die nativen Landschaftsressourcen aus `native/Assets` werden vollständig mitgeliefert. Unverwendete Web-Ressourcen und Modelle bleiben außerhalb der App.
+Das Skript baut standardmäßig die Swift-Release-Konfiguration. Compiler- und Paket-Caches liegen unter `native/.build`; wiederholte Builds können sie wiederverwenden. Die nativen Landschaftsressourcen aus `native/Assets` werden vollständig mitgeliefert. App-Symbol und bearbeitbare SVG-Vorlage liegen unter `native/AppIcon`. Der Build verwendet das fertige Symbol und benötigt keinen Symbolgenerator.
 
 Zum Bauen und unmittelbaren Starten:
 
@@ -293,3 +294,24 @@ gewöhnlichen Schuss-/Wurfeingaben. Beide akzeptieren `--output`; der Bericht
 berücksichtigt `--class`/`--camouflage`. `--scene run-variant --map kessel9
 --seed 1` zeigt eine echte Sekunde der aufgelösten Feldoperation und unterstützt
 die üblichen Metal-Bild-/Benchmarkoptionen. Ungültige Seeds werden abgelehnt.
+
+## 6. Projektbefehle und kontinuierliche Prüfung
+
+Im Projektstamm bündeln `make build`, `make run`, `make test`, `make verify-assets`,
+`make smoke-test` und `make benchmark` die vorhandenen nativen Skripte.
+`make help` zeigt ihre Bedeutung. Die Skripte bleiben direkt aufrufbar, etwa für
+`--debug` oder einzelne Testfilter.
+
+GitHub Actions führt auf Apple Silicon und Intel die vollständigen Swift-Tests
+sowie einen Release-Build mit Offline-Ressourcenprüfung und Ad-hoc-Signaturprüfung
+aus. Die [GitHub-Runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+`macos-15` und `macos-15-intel` liefern die jeweiligen Architekturen.
+Die fertige App wird je Architektur als ZIP-Artefakt bereitgestellt. Es handelt
+sich um getrennte ARM64- und x86_64-Pakete, nicht um ein Universal-Binary. Die Apps
+sind lokal signiert, aber nicht notarisiert. GPU-/Audio-Prüfungen, die eine grafische
+Sitzung erfordern, werden gesondert auf einem geeigneten Mac ausgeführt.
+
+Das mitgelieferte Symbol lässt sich bei Bedarf mit
+`python3 native/scripts/generate-icon.py` aus `native/AppIcon/Blacksite.svg`
+neu erzeugen. Nur dafür wird zusätzlich Pillow benötigt; temporäre PNGs werden
+automatisch entfernt. Reguläre Builds verwenden `Blacksite.icns` direkt.
