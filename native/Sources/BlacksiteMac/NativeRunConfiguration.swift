@@ -60,11 +60,13 @@ struct ActiveRunConfiguration: Equatable, Sendable {
     let mission: MissionKind
     let difficulty: Difficulty
     let loadout: LoadoutDefinition
+    let levelDocument: LevelDocument?
 
     init(map: MapDefinition, seed: UInt64, mission: MissionKind,
-         difficulty: Difficulty, loadout: LoadoutDefinition) {
+         difficulty: Difficulty, loadout: LoadoutDefinition, levelDocument: LevelDocument? = nil) {
         mapID = map.id; mapVersion = map.version; self.seed = seed
         self.mission = mission; self.difficulty = difficulty; self.loadout = loadout
+        self.levelDocument = levelDocument
     }
 
     func restoreMap() throws -> MapDefinition {
@@ -74,7 +76,8 @@ struct ActiveRunConfiguration: Equatable, Sendable {
     /// Supplying a registry keeps version and compatibility checks independently
     /// testable without publishing a diagnostic map in the actual application.
     func restoreMap(availableMaps: [MapDefinition]) throws -> MapDefinition {
-        guard let map = availableMaps.first(where: { $0.id == mapID }) else {
+        let maps = try levelDocument.map { [try $0.makeMap()] } ?? availableMaps
+        guard let map = maps.first(where: { $0.id == mapID }) else {
             throw NativeRunConfigurationError.unavailableMap(mapID)
         }
         guard map.version == mapVersion else {

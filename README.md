@@ -76,7 +76,10 @@ stellt die jeweilige App als ZIP-Artefakt bereit. Laufende Prüfungen veralteter
 Branch-Stände werden bei neuen Änderungen abgebrochen.
 
 Der geplante [Leveleditor](https://github.com/dr-dimitri/labyrinth/issues/36) ist in
-acht Arbeitspakete gegliedert; er ist noch nicht Bestandteil der App.
+acht Arbeitspakete gegliedert. Die [Grundlage für eigene Leveldateien](docs/LEVEL_EDITOR.md)
+ist implementiert; die Editoroberfläche folgt. Ein externes Beispiellevel lässt
+sich bereits über `--level-file native/Examples/training-ground.blacksite-level.json`
+laden und spielen.
 
 ## Ressourcen und Lizenzen
 
