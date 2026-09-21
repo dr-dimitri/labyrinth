@@ -42,6 +42,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
     var onEditorTestFinished: (() -> Void)?
 
     @objc func editorMenu(_ sender: Any?) { showEditor() }
+    @objc func levelLibraryMenu(_ sender: Any?) { showEditor(); editor?.showLibrary() }
     func showEditor() {
         guard mode == .menu, window.attachedSheet == nil else { return }
         if let test = editor?.playtestWindow { test.makeKeyAndOrderFront(nil); return }
@@ -53,6 +54,7 @@ final class GameCoordinator: NSObject, MTKViewDelegate, NSWindowDelegate {
             }
         }
         editor?.showWindow(nil); editor?.window?.makeKeyAndOrderFront(nil)
+        editor?.offerRecovery()
     }
     func confirmQuit() -> Bool { editor?.confirmDiscard() ?? true }
 

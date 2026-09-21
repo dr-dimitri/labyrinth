@@ -13,12 +13,7 @@ struct NativeLoadedLevel: Sendable {
     }
 
     static func load(_ url: URL) throws -> Self {
-        let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-        guard values.isRegularFile == true else { throw LevelDocumentError("Bitte eine reguläre Leveldatei auswählen.") }
-        let file = try FileHandle(forReadingFrom: url)
-        defer { try? file.close() }
-        let data = try file.read(upToCount: LevelDocument.maximumFileBytes + 1) ?? Data()
-        return try Self(document: LevelDocument.decode(data))
+        try Self(document: LevelFileStore.read(url))
     }
 
     static func from(arguments: [String]) throws -> Self? {

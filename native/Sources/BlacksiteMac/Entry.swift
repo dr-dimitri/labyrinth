@@ -68,6 +68,7 @@ final class BlacksiteAppDelegate: NSObject, NSApplicationDelegate {
         let game = NSMenu(title: "Einsatz"); gameItem.submenu = game
         let briefing = game.addItem(withTitle: "Einsatzbriefing …", action: #selector(GameCoordinator.briefingMenu(_:)), keyEquivalent: "b"); briefing.target = coordinator
         let editor = game.addItem(withTitle: "Leveleditor …", action: #selector(GameCoordinator.editorMenu(_:)), keyEquivalent: "e"); editor.target = coordinator
+        let library = game.addItem(withTitle: "Eigene Levels …",action: #selector(GameCoordinator.levelLibraryMenu(_:)),keyEquivalent: "l"); library.target = coordinator
         let start = game.addItem(withTitle: "Neuer Einsatz", action: #selector(GameCoordinator.newMatchMenu(_:)), keyEquivalent: "n"); start.target = coordinator
         let pause = game.addItem(withTitle: "Pause / Fortsetzen", action: #selector(GameCoordinator.pauseMenu(_:)), keyEquivalent: "p"); pause.target = coordinator
         let editItem = NSMenuItem(); main.addItem(editItem)

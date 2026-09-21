@@ -31,6 +31,8 @@ final class EditorField: NSTextField, NSTextFieldDelegate {
 final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var session: LevelEditingSession
     var fileURL: URL?
+    let store: LevelFileStore
+    var recoveryToken = UUID(), recoveryTimer: Timer?, lastRecovery: LevelDocument?, offeredRecovery = false
     var onClose: (() -> Void)?
     let canvas = NativeEditorScene(frame: .zero)
     let inspector = EditorColumn(), catalogPanel = EditorColumn(), tools = NSStackView()
@@ -58,13 +60,14 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     var extraTools: ((NSStackView) -> Void)?
     var undoButton: NSButton!, redoButton: NSButton!
     var changed: (() -> Void)?
-    init(document: LevelDocument = LevelDocument(), fileURL: URL? = nil) {
+    init(document: LevelDocument = LevelDocument(), fileURL: URL? = nil, store: LevelFileStore? = nil) {
+        self.store = store ?? Self.defaultStore
         session = LevelEditingSession(document: document, saved: fileURL != nil); self.fileURL = fileURL
         let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 1260,height: 820), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         super.init(window: window); window.delegate = self; window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 1100,height: 720); window.title = "Leveleditor"; window.center()
         window.acceptsMouseMovedEvents = true
-        buildUI(); configureCanvas(); refresh()
+        buildUI(); configureCanvas(); refresh(); startRecovery()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:)") }
     func stack(_ orientation: NSUserInterfaceLayoutOrientation = .vertical) -> NSStackView {
@@ -99,6 +102,9 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         button("Auswahl fokussieren", in: tools) { [weak self] in self?.focusSelection() }
         root.addArrangedSubview(tools)
         let workflow = stack(.horizontal); buildGameplayTools(in: workflow); root.addArrangedSubview(workflow)
+        button("Eigene Levels",in: workflow) { [weak self] in self?.showLibrary() }
+        button("In Bibliothek speichern",in: workflow) { [weak self] in self?.saveToLibrary() }
+        button("Exportieren …",in: workflow) { [weak self] in self?.exportLevel() }
         let body = stack(.horizontal); body.alignment = .top; body.distribution = .fill
         catalogPanel.orientation = .vertical; catalogPanel.alignment = .leading; catalogPanel.spacing = 7
         inspector.orientation = .vertical; inspector.alignment = .leading; inspector.spacing = 7
@@ -240,43 +246,44 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
         var destination = saveAs ? nil : fileURL
         if destination == nil {
             let panel = NSSavePanel(); panel.nameFieldStringValue = session.document.name + ".blacksite-level.json"
+            try? store.prepare(); panel.directoryURL = store.levels
             guard panel.runModal() == .OK, let url = panel.url else { return false }; destination = url
         }
         do {
-            let data = try session.document.encoded(); try data.write(to: destination!, options: .atomic)
-            fileURL = destination; session.markSaved(); remember(destination!); refresh(); return true
+            try LevelFileStore.save(session.document,to: destination!)
+            fileURL = destination; session.markSaved(); store.removeRecovery(recoveryToken); lastRecovery = nil
+            remember(destination!); refresh(); return true
         } catch { show(error); return false }
     }
     @objc func openDocument(_ sender: Any?) {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url { open(url) }
     }
-    func open(_ url: URL) {
+    @discardableResult func open(_ url: URL) -> Bool {
         do {
             let document = try Self.read(url)
-            guard confirmDiscard() else { return }
-            try session.replace(with: document,saved: true); fileURL = url; remember(url); placement = nil; refresh(); focusSelection()
-        } catch { show(error) }
+            guard confirmDiscard() else { return false }
+            resetInteraction(); try session.replace(with: document,saved: true); fileURL = url; remember(url)
+            lastRecovery = nil; refresh(); focusSelection(); return true
+        } catch { show(error); return false }
     }
     static func read(_ url: URL) throws -> LevelDocument {
-        guard try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { throw LevelDocumentError("Bitte eine reguläre Leveldatei öffnen.") }
-        let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }
-        return try LevelDocument.decode(file.read(upToCount: LevelDocument.maximumFileBytes + 1) ?? Data())
+        try LevelFileStore.read(url)
     }
     func newDocument() {
         guard confirmDiscard() else { return }
-        session = LevelEditingSession(); fileURL = nil; placement = nil; refresh(); focusSelection()
+        resetInteraction(); session = LevelEditingSession(); fileURL = nil; lastRecovery = nil; refresh(); focusSelection()
     }
     func confirmDiscard() -> Bool {
         window?.makeFirstResponder(nil)
-        guard session.isDirty else { return true }
+        guard session.isDirty else { store.removeRecovery(recoveryToken); return true }
         let alert = NSAlert(); alert.messageText = "Änderungen an „\(session.document.name)“ speichern?"
         alert.informativeText = "Der aktuelle Entwurf enthält ungesicherte Änderungen."
         alert.addButton(withTitle: "Speichern"); alert.addButton(withTitle: "Verwerfen"); alert.addButton(withTitle: "Abbrechen")
-        switch alert.runModal() { case .alertFirstButtonReturn: return save(as: false); case .alertSecondButtonReturn: return true; default: return false }
+        switch alert.runModal() { case .alertFirstButtonReturn: return save(as: false); case .alertSecondButtonReturn: store.removeRecovery(recoveryToken); lastRecovery = nil; return true; default: return false }
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { confirmDiscard() }
-    func windowWillClose(_ notification: Notification) { cancelOperation(); playtestWindow?.performClose(nil); onClose?() }
+    func windowWillClose(_ notification: Notification) { recoveryTimer?.invalidate(); recoveryTimer = nil; cancelOperation(); playtestWindow?.performClose(nil); onClose?() }
     func show(_ error: Error) { let alert = NSAlert(); alert.messageText = "Level konnte nicht geändert werden"; alert.informativeText = error.localizedDescription; alert.runModal() }
     func remember(_ url: URL) {
         var paths = UserDefaults.standard.stringArray(forKey: "editor.recent") ?? []; paths.removeAll { $0 == url.path }; paths.insert(url.path,at: 0)

@@ -81,3 +81,21 @@ zum Editor“ zum unveränderten Entwurf zurückgekehrt. Menüeinträge erhalten
 explizite Aktionen einschließlich eines Regressionstests für gleiche Titel.
 Elf Coretests bestanden; nach den Sperrkorrekturen nochmals drei Gameplaytests.
 Debug-App gebaut/signiert und Menü-/Spieltestablauf geprüft. Kein offener Befund.
+
+## #43 — Dateien, Bibliothek und Wiederherstellung
+
+Atomare, synchronisierte Dateiersetzung; getrenntes Speichern unter und Export;
+Bibliothek mit Namen, Grundriss und Datum; unabhängiger Import; Zugriff aus dem
+Spielmenü (⌘L); Wiederherstellungskopie alle 20 Sekunden mit Angebot beim nächsten
+Editorstart. Entwürfe benötigen weiterhin keine gültigen Gameplay-Marker.
+
+Review: Simulierter Fehler unmittelbar vor dem Ersetzen erhält die Originaldatei
+und den Dirty-Status. Save As erhält die Ursprungsdatei. Beschädigte, übergroße,
+zukünftige und ressourcenfremde Dateien werden abgewiesen. Neuere Wiederherstellung,
+inzwischen gespeicherter Inhalt und veraltete Kopien geprüft. Dokumentwechsel
+beendet laufende Werkzeuge/Gesten und verwirft veraltete Prüfaufträge. Exportdateien
+enthalten keine Rechnerpfade; nur lokale Wiederherstellungsmetadaten merken sich
+die Quelldatei. Drei Persistenztests sowie fünf native Import-/Menütests bestanden.
+Zusätzlicher nativer Test deckt Wiederherstellung, Speichern und Werkzeugreset ab.
+In der App: Bibliothek aus dem Spielmenü geöffnet, Entwurf benannt/gespeichert,
+Eintrag mit Datum angezeigt und erneut zum Bearbeiten geöffnet. Kein offener Befund.
