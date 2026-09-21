@@ -55,6 +55,7 @@ public enum TerrainProfile: Sendable, Equatable {
     public func normal(x: Float, z: Float) -> SIMD3<Float> {
         guard x.isFinite, z.isFinite,
               abs(x) < 1_000_000, abs(z) < 1_000_000 else { return SIMD3(0, 1, 0) }
+        if case .flat = self { return SIMD3(0, 1, 0) }
         let ix = Int(floor(x)), iz = Int(floor(z))
         let plane = plane(x: ix, z: iz, upper: x - Float(ix) + z - Float(iz) > 1)
         return simd_normalize(SIMD3(-plane.dx, 1, -plane.dz))

@@ -40,7 +40,7 @@ jobs:
         run: make build
       - name: Verify architecture and archive application
         run: |
-          lipo -verify_arch ${{ matrix.arch }} release/Blacksite.app/Contents/MacOS/BlacksiteMac
+          lipo release/Blacksite.app/Contents/MacOS/BlacksiteMac -verify_arch ${{ matrix.arch }}
           ditto -c -k --sequesterRsrc --keepParent release/Blacksite.app release/Blacksite-macOS-${{ matrix.arch }}.zip
       - name: Upload application
         uses: actions/upload-artifact@v7
