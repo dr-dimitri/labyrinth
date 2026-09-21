@@ -4,12 +4,12 @@
 
 ## 1. Voraussetzungen
 
-- macOS 13 oder neuer und eine Metal-fähige GPU.
+- Ein Mac mit Apple Silicon und macOS 13 oder neuer.
 - Xcode Command Line Tools mit Swift 5.10 oder neuer; bei Bedarf mit `xcode-select --install` installieren. Für die Tests sind Swift 6 und macOS 14 oder neuer erforderlich.
 - Python 3 für die Offline-Prüfung der Ressourcen beim Build; es werden keine zusätzlichen Python-Pakete benötigt.
 - Für Spiel und Grafikprüfung eine angemeldete grafische macOS-Sitzung.
 
-Der Build verwendet die Architektur des ausführenden Macs. Auf Apple Silicon entsteht eine ARM64-App. Auf einem Intel-Mac kann derselbe Quellcode mit einem passenden Apple-SDK als x86_64 gebaut werden; ein Universal-Binary wird durch dieses Skript nicht erzeugt.
+Build, Tests und Benchmarks laufen ausschließlich auf Apple Silicon in einer nativen ARM64-Shell. Das Build-Skript erzeugt gezielt ARM64 und prüft die Architektur vor der Paketierung. Intel-Macs und unter Rosetta ausgeführte Shells werden nicht unterstützt.
 
 ## 2. Optimierte App erstellen
 
@@ -302,14 +302,13 @@ Im Projektstamm bündeln `make build`, `make run`, `make test`, `make verify-ass
 `make help` zeigt ihre Bedeutung. Die Skripte bleiben direkt aufrufbar, etwa für
 `--debug` oder einzelne Testfilter.
 
-GitHub Actions führt auf Apple Silicon und Intel die vollständigen Swift-Tests
-sowie einen Release-Build mit Offline-Ressourcenprüfung und Ad-hoc-Signaturprüfung
-aus. Die [GitHub-Runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
-`macos-15` und `macos-15-intel` liefern die jeweiligen Architekturen.
-Die fertige App wird je Architektur als ZIP-Artefakt bereitgestellt. Es handelt
-sich um getrennte ARM64- und x86_64-Pakete, nicht um ein Universal-Binary. Die Apps
-sind lokal signiert, aber nicht notarisiert. GPU-/Audio-Prüfungen, die eine grafische
-Sitzung erfordern, werden gesondert auf einem geeigneten Mac ausgeführt.
+GitHub Actions führt auf Apple Silicon die vollständigen Swift-Tests sowie einen
+Release-Build mit Offline-Ressourcenprüfung und Ad-hoc-Signaturprüfung aus. Der
+[GitHub-Runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+`macos-15` baut das ARM64-Paket. Vor dem ZIP-Upload prüft die CI, dass die App
+exakt diese Architektur enthält. Das Artefakt heißt `Blacksite-macOS-arm64`.
+Die App ist lokal signiert, aber nicht notarisiert. GPU-/Audio-Prüfungen, die eine
+grafische Sitzung erfordern, werden gesondert auf einem geeigneten Mac ausgeführt.
 
 Das mitgelieferte Symbol lässt sich bei Bedarf mit
 `python3 native/scripts/generate-icon.py` aus `native/AppIcon/Blacksite.svg`

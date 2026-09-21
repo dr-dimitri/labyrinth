@@ -16,19 +16,9 @@ concurrency:
 
 jobs:
   native:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    name: macOS Apple Silicon
+    runs-on: macos-15
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS Apple Silicon
-            os: macos-15
-            arch: arm64
-          - name: macOS Intel
-            os: macos-15-intel
-            arch: x86_64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -40,13 +30,13 @@ jobs:
         run: make build
       - name: Verify architecture and archive application
         run: |
-          lipo release/Blacksite.app/Contents/MacOS/BlacksiteMac -verify_arch ${{ matrix.arch }}
-          ditto -c -k --sequesterRsrc --keepParent release/Blacksite.app release/Blacksite-macOS-${{ matrix.arch }}.zip
+          test "$(lipo -archs release/Blacksite.app/Contents/MacOS/BlacksiteMac)" = arm64
+          ditto -c -k --sequesterRsrc --keepParent release/Blacksite.app release/Blacksite-macOS-arm64.zip
       - name: Upload application
         uses: actions/upload-artifact@v7
         with:
-          name: Blacksite-macOS-${{ matrix.arch }}
-          path: release/Blacksite-macOS-${{ matrix.arch }}.zip
+          name: Blacksite-macOS-arm64
+          path: release/Blacksite-macOS-arm64.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

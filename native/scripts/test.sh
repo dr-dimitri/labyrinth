@@ -15,6 +15,10 @@ if [[ "$(uname -s)" != Darwin ]]; then
     printf 'The complete native package requires macOS and the Apple SDK.\n' >&2
     exit 1
 fi
+if [[ "$(uname -m)" != arm64 ]]; then
+    printf 'Blacksite requires Apple Silicon. Run this script in a native ARM64 macOS shell.\n' >&2
+    exit 1
+fi
 if ! command -v swift >/dev/null 2>&1; then
     printf 'Swift is missing. Install the Xcode Command Line Tools first: xcode-select --install\n' >&2
     exit 1
@@ -24,6 +28,7 @@ export CLANG_MODULE_CACHE_PATH="$BUILD_DIR/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$BUILD_DIR/ModuleCache"
 mkdir -p "$CLANG_MODULE_CACHE_PATH" "$BUILD_DIR/cache" "$BUILD_DIR/config" "$BUILD_DIR/security"
 SWIFT_OPTIONS=(
+    --arch arm64
     --disable-sandbox
     --package-path "$NATIVE_DIR"
     --scratch-path "$BUILD_DIR"

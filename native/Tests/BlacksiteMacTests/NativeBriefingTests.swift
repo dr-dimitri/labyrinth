@@ -7,7 +7,7 @@ import BlacksiteCore
 @Suite(.serialized)
 struct NativeBriefingTests {
     // NSControl target/action dispatch needs NSApp even without a test window.
-    // Do not rely on another suite creating it first on hosted Intel runners.
+    // Do not rely on another suite creating it first on hosted runners.
     init() { _ = NSApplication.shared }
 
     @Test func briefingPreservesSeedAndShowsTheResolvedWorldBeforeStarting() throws {
