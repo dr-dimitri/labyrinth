@@ -4,6 +4,36 @@ import BlacksiteCore
 @testable import BlacksiteMac
 
 struct NativeEditorTests {
+    @MainActor @Test func deviceLimitDoesNotFreezeObjectOrTerrainEditsAndReopenedPreviews() throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = LevelFileStore(root: root)
+        let file = try store.libraryURL()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let editor = NativeEditorWindow(store: store)
+        defer { editor.recoveryTimer?.invalidate(); editor.window?.orderOut(nil) }
+        for i in 0..<5 {
+            try editor.session.edit("Platzieren") {
+                $0.objects.append(LevelObject(id: "generator-\(i)", catalogID: "device.generator", position: .init(Float(i*4-8), 0, 0)))
+            }
+            editor.refresh()
+            #expect(editor.canvas.world.childNode(withName: "generator-\(i)", recursively: false) != nil)
+        }
+        try editor.session.edit("Verschieben") { $0.objects[0].position.z = 5 }
+        editor.refresh()
+        #expect(editor.canvas.world.childNode(withName: "generator-0", recursively: false)?.simdPosition.z == 5)
+        let before = try #require(editor.canvas.world.childNode(withName: "ground", recursively: false))
+        try editor.session.edit("Gelände") { $0.terrain.heights = $0.terrain.heights.map { _ in 2 } }
+        editor.refresh()
+        #expect(editor.canvas.world.childNode(withName: "ground", recursively: false) !== before)
+        #expect(editor.canvas.world.childNode(withName: "generator-0", recursively: false)?.simdPosition.y == 2.7)
+        try LevelFileStore.save(editor.session.document, to: file)
+        let reopened = NativeEditorWindow(document: try LevelFileStore.read(file), fileURL: file, store: store)
+        defer { reopened.recoveryTimer?.invalidate(); reopened.window?.orderOut(nil) }
+        for i in 0..<5 { #expect(reopened.canvas.world.childNode(withName: "generator-\(i)", recursively: false) != nil) }
+        #expect(reopened.canvas.world.childNode(withName: "generator-0", recursively: false)?.simdPosition == SIMD3<Float>(-8, 2.7, 5))
+    }
+
     @MainActor @Test func openingEditorDoesNotPretendTheUntouchedBlankIsAnUnsavedEdit() throws {
         _ = NSApplication.shared
         let editor = NativeEditorWindow()

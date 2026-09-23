@@ -4,6 +4,8 @@ import simd
 /// Deterministic combat rules. Rendering and native input remain outside this type.
 /// Call exclusively on the game thread; wall-clock deltas are integrated at 120 Hz.
 public final class CombatSimulation {
+    static let playerCollisionRadius: Float = 0.32
+    static let minimumReinforcementDistance: Float = 14
     public let map: MapDefinition
     public let terrain: TerrainProfile
     public let missionKind: MissionKind
@@ -353,7 +355,7 @@ public final class CombatSimulation {
 
     public func toggleProne() {
         guard state == .active, player.grounded, climbing == nil else { return }
-        if player.prone && blocked(player.position, height: 1.72, radius: 0.32) { return }
+        if player.prone && blocked(player.position, height: 1.72, radius: Self.playerCollisionRadius) { return }
         player.prone.toggle()
         concealmentMotion.interrupt()
     }
@@ -392,12 +394,12 @@ public final class CombatSimulation {
                                      box.minimum.x + insetX, box.maximum.x - insetX), top,
                                clamp(nearest.z + (box.position.z - nearest.z) * 0.35,
                                      box.minimum.z + insetZ, box.maximum.z - insetZ))
-            if !blocked(target, height: 1.72, radius: 0.32) { return (target, box.id) }
+            if !blocked(target, height: 1.72, radius: Self.playerCollisionRadius) { return (target, box.id) }
         }
         return nil
     }
 
-    func blocked(_ position: SIMD3<Float>, height: Float = 1.72, radius: Float = 0.32) -> Bool {
+    func blocked(_ position: SIMD3<Float>, height: Float = 1.72, radius: Float = CombatSimulation.playerCollisionRadius) -> Bool {
         if position.x < map.minimum.x + radius || position.x > map.maximum.x - radius ||
             position.z < map.minimum.z + radius || position.z > map.maximum.z - radius { return true }
         for box in obstacles where !box.destroyed {
@@ -409,7 +411,7 @@ public final class CombatSimulation {
         return false
     }
 
-    private func moved(_ position: SIMD3<Float>, delta: SIMD3<Float>, height: Float, radius: Float = 0.32, grounded: Bool = false) -> SIMD3<Float> {
+    private func moved(_ position: SIMD3<Float>, delta: SIMD3<Float>, height: Float, radius: Float = CombatSimulation.playerCollisionRadius, grounded: Bool = false) -> SIMD3<Float> {
         var result = position
         for axis in [0, 2] {
             var candidate = result; candidate[axis] += delta[axis]
@@ -925,7 +927,7 @@ public final class CombatSimulation {
         for attempt in 0..<candidates.count {
             guard pendingReinforcements > 0 else { break }
             let position = groundedPoint(candidates[(reinforcementCursor + attempt) % candidates.count])
-            guard horizontalDistance(position, player.position) >= 14,
+            guard horizontalDistance(position, player.position) >= Self.minimumReinforcementDistance,
                   !blocked(position, height: 2, radius: 0.6),
                   terrain.normal(x: position.x, z: position.z).y >= 0.72,
                   !enemies.contains(where: { $0.health > 0 && horizontalDistance($0.position, position) < 1.6 }),

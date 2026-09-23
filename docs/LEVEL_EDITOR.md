@@ -52,6 +52,9 @@ Dateien liegen zusätzlich unter `native/Examples/editor-*.blacksite-level.json`
 14 Infrastruktur- und zwölf Ausstattungsobjekte einschließlich der beiden Geräte.
 Die Spielkollision unterstützt Vierteldrehungen. Gebäude/Durchgänge sind mindestens
 im Maßstab 1 zu verwenden; Hubtore unterstützen 0°/180° und Maßstab 1–1,5.
+Im Spiel sind zusammen höchstens vier schaltbare Generatoren und Hubtore erlaubt.
+Entwürfe mit mehr Geräten bleiben sichtbar, bearbeitbar und speicherbar;
+**Level prüfen** erklärt das Limit vor dem Spielstart.
 
 Das Gelände nutzt ein 1-m-Höhenraster. Pro Level sind bis zu 1000 Objektinstanzen,
 256 Gruppen, 256 Marker, acht Bodenflächen und vier Flachwasserflächen (je höchstens
@@ -144,6 +147,11 @@ Serviceanker sowie mindestens einen Verstärkungs- und Wellen-Sammelpunkt. Anker
 müssen am Boden erreichbar sein, Objekte innerhalb der Kartengrenzen liegen.
 Es sind höchstens sechs Patrouillenanker erlaubt. Fehler verhindern den Spielstart
 mit einer konkreten Meldung; die Datei wird dabei niemals verändert.
+Mindestens ein Gegnerstart oder Verstärkungspunkt muss innerhalb der Kartengrenzen
+14 m Abstand zu einer möglichen Spielerposition erlauben. Ist das auf einer kleinen
+Karte unmöglich, muss sie vergrößert oder ein solcher Marker weiter an den Rand
+verschoben werden. Die Sicht- und Abstandsregeln für tatsächliche Verstärkungen
+gelten weiterhin.
 
 `makeMap(purpose: .preview)` und `makeMap()` verwenden denselben Adapter zu
 `MapDefinition`. Damit nutzen Darstellung, Kollision, Beschuss und Navigation

@@ -9,6 +9,7 @@ public enum DeviceInterruption: String, Sendable {
 
 /// All authored positions are offsets above terrain, like map obstacles.
 public struct WorldInteractableDefinition: Sendable {
+    public static let maximumCount = 4
     public let id: Int
     public let kind: WorldDeviceKind
     public let ownerObstacleID: Int

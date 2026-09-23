@@ -4,6 +4,56 @@ import simd
 @testable import BlacksiteCore
 
 struct LevelGameplayTests {
+    @Test func impossibleSpawnDistancesAreRejectedWithoutPreventingDraftEditing() throws {
+        var doc = LevelDocument(bounds: .init(x: -6, z: -6, width: 12, depth: 12))
+        doc.installGameplayTemplate(.waves)
+        #expect(try LevelDocument.decode(doc.encoded()) == doc)
+        _ = try doc.makeMap(purpose: .preview)
+        #expect(doc.playIssues().contains { $0.message.contains("14 m") })
+        #expect(throws: MapValidationError.self) { try doc.makeMap() }
+    }
+
+    @Test func spawnValidationUsesAllAuthoredPointsAndBothMapDimensions() throws {
+        var doc = LevelDocument(bounds: .init(x: -6, z: -6, width: 12, depth: 12))
+        doc.installGameplayTemplate(.waves)
+        // A corner spawn really can appear while the player is in the opposite
+        // corner. Rejecting every 12 m map, or checking only entries, is wrong.
+        doc.setMarker(.enemySpawn, at: .init(-4.8, 0, -4.8))
+        let map = try doc.makeMap()
+        #expect(doc.playIssues().isEmpty)
+        var player = PlayerState(position: SIMD3(5.4, 0, 5.4)); player.yaw = -.pi * 0.75
+        let game = CombatSimulation(world: map.obstacles, startingPlayer: player, map: map)
+        game.spawnWave()
+        #expect(game.aliveCount == 1)
+        #expect(game.enemies.first?.position == SIMD3<Float>(-4.8, 0, -4.8))
+        #expect(game.enemies.allSatisfy { horizontalDistance($0.position, player.position) >= 14 })
+        for (width, depth) in [(12, 32), (32, 12)] {
+            var rectangular = LevelDocument(bounds: .init(x: 100, z: -80, width: width, depth: depth))
+            rectangular.installGameplayTemplate(.waves)
+            #expect(rectangular.playIssues().isEmpty)
+            _ = try rectangular.makeMap()
+        }
+    }
+
+    @Test func excessiveDevicesRemainVisibleInSavedDraftsButCannotStart() throws {
+        var doc = LevelDocument(); doc.installGameplayTemplate(.waves)
+        for i in 0..<3 {
+            let generator = LevelObject(id: "generator-\(i)", catalogID: "device.generator", position: .init(Float(i*6-6), 0, 0))
+            var gate = LevelObject(id: "gate-\(i)", catalogID: "device.lift-gate", position: .init(Float(i*6-6), 0, 5))
+            gate.powerSourceID = generator.id
+            // Put linked gates before generators to exercise reference handling.
+            doc.objects += [gate, generator]
+        }
+        let loaded = try LevelDocument.decode(doc.encoded())
+        #expect(loaded == doc)
+        let preview = try loaded.makeMap(purpose: .preview)
+        #expect(preview.obstacles.count == 6 && preview.scenery.boxes.count == 6)
+        #expect(loaded.playIssues().contains { $0.message.contains("vier Geräte") })
+        #expect(throws: MapValidationError.self) { try loaded.makeMap() }
+        doc.objects.removeLast(2)
+        #expect(try doc.makeMap().environment.devices.count == 4)
+    }
+
     @Test func missingAndBlockedMarkersHaveFocusableDiagnosticsWhileDraftSaves() throws {
         var doc = LevelDocument()
         #expect(doc.playIssues().contains { $0.message.contains("Spielerstart") })
