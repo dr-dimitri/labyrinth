@@ -269,6 +269,18 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Ein Start- oder Sammelpunkt ist nicht am Boden erreichbar.")
             }
         }
+        // Necessary geometric condition, independent of the current camera:
+        // even the farthest in-bounds player position must allow one spawn.
+        // Actual spawning still enforces visibility, clearance and reachability.
+        let radius = CombatSimulation.playerCollisionRadius
+        let distance = CombatSimulation.minimumReinforcementDistance
+        guard spawnCandidates.contains(where: { point in
+            let dx = max(abs(minimum.x + radius - point.x), abs(maximum.x - radius - point.x))
+            let dz = max(abs(minimum.z + radius - point.z), abs(maximum.z - radius - point.z))
+            return dx * dx + dz * dz >= distance * distance
+        }) else {
+            throw MapValidationError("Karte \(id): Kein Gegnerstart oder Verstärkungspunkt erlaubt \(Int(distance)) m Abstand zum Spieler. Karte vergrößern oder mindestens einen dieser Marker weiter an den Kartenrand verschieben.")
+        }
     }
 
     private func validateStructure() throws {
@@ -338,7 +350,7 @@ public struct MapDefinition: Sendable {
                 throw MapValidationError("Karte \(id): Geräuschquelle \(emitter.id) besitzt ungültige Daten oder eine fehlende Objekt-ID.")
             }
         }
-        guard environment.devices.count <= 4, environment.spotlights.count <= 2 else {
+        guard environment.devices.count <= WorldInteractableDefinition.maximumCount, environment.spotlights.count <= 2 else {
             throw MapValidationError("Karte \(id): Höchstens vier Geräte und zwei Strahler sind zulässig.")
         }
         for light in environment.spotlights {

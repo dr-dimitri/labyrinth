@@ -270,8 +270,12 @@ final class NativeEditorWindow: NSWindowController, NSWindowDelegate, NSTableVie
     }
     @discardableResult func open(_ url: URL) -> Bool {
         do {
-            let document = try Self.read(url)
+            // Reject invalid targets before asking to discard any current work.
+            _ = try Self.read(url)
             guard confirmDiscard() else { return false }
+            // Saving may have replaced this very file, including when opened
+            // through another path. Only the post-confirmation read is current.
+            let document = try Self.read(url)
             resetInteraction(); try session.replace(with: document,saved: true); fileURL = url; remember(url)
             lastRecovery = nil; refresh(); focusSelection(); return true
         } catch { show(error); return false }

@@ -127,6 +127,12 @@ extension LevelDocument {
         if purpose == .preview {
             let generatorIDs = Set(environment.devices.filter { $0.kind == .generator }.map(\.id))
             environment.devices = environment.devices.filter { $0.generatorID.map { generatorIDs.contains($0) } ?? true }
+            // An over-budget draft still needs every object's geometry and
+            // collider. Omit runtime interactions, not the authoring scene;
+            // the play map continues to enforce the device budget.
+            if environment.devices.count > WorldInteractableDefinition.maximumCount {
+                environment.devices = []
+            }
         }
         let density = self.environment.vegetationDensity
         for index in 0..<Int((density*8).rounded()) {
